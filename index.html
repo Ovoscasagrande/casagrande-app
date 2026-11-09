@@ -832,10 +832,9 @@ async function pagConfDetalhe(el,jid){
   <div class="sec" style="margin-top:12px">
     <b style="font-size:16px">${esc(j.motoristas?.nome)}</b>
     <div class="hint">${esc(j.veiculos?.placa)} — ${esc(j.veiculos?.modelo||'')}</div>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
-      <label style="font-size:11px;color:var(--mut)">Roteiro nº (corrigível):</label>
-      <input id="cf-rot" type="number" inputmode="numeric" value="${esc(j.roteiro||'')}" style="width:110px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px;font-size:13px">
-      <button class="btn mini" id="cf-rot-save" style="margin-top:0">💾 Salvar roteiro</button>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <button class="btn mini" id="cf-editar" style="margin-top:0">✏️ Editar dados da jornada</button>
+      <span class="hint" style="margin:0">km, horários, roteiro e ocorrências</span>
     </div>
     ${(j.roteiros_extra||[]).length?`<div class="hint" style="margin-top:6px">Roteiros extras: ${j.roteiros_extra.map(r=>'nº '+esc(r)).join(', ')}</div>`:''}
     <div id="cf-cargas" class="hint" style="margin-top:6px"></div>
@@ -854,16 +853,44 @@ async function pagConfDetalhe(el,jid){
     <div class="msg" id="cf-msg"></div>
   </div>`;
   $('cf-voltar').onclick=()=>go('conferencia');
+  $('cf-editar').onclick=()=>{
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    const f=(id,lb,val,tipo='text')=>`<label>${lb}</label><input id="${id}" type="${tipo}" value="${esc(val==null?'':val)}" ${tipo==='number'?'inputmode="numeric"':''} style="width:100%">`;
+    mm.innerHTML=`<h3>✏️ Editar jornada — ${esc(j.veiculos?.placa||'')}</h3>
+      ${f('ed-rot','Nº do roteiro (do ERP)',j.roteiro,'number')}
+      <label>Roteiros extras (separados por vírgula)</label><input id="ed-extras" value="${esc((j.roteiros_extra||[]).join(', '))}" style="width:100%">
+      ${f('ed-kmi','Km inicial (saída)',j.km_inicial,'number')}
+      ${f('ed-kmf','Km final (chegada)',j.km_final,'number')}
+      ${f('ed-ini','Saída (data e hora)',(j.inicio||'').slice(0,16),'datetime-local')}
+      ${f('ed-fim','Chegada (data e hora)',(j.fim||'').slice(0,16),'datetime-local')}
+      <label>Ocorrências</label><textarea id="ed-oc" rows="2" style="width:100%">${esc(j.ocorrencias||'')}</textarea>
+      <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="ed-ok">Salvar</button></div>`;
+    w.classList.add('open');
+    w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    document.getElementById('ed-ok').onclick=async()=>{
+      const kmi=parseFloat(document.getElementById('ed-kmi').value),kmf=parseFloat(document.getElementById('ed-kmf').value);
+      if(kmi!=null&&!isNaN(kmi)&&!isNaN(kmf)&&kmf<kmi){toast('Km final não pode ser menor que o inicial');return}
+      const extras=(document.getElementById('ed-extras').value||'').split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
+      const patch={
+        roteiro:parseInt(document.getElementById('ed-rot').value)||0,
+        roteiros_extra:extras,
+        km_inicial:isNaN(kmi)?null:kmi,
+        km_final:isNaN(kmf)?null:kmf,
+        inicio:document.getElementById('ed-ini').value?new Date(document.getElementById('ed-ini').value).toISOString():null,
+        fim:document.getElementById('ed-fim').value?new Date(document.getElementById('ed-fim').value).toISOString():null,
+        ocorrencias:document.getElementById('ed-oc').value.trim()||null
+      };
+      const r=await upd('jornadas',j.id,patch);
+      if(r){w.classList.remove('open');toast('Jornada atualizada ✓');pagConfDetalhe(el,jid)}
+    };
+  };
   (async()=>{
     const {data:cgs}=await sb.from('jornada_carregamentos').select('*').eq('jornada_id',j.id).order('criado_em');
     const el2=document.getElementById('cf-cargas');
     if(el2)el2.innerHTML=(cgs||[]).length?`📦 Carregamentos: ${(cgs||[]).map(c=>fmtDT(c.criado_em)).join(' · ')}`:'';
   })();
-  $('cf-rot-save').onclick=async()=>{
-    const n=parseInt($('cf-rot').value);
-    if(!n){toast('Informe o número do roteiro');return}
-    if(await upd('jornadas',j.id,{roteiro:n})){toast('Roteiro corrigido para nº '+n);go('conferencia')}
-  };
+
   const cw=$('cf-comps');
   for(const cpt of comps){
     const div=document.createElement('div');
