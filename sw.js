@@ -1,4 +1,4 @@
-const CACHE = 'cg-v37';
+const CACHE = 'cg-v38';
 const ASSETS = ['./', './index.html', './logo-branca.png', './icon-192.png', './icon-512.png', './favicon.png', './manifest.json'];
 
 self.addEventListener('install', e => {
