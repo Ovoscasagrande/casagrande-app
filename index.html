@@ -593,9 +593,30 @@ PAGES.jornada=async el=>{
   }else{
     w.innerHTML=`<div class="sec"><h3>Jornada aberta — ${esc(aberta.veiculos?.placa||'')}${aberta.roteiro?` · Roteiro ${aberta.roteiro}`:''}</h3>
       <p class="hint">Início: ${fmtDT(aberta.inicio)} · Km inicial: ${km(aberta.km_inicial)}</p>
+      <div id="j-crlv" style="margin:8px 0">${empty('Carregando documento…')}</div>
       <label>Quilometragem final</label><input id="j-kmf" type="number" inputmode="numeric" placeholder="km na chegada">
       <label>Ocorrências (opcional)</label><textarea id="j-oc" placeholder="algo aconteceu no trajeto?"></textarea>
       <button class="btn" id="j-fechar">🏁 Finalizar jornada</button><div class="msg" id="j-msg2"></div></div>`;
+    (async()=>{
+      const box=$('j-crlv');
+      const {data:doc}=await sb.from('veiculos_documentos').select('arquivo_path,vencimento').eq('veiculo_id',aberta.veiculo_id).eq('tipo','CRLV-e').order('criado_em',{ascending:false}).limit(1).maybeSingle();
+      if(!doc){box.innerHTML='<p class="hint">📄 CRLV-e deste veículo ainda não foi anexado pela gerência.</p>';return}
+      box.innerHTML=`<div style="display:flex;gap:8px;align-items:center;background:var(--field);border:1px solid #333;border-radius:10px;padding:10px">
+        <span style="font-size:22px">📄</span>
+        <div style="flex:1"><b style="font-size:13px">CRLV-e · ${esc(aberta.veiculos?.placa||'')}</b>${doc.vencimento?`<div class="hint">venc. ${fmtD(doc.vencimento)}</div>`:''}</div>
+        <button class="btn mini" id="j-crlv-open">Abrir</button>
+        <button class="btn mini" id="j-crlv-dl">⬇️</button>
+      </div>`;
+      $('j-crlv-open').onclick=async()=>{const url=await assinar(doc.arquivo_path,'documentos');if(url)window.open(url,'_blank');else toast('Documento não encontrado')};
+      $('j-crlv-dl').onclick=async()=>{
+        const url=await assinar(doc.arquivo_path,'documentos');
+        if(!url){toast('Não foi possível baixar');return}
+        try{const resp=await fetch(url);const blob=await resp.blob();
+          const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='CRLV-e '+(aberta.veiculos?.placa||'')+'.pdf';
+          document.body.appendChild(a);a.click();a.remove();toast('Download iniciado');
+        }catch(_){window.open(url,'_blank')}
+      };
+    })();
     $('j-fechar').onclick=async()=>{
       const kmf=parseFloat($('j-kmf').value);
       if(!kmf&&kmf!==0){$('j-msg2').className='msg err';$('j-msg2').textContent='Informe a km final';return}
