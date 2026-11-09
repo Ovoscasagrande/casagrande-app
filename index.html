@@ -152,6 +152,7 @@ body[data-emp="TRANSPORTADORA"]{--acc:#1e5aa8}
 </div>
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'))}
 </script>
@@ -829,7 +830,77 @@ PAGES.dashboard=async el=>{
     <div class="kpi"><div class="v">${(avs.data||[]).length}</div><div class="l">Avisos em aberto</div></div>
     <div class="kpi"><div class="v">${(osL.data||[]).length}</div><div class="l">OS abertas</div></div>
   </div>
-  <div class="sec"><h3>${EMPNOME[e]||'Grupo'}</h3><p class="hint">${ativos} veículos ativos · ${j.filter(x=>x.status==='conferencia').length} jornadas em conferência · recebimentos lançados: ${fmtBRL(totRec)} · despesas pendentes: ${fmtBRL(totDesp)}</p></div>`;
+  <div class="sec"><h3>${EMPNOME[e]||'Grupo'}</h3><p class="hint">${ativos} veículos ativos · ${j.filter(x=>x.status==='conferencia').length} jornadas em conferência · recebimentos lançados: ${fmtBRL(totRec)} · despesas pendentes: ${fmtBRL(totDesp)}</p></div>
+  <div id="db-charts">${empty('Carregando gráficos…')}</div>`;
+  try{await renderCharts(e)}catch(_){}
+};
+/* ===== gráficos do dashboard (Chart.js, cores do tema) ===== */
+const CHARTS={};
+function chartTheme(){return {ok:getComputedStyle(document.body).getPropertyValue('--acc').trim()||'#fcc85c'}}
+async function renderCharts(e){
+  const box=document.getElementById('db-charts');if(!box)return;
+  const f=x=>x.slice(0,10);
+  const ini='2026-10-01', fim='2026-11-30';
+  const [jrn,abs,desp,rec]=await Promise.all([
+    empFilter(sb.from('jornadas').select('inicio,km_inicial,km_final,veiculo_id,motorista_id,status')).gte('inicio',ini).lte('inicio',fim+'T23:59:59'),
+    empFilter(sb.from('abastecimentos').select('veiculo_id,litros,valor_total,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
+    empFilter(sb.from('despesas').select('valor,categoria,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
+    empFilter(sb.from('recebimentos').select('valor,tipo,data')).gte('data',ini).lte('data',fim+'T23:59:59')
+  ]);
+  const J=jrn.data||[],A=abs.data||[],D=desp.data||[],R=rec.data||[];
+  const isTransp=e==='TRANSPORTADORA';
+  const meses=['Jun','Jul','Ago','Set','Out','Nov'];
+  const mk=()=>{const m={};meses.forEach(x=>m[x]=0);return m};
+  const mRec=mk(),mDesp=mk(),mJor=mk();
+  const MESES=['01','02','03','04','05','06','07','08','09','10','11','12'];
+  const idx=dt=>{const mm=dt.slice(5,7);return meses[Number(mm)-6]||null};
+  R.forEach(x=>{const k=idx(x.data);if(k)mRec[k]+=Number(x.valor)});
+  D.forEach(x=>{const k=idx(x.data);if(k)mDesp[k]+=Number(x.valor)});
+  J.forEach(x=>{const k=idx(x.inicio);if(k)mJor[k]++});
+  const fmtK=v=>v>=1000?(v/1000).toFixed(1).replace('.',',')+'k':Math.round(v);
+  const bar=(id,labels,s1,n1,s2,n2,c1,c2)=>{
+    if(CHARTS[id])CHARTS[id].destroy();
+    CHARTS[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[
+      {label:n1,data:s1,backgroundColor:c1},{label:n2,data:s2,backgroundColor:c2}]},
+      options:{responsive:true,plugins:{legend:{labels:{color:'#9a9a9a',font:{size:10}}}},
+      scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}}}}});
+  };
+  let html='';
+  if(R.length||D.length){
+    html+=`<div class="sec"><h3>💰 Recebimentos × Despesas (6 meses)</h3><div style="height:210px"><canvas id="ch-recdesp"></canvas></div></div>`;
+  }
+  if(J.length){
+    html+=`<div class="sec"><h3>🛣️ Jornadas por dia (30 dias)</h3><div style="height:190px"><canvas id="ch-jordia"></canvas></div></div>`;
+  }
+  if(A.length){
+    html+=`<div class="sec"><h3>⛽ km/L por caminhão</h3><div style="height:${Math.min(90+A.length*22,420)}px"><canvas id="ch-kml"></canvas></div></div>`;
+  }
+  box.innerHTML=html||empty('Sem dados no período para gráficos');
+  if(R.length||D.length){
+    const acc=chartTheme().ok;
+    bar('ch-recdesp',meses,Object.values(mRec).map(x=>Math.round(x)),Object.values(mDesp).map(x=>Math.round(x)),'Recebimentos','Despesas',acc,'#e05252');
+  }
+  if(J.length){
+    const dias=[...new Set(J.map(x=>f(x.inicio)))].sort().slice(-30);
+    const cnt=dias.map(d=>J.filter(x=>f(x.inicio)===d).length);
+    if(CHARTS.jd)CHARTS.jd.destroy();
+    CHARTS.jd=new Chart(document.getElementById('ch-jordia'),{type:'line',data:{labels:dias.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),datasets:[{label:'Jornadas',data:cnt,borderColor:chartTheme().ok,backgroundColor:'rgba(255,255,255,.06)',fill:true,tension:.3,pointRadius:2}]},
+      options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:10}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
+  }
+  if(A.length){
+    const porV={};
+    A.forEach(a=>{const g=porV[a.veiculo_id]=porV[a.veiculo_id]||{L:0,km:0};g.L+=Number(a.litros||0);g.km+=0});
+    // km rodados: das jornadas fechadas do período (por veículo)
+    J.filter(x=>x.km_final!=null).forEach(x=>{if(porV[x.veiculo_id])porV[x.veiculo_id].km+=Number(x.km_final)-Number(x.km_inicial)});
+    const ids=Object.keys(porV);
+    const vs2=await sb.from('veiculos').select('id,placa').in('id',ids);
+    const placa={};(vs2.data||[]).forEach(x=>placa[x.id]=x.placa);
+    const rows=ids.map(id=>({p:placa[id]||'?',kml:porV[id].L>0?porV[id].km/porV[id].L:0})).filter(r=>r.kml>0.1);
+    rows.sort((a,b)=>b.kml-a.kml);
+    if(CHARTS.kml)CHARTS.kml.destroy();
+    CHARTS.kml=new Chart(document.getElementById('ch-kml'),{type:'bar',data:{labels:rows.map(r=>r.p),datasets:[{label:'km/L',data:rows.map(r=>r.kml),backgroundColor:chartTheme().ok}]},
+      options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
+  }
 };
 PAGES.veiculos=async el=>{
   el.innerHTML=`<h1 class="pg">Veículos</h1>
