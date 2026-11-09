@@ -404,8 +404,8 @@ function logout(){sb.auth.signOut().then(()=>location.reload())}
 function menusPara(){
   const base={
     pendente:['home'],
-    gerencia:['home','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','documentos','tipos','usuarios','auditoria'],
-    motorista:['home','jornada','gastos','recnovo','avisos','multas','documentos'],
+    gerencia:['home','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
+    motorista:['home','jornada','gastos','recnovo','avisos','multas'],
     conferente:['home','conferencia','despesas','recebimentos','avisos','multas'],
     mecanico:['home','os']
   };
@@ -543,7 +543,7 @@ PAGES.jornada=async el=>{
       if(empAtiva()==='OVOS'){rot=parseInt($('j-rot').value);
         if(!rot){$('j-msg').className='msg err';$('j-msg').textContent='Informe o número do roteiro (vem do ERP)';return}}
       const r=await ins('jornadas',insEmp({motorista_id:ME.motorista.id,veiculo_id:v,roteiro:rot,km_inicial:kmv}));
-      if(r){toast('Jornada iniciada! CRLV-e liberado em Multas e documentos');go('jornada')}
+      if(r){toast('Jornada iniciada! CRLV-e liberado na aba Multas e documentos');go('jornada')}
     };
   }else{
     w.innerHTML=`<div class="sec"><h3>Jornada aberta — ${esc(aberta.veiculos?.placa||'')}${aberta.roteiro?` · Roteiro ${aberta.roteiro}`:''}</h3>
@@ -860,38 +860,6 @@ PAGES.multas=async el=>{
     if(error){toast(err(error))}else{toast('Ciência registrada');go('multas')}
   });
 };
-PAGES.documentos=async el=>{
-  const ehGestao=ME.perfil==='gerencia'||ME.perfil==='conferente';
-  el.innerHTML=`<h1 class="pg">Documentos</h1>
-  ${ehGestao?`<div class="sec"><h3>Enviar CRLV-e</h3>
-    <label>Veículo</label><select id="dc-veic"></select>
-    <label>Arquivo PDF</label><input id="dc-arq" type="file" accept="application/pdf,image/*">
-    <label>Vencimento (opcional)</label><input id="dc-venc" type="date">
-    <button class="btn" id="dc-btn">Enviar documento</button><div class="msg" id="dc-msg"></div></div>`:''}
-  <div id="dc-list">${empty('Carregando…')}</div>`;
-  if(ehGestao){
-    const {data:veics}=await sel('veiculos','id,placa,ativo','placa');
-    $('dc-veic').innerHTML=(veics||[]).filter(v=>v.ativo).map(v=>`<option value="${v.id}">${esc(v.placa)}</option>`).join('');
-    $('dc-btn').onclick=async()=>{
-      const file=$('dc-arq').files[0],vid=$('dc-veic').value;
-      if(!file||!vid){$('dc-msg').className='msg err';$('dc-msg').textContent='Escolha o veículo e o arquivo';return}
-      const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
-      const path=`${vid}/${Date.now()}.${ext}`;
-      const ok=await uploadDoc(file,path);if(!ok)return;
-      const r=await ins('veiculos_documentos',insEmp({veiculo_id:vid,tipo:'CRLV-e',arquivo_path:path,vencimento:$('dc-venc').value||null,enviado_por:ME.id}));
-      if(r){toast('Documento enviado');go('documentos')}
-    };
-  }
-  const {data:lista}=await sb.from('veiculos_documentos').select('*, veiculos(placa)').order('criado_em',{ascending:false});
-  const l=$('dc-list');
-  if(!lista||!lista.length){l.innerHTML=empty('Nenhum documento enviado');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Veículo</th><th>Tipo</th><th>Vencimento</th><th>Enviado</th><th></th></tr>
-  ${lista.map(d=>`<tr><td>${esc(d.veiculos?.placa)}</td><td>${esc(d.tipo)}</td><td>${fmtD(d.vencimento)}</td><td>${fmtDT(d.criado_em)}</td><td><button class="btn mini" data-dc="${d.arquivo_path}">Abrir</button></td></tr>`).join('')}</table></div>`;
-  l.querySelectorAll('[data-dc]').forEach(b=>b.onclick=async()=>{
-    const url=await assinar(b.dataset.dc,'documentos');
-    if(url)window.open(url,'_blank');
-  });
-};
 /* ============ PÁGINAS — GERÊNCIA ============ */
 PAGES.dashboard=async el=>{
   el.innerHTML=`<h1 class="pg">Dashboard</h1><div id="db">${empty('Carregando…')}</div>`;
@@ -1150,22 +1118,58 @@ PAGES.veiculos=async el=>{
   <div class="row"><div><label>Marca</label><input id="v-marca"></div><div><label>Modelo</label><input id="v-modelo"></div></div>
   <div class="row"><div><label>Ano</label><input id="v-ano" type="number"></div><div><label>Cor</label><input id="v-cor"></div></div>
   <div class="row"><div><label>Intervalo troca de óleo (km)</label><input id="v-oleo" type="number" placeholder="ex.: 10000"></div><div><label>Última troca (km)</label><input id="v-oleo-km" type="number"></div></div>
+  <label>CRLV-e (PDF ou foto) *</label><input id="v-crlv" type="file" accept="application/pdf,image/*">
+  <label>Vencimento do CRLV-e</label><input id="v-crlv-venc" type="date">
   <button class="btn" id="v-btn">Cadastrar veículo</button><div class="msg" id="v-msg"></div></div>
   <div id="v-list">${empty('Carregando…')}</div>`;
   $('v-btn').onclick=async()=>{
     const placa=placaLimpa($('v-placa').value);
     if(!placa){$('v-msg').className='msg err';$('v-msg').textContent='Informe a placa';return}
+    const crlv=$('v-crlv').files[0];
+    if(!crlv){$('v-msg').className='msg err';$('v-msg').textContent='Anexe o CRLV-e do veículo (PDF ou foto)';return}
     const r=await ins('veiculos',insEmp({placa,renavam:$('v-renavam').value||null,marca:$('v-marca').value||null,modelo:$('v-modelo').value||null,ano:parseInt($('v-ano').value)||null,cor:$('v-cor').value||null,intervalo_oleo_km:parseInt($('v-oleo').value)||null,ultima_troca_oleo_km:parseInt($('v-oleo-km').value)||null}));
+    if(r){
+      const vid=r[0]?.id;
+      if(vid&&crlv){
+        const ext=(crlv.name.split('.').pop()||'pdf').toLowerCase();
+        const path=`${vid}/${Date.now()}.${ext}`;
+        const ok=await uploadDoc(crlv,path);
+        if(ok){await ins('veiculos_documentos',insEmp({veiculo_id:vid,tipo:'CRLV-e',arquivo_path:path,vencimento:$('v-crlv-venc').value||null,enviado_por:ME.id}))}
+      }
+    }
     if(r){toast('Veículo cadastrado');go('veiculos')}
   };
   const {data:lista}=await empFilter(sb.from('veiculos').select('*')).order('placa');
   const l=$('v-list');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhum veículo');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Placa</th><th>Marca/Modelo</th><th>Ano</th><th>RENAVAM</th><th>Óleo (km)</th><th>Status</th><th></th></tr>
-  ${lista.map(v=>`<tr><td><b>${esc(v.placa)}</b></td><td>${esc(v.marca||'')} ${esc(v.modelo||'')}</td><td>${v.ano||'—'}</td><td>${esc(v.renavam||'—')}</td><td>${v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—'}</td><td>${v.ativo?'<span class="tag fechada">ativo</span>':'<span class="tag arquivado">inativo</span>'}</td>
-  <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-tg="${v.id}" data-a="${v.ativo?0:1}">${v.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`).join('')}</table></div>`;
+  // CRLV-e de cada veículo (para a coluna e o botão 📄)
+  const {data:docs}=await sb.from('veiculos_documentos').select('id,veiculo_id,tipo,arquivo_path,vencimento,criado_em').eq('tipo','CRLV-e').order('criado_em',{ascending:false});
+  const crlvBy={};(docs||[]).forEach(d=>{if(!crlvBy[d.veiculo_id])crlvBy[d.veiculo_id]=d});
+  l.innerHTML=`<div class="tblwrap"><table><tr><th>Placa</th><th>Marca/Modelo</th><th>Ano</th><th>RENAVAM</th><th>Óleo (km)</th><th>CRLV-e</th><th>Status</th><th></th></tr>
+  ${lista.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();return `<tr><td><b>${esc(v.placa)}</b></td><td>${esc(v.marca||'')} ${esc(v.modelo||'')}</td><td>${v.ano||'—'}</td><td>${esc(v.renavam||'—')}</td><td>${v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—'}</td>
+  <td>${d?`<button class="btn mini" data-dc="${d.arquivo_path}">Abrir</button>${d.vencimento?`<div class="hint" style="${venc?'color:var(--bad)':''}">venc. ${fmtD(d.vencimento)}${venc?' ⚠️':''}</div>`:''}`:'<span class="tag reprovada">faltando</span>'}</td>
+  <td>${v.ativo?'<span class="tag fechada">ativo</span>':'<span class="tag arquivado">inativo</span>'}</td>
+  <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-crlv="${v.id}" data-placa="${esc(v.placa)}">📄 ${d?'Trocar':'Enviar'}</button> <button class="btn mini" data-tg="${v.id}" data-a="${v.ativo?0:1}">${v.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
     if(await upd('veiculos',b.dataset.tg,{ativo:b.dataset.a==='1'}))go('veiculos');
+  });
+  l.querySelectorAll('[data-dc]').forEach(b=>b.onclick=async()=>{
+    const url=await assinar(b.dataset.dc,'documentos');
+    if(url)window.open(url,'_blank');else toast('Não foi possível abrir o documento');
+  });
+  l.querySelectorAll('[data-crlv]').forEach(b=>b.onclick=async()=>{
+    const vid=b.dataset.crlv;
+    const inp=document.createElement('input');inp.type='file';inp.accept='application/pdf,image/*';
+    inp.onchange=async()=>{
+      const file=inp.files[0];if(!file)return;
+      const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
+      const path=`${vid}/${Date.now()}.${ext}`;
+      const ok=await uploadDoc(file,path);if(!ok)return;
+      const venc=prompt('Vencimento do CRLV-e (opcional — deixe vazio se não souber):');
+      const r=await ins('veiculos_documentos',insEmp({veiculo_id:vid,tipo:'CRLV-e',arquivo_path:path,vencimento:venc||null,enviado_por:ME.id}));
+      if(r){toast('CRLV-e atualizado');go('veiculos')}
+    };
+    inp.click();
   });
 };
 PAGES.motoristas=async el=>{
