@@ -530,16 +530,19 @@ PAGES.jornada=async el=>{
       <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}" ${bloqueados.has(v.veiculo_id)?'disabled':''}>${bloqueados.has(v.veiculo_id)?'🔒 ':''}${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}${bloqueados.has(v.veiculo_id)?' (aguardando conferência)':''}</option>`).join('')}</select>
       ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
       <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500">
-      ${empAtiva()==='OVOS'?`<label>Roteiro (1–10)</label><select id="j-rot">${Array.from({length:10},(_,i)=>`<option value="${i+1}">Roteiro ${i+1}</option>`).join('')}</select>`:''}
+      ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345">`:''}
       <button class="btn" id="j-iniciar">▶ Iniciar jornada</button><div class="msg" id="j-msg"></div></div>
-      ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${j.roteiro}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
+      ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro nº</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${j.roteiro}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
     $('j-iniciar').onclick=async()=>{
       const v=$('j-veic').value,kmv=parseFloat($('j-km').value);
       if(!kmv&&kmv!==0){$('j-msg').className='msg err';$('j-msg').textContent='Informe a km inicial';return}
       $('j-msg').className='msg';$('j-msg').textContent='Verificando cronograma…';
       const {data:chk}=await sb.rpc('checar_jornada',{p_veiculo:v});
       if(chk&&chk!=='OK'){$('j-msg').className='msg err';$('j-msg').textContent=chk;return}
-      const r=await ins('jornadas',insEmp({motorista_id:ME.motorista.id,veiculo_id:v,roteiro:empAtiva()==='OVOS'?parseInt($('j-rot').value):0,km_inicial:kmv}));
+      let rot=0;
+      if(empAtiva()==='OVOS'){rot=parseInt($('j-rot').value);
+        if(!rot){$('j-msg').className='msg err';$('j-msg').textContent='Informe o número do roteiro (vem do ERP)';return}}
+      const r=await ins('jornadas',insEmp({motorista_id:ME.motorista.id,veiculo_id:v,roteiro:rot,km_inicial:kmv}));
       if(r){toast('Jornada iniciada! CRLV-e liberado em Multas e documentos');go('jornada')}
     };
   }else{
@@ -682,7 +685,7 @@ PAGES.conferencia=async el=>{
     const p=prog[j.id]||0;
     return `<div class="sec">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-        <div><b style="font-size:15px">${esc(j.motoristas?.nome)}</b><div class="hint">${esc(j.veiculos?.placa)} · Roteiro ${j.roteiro}</div></div>
+        <div><b style="font-size:15px">${esc(j.motoristas?.nome)}</b><div class="hint">${esc(j.veiculos?.placa)} · Roteiro nº ${j.roteiro}</div></div>
         ${j.ocorrencias?'<span class="tag reprovada">⚠ ocorrência</span>':`<span class="tag conferencia">${p}/5</span>`}
       </div>
       <div class="row" style="margin-top:10px;font-size:12px;color:var(--mut)"><div>📅 ${fmtDT(j.inicio)}</div><div>🏁 ${fmtDT(j.fim)}</div></div>
@@ -712,7 +715,7 @@ async function pagConfDetalhe(el,jid){
   <button class="btn sec" id="cf-voltar" style="margin-top:0">← Voltar para a lista</button>
   <div class="sec" style="margin-top:12px">
     <b style="font-size:16px">${esc(j.motoristas?.nome)}</b>
-    <div class="hint">${esc(j.veiculos?.placa)} — ${esc(j.veiculos?.modelo||'')} · Roteiro ${j.roteiro}</div>
+    <div class="hint">${esc(j.veiculos?.placa)} — ${esc(j.veiculos?.modelo||'')} · Roteiro nº ${j.roteiro}</div>
     <div class="row" style="margin-top:10px;font-size:13px"><div>📅 Saída<br>${fmtDT(j.inicio)}</div><div>🏁 Chegada<br>${fmtDT(j.fim)}</div></div>
     <div class="row" style="margin-top:8px;font-size:13px"><div>🛣️ Km<br>${km(j.km_inicial)} → ${km(j.km_final)}</div><div>📏 Percorridos<br><b style="color:var(--acc)">${kmP!=null?kmP.toLocaleString('pt-BR')+' km':'—'}</b></div></div>
     ${j.ocorrencias?`<div style="margin-top:10px;background:#241d1a;border:1px solid #5c3a2e;border-radius:10px;padding:10px;font-size:13px">⚠️ <b>Ocorrência do motorista:</b><br>${esc(j.ocorrencias)}</div>`:''}
@@ -1237,7 +1240,7 @@ PAGES.jornadas=async el=>{
   const {data:lista}=await empFilter(sb.from('jornadas').select('*, veiculos(placa), motoristas(nome)')).order('inicio',{ascending:false}).limit(200);
   const l=$('jn');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhuma jornada');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Saída</th><th>Motorista</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Ocorrências</th><th>Status</th></tr>
+  l.innerHTML=`<div class="tblwrap"><table><tr><th>Saída</th><th>Motorista</th><th>Veículo</th><th>Roteiro nº</th><th>Km</th><th>Ocorrências</th><th>Status</th></tr>
   ${lista.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.motoristas?.nome)}</td><td>${esc(j.veiculos?.placa)}</td><td>${j.roteiro}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${esc(j.ocorrencias||'—')}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div>`;
 };
 PAGES.os=async el=>{
