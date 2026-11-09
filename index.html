@@ -1190,33 +1190,56 @@ PAGES.motoristas=async el=>{
   const {data:vinc}=await sb.from('motorista_veiculo').select('motorista_id,ativo,veiculos(id,placa,modelo)');
   const vincBy={};(vinc||[]).forEach(v=>{if(v.ativo)vincBy[v.motorista_id]=vincBy[v.motorista_id]||[];if(v.ativo)vincBy[v.motorista_id].push(v.veiculos)});
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>CPF</th><th>CNH</th><th>Validade</th><th>Veículo</th><th>Situação</th><th></th></tr>
-  ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';return `<tr><td><b>${esc(m.nome)}</b></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
-  <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-vv="${m.id}">🚚 veículo</button> <button class="btn mini" data-ed="${m.id}">✏️</button> <button class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
+  ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';return `<tr data-lin="${m.id}" style="cursor:pointer"><td><b>${esc(m.nome)}</b></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
+  <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>
+  <tr class="hide" data-edit="${m.id}"><td colspan="7" style="background:rgba(252,200,92,.05);padding:10px 8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+      <div><label style="font-size:10px;color:var(--mut)">CPF</label><input data-f-cpf="${m.id}" value="${esc(m.cpf||'')}" inputmode="numeric" style="width:120px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px;font-size:12px"></div>
+      <div><label style="font-size:10px;color:var(--mut)">CNH</label><input data-f-cnh="${m.id}" value="${esc(m.cnh||'')}" inputmode="numeric" style="width:90px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px;font-size:12px"></div>
+      <div><label style="font-size:10px;color:var(--mut)">Cat.</label><input data-f-cat="${m.id}" value="${esc(m.cnh_categoria||'')}" placeholder="D/E" style="width:50px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px;font-size:12px"></div>
+      <div><label style="font-size:10px;color:var(--mut)">Validade</label><input data-f-val="${m.id}" type="date" value="${esc(m.cnh_validade||'')}" style="background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px;font-size:12px"></div>
+      <div><label style="font-size:10px;color:var(--mut)">Contato</label><input data-f-cont="${m.id}" value="${esc(m.contato||'')}" inputmode="tel" style="width:120px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px;font-size:12px"></div>
+      <button class="btn mini" data-save="${m.id}">💾 Salvar</button>
+    </div>
+    <div style="margin-top:10px"><label style="font-size:10px;color:var(--mut)">🚚 VEÍCULOS (toque para marcar/desmarcar — pode vários)</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" data-vvbox="${m.id}"></div></div>
+  </td></tr>`}).join('')}</table></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
     if(await upd('motoristas',b.dataset.tg,{ativo:b.dataset.a==='1'}))go('motoristas');
   });
-  l.querySelectorAll('[data-vv]').forEach(b=>b.onclick=async()=>{
-    const mid=b.dataset.vv;
+  // veículos: chips clicáveis dentro da linha expandida
+  (async()=>{
     const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
-    const {data:atual}=await sb.from('motorista_veiculo').select('id,veiculo_id,ativo,veiculos(placa)').eq('motorista_id',mid);
-    const ativos=new Set((atual||[]).filter(x=>x.ativo).map(x=>x.veiculo_id));
-    const campos=(vs||[]).map(v=>({id:'vv-'+v.id,label:v.placa+(v.modelo?' · '+v.modelo:'')+(v.empresa&&v.empresa!=='AMBAS'?' ('+v.empresa+')':''),tipo:'vvchk',valor:ativos.has(v.id)}));
-    const w=document.getElementById('modal-wrap'),m=document.getElementById('modal');
-    m.innerHTML=`<h3>🚚 Veículos do motorista</h3><p class="hint" style="margin:0 0 8px">Toque para marcar/desmarcar. Pode deixar vários — o caminhão em viagem fica bloqueado sozinho.</p>`+
-      campos.map(f=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #242424;cursor:pointer"><input type="checkbox" id="${f.id}" ${f.valor?'checked':''} style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">${esc(f.label)}</span></label>`).join('')+
-      `<div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="m-ok">Salvar</button></div>`;
-    w.classList.add('open');
-    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
-    w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
-    document.getElementById('m-ok').onclick=async()=>{
-      let n=0;
-      for(const v of vs||[]){
-        const marcado=document.getElementById('vv-'+v.id).checked;
-        if(marcado&&!ativos.has(v.id)){const {error}=await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:v.id,ativo:true});if(!error)n++}
-        if(!marcado&&ativos.has(v.id)){await sb.from('motorista_veiculo').update({ativo:false}).eq('motorista_id',mid).eq('veiculo_id',v.id);n++}
-      }
-      w.classList.remove('open');toast(n?'Vínculos atualizados':'Nada mudou');go('motoristas');
-    };
+    window.__frota=vs||[];
+    l.querySelectorAll('[data-vvbox]').forEach(box=>{
+      const mid=box.dataset.vvbox;
+      const ativos=new Set((vincBy[mid]||[]).map(v=>v.id));
+      box.innerHTML=window.__frota.map(v=>`<button class="btn mini" data-vchip="${v.id}" data-mid="${mid}" style="${ativos.has(v.id)?'background:var(--acc);color:#111;border-color:var(--acc)':''}">${esc(v.placa)}</button>`).join('');
+      box.querySelectorAll('[data-vchip]').forEach(ch=>ch.onclick=async()=>{
+        const vid=ch.dataset.vchip,mid2=ch.dataset.mid;
+        const ligado=ch.style.backgroundColor&&ch.style.backgroundColor!=='transparent';
+        if(ligado){await sb.from('motorista_veiculo').update({ativo:false}).eq('motorista_id',mid2).eq('veiculo_id',vid);ch.style.background='';ch.style.color='';ch.style.borderColor='';}
+        else{const {error}=await sb.from('motorista_veiculo').insert({motorista_id:mid2,veiculo_id:vid,ativo:true});if(!error){ch.style.background='var(--acc)';ch.style.color='#111';ch.style.borderColor='var(--acc)'}}
+        toast('Vínculo '+(ligado?'removido':'criado'));
+      });
+    });
+  })();
+  // linha: expandir/recolher edição
+  l.querySelectorAll('[data-lin]').forEach(tr=>tr.onclick=async()=>{
+    const id=tr.dataset.lin;
+    const ed=l.querySelector(`[data-edit="${id}"]`);
+    if(!ed)return;
+    const abrindo=ed.classList.contains('hide');
+    l.querySelectorAll('[data-edit]').forEach(x=>x.classList.add('hide'));
+    if(abrindo)ed.classList.remove('hide');
+  });
+  // salvar inline
+  l.querySelectorAll('[data-save]').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.save;
+    const g=n=>l.querySelector(`[${n}="${id}"]`);
+    const dados={cpf:g('data-f-cpf')?.value.trim()||null,cnh:g('data-f-cnh')?.value.trim()||null,cnh_categoria:g('data-f-cat')?.value.trim()||null,cnh_validade:g('data-f-val')?.value||null,contato:g('data-f-cont')?.value.trim()||null};
+    const sit=(dados.cpf&&dados.cnh&&dados.cnh_validade)?'completo':'incompleto';
+    if(await upd('motoristas',id,{...dados,situacao:sit})){toast('Motorista atualizado');go('motoristas')}
   });
   l.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{
     const m=(lista||[]).find(x=>x.id===b.dataset.ed);if(!m)return;
