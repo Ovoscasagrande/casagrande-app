@@ -560,9 +560,10 @@ PAGES.jornada=async el=>{
       <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}" ${bloqueados.has(v.veiculo_id)?'disabled':''}>${bloqueados.has(v.veiculo_id)?'🔒 ':''}${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}${bloqueados.has(v.veiculo_id)?' (aguardando conferência)':''}</option>`).join('')}</select>
       ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
       <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500">
-      ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP) *</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>`:''}
+      ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>
+      <label style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;cursor:pointer"><input type="checkbox" id="j-carga" style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">📦 <b>Carregamento</b> — saiu vazio para carregar (sem roteiro)</span></label>`:''}
       <button class="btn" id="j-iniciar">▶ Iniciar jornada</button><div class="msg" id="j-msg"></div></div>
-      ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro nº</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${j.roteiro}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
+      ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
     window.__rots=[];
     const renderRots=()=>{
       $('j-rots').innerHTML=(window.__rots||[]).map((r,i)=>`<span style="background:var(--field);border:1px solid #333;border-radius:16px;padding:4px 10px;font-size:12px">Roteiro nº ${r} <b style="cursor:pointer;color:#e88" data-rm="${i}">✕</b></span>`).join('');
@@ -581,17 +582,18 @@ PAGES.jornada=async el=>{
       const {data:chk}=await sb.rpc('checar_jornada',{p_veiculo:v});
       if(chk&&chk!=='OK'){$('j-msg').className='msg err';$('j-msg').textContent=chk;return}
       let rots=[...(window.__rots||[])];
-      if(empAtiva()==='OVOS'){
+      const carga=$('j-carga')&&$('j-carga').checked;
+      if(empAtiva()==='OVOS'&&!carga){
         const campo=parseInt($('j-rot').value);
         if(campo)rots.push(campo);
         rots=rots.filter((x,i)=>rots.indexOf(x)===i);
-        if(!rots.length){$('j-msg').className='msg err';$('j-msg').textContent='Informe o número do roteiro (vem do ERP)';return}
+        if(!rots.length){$('j-msg').className='msg err';$('j-msg').textContent='Informe o número do roteiro (vem do ERP) — ou marque “Carregamento” se saiu vazio';return}
       }
-      const r=await ins('jornadas',insEmp({motorista_id:ME.motorista.id,veiculo_id:v,roteiro:rots[0]||0,roteiros_extra:rots.slice(1),km_inicial:kmv}));
+      const r=await ins('jornadas',insEmp({motorista_id:ME.motorista.id,veiculo_id:v,roteiro:carga?0:(rots[0]||0),roteiros_extra:rots.slice(1),km_inicial:kmv}));
       if(r){toast('Jornada iniciada! CRLV-e liberado na aba Multas e documentos');go('jornada')}
     };
   }else{
-    w.innerHTML=`<div class="sec"><h3>Jornada aberta — ${esc(aberta.veiculos?.placa||'')}${aberta.roteiro?` · Roteiro ${aberta.roteiro}`:''}</h3>
+    w.innerHTML=`<div class="sec"><h3>Jornada aberta — ${esc(aberta.veiculos?.placa||'')} · ${rotTxt(aberta)}</h3>
       <p class="hint">Início: ${fmtDT(aberta.inicio)} · Km inicial: ${km(aberta.km_inicial)}</p>
       <div id="j-crlv" style="margin:8px 0">${empty('Carregando documento…')}</div>
       <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
@@ -789,6 +791,7 @@ async function pagAvisosGestao(el){
 }
 /* ============ PÁGINAS — CONFERENTE/GERÊNCIA ============ */
 const CONF_ITENS=['Motorista retornou?','Roteiro informado corretamente?','Todas as notas/canhotos entregues?','Comprovantes anexados?','Divergência ou ocorrência?'];
+const rotTxt=j=>!j.roteiro?'📦 Carregamento':('Roteiro nº '+j.roteiro+((j.roteiros_extra||[]).length?' +'+j.roteiros_extra.length:''));
 PAGES.conferencia=async el=>{
   el.innerHTML=`<h1 class="pg">Conferência de jornadas</h1><div id="cf">${empty('Carregando…')}</div>`;
   const {data:lista}=await sb.from('jornadas').select('*, veiculos(placa,modelo), motoristas(nome)').eq('status','conferencia').order('fim',{ascending:false}).limit(100);
@@ -801,7 +804,7 @@ PAGES.conferencia=async el=>{
     const p=prog[j.id]||0;
     return `<div class="sec">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-        <div><b style="font-size:15px">${esc(j.motoristas?.nome)}</b><div class="hint">${esc(j.veiculos?.placa)} · Roteiro nº ${j.roteiro}</div></div>
+        <div><b style="font-size:15px">${esc(j.motoristas?.nome)}</b><div class="hint">${esc(j.veiculos?.placa)} · ${rotTxt(j)}</div></div>
         ${j.ocorrencias?'<span class="tag reprovada">⚠ ocorrência</span>':`<span class="tag conferencia">${p}/5</span>`}
       </div>
       <div class="row" style="margin-top:10px;font-size:12px;color:var(--mut)"><div>📅 ${fmtDT(j.inicio)}</div><div>🏁 ${fmtDT(j.fim)}</div></div>
@@ -858,7 +861,7 @@ async function pagConfDetalhe(el,jid){
     const f=(id,lb,val,tipo='text')=>`<label>${lb}</label><input id="${id}" type="${tipo}" value="${esc(val==null?'':val)}" ${tipo==='number'?'inputmode="numeric"':''} style="width:100%">`;
     const dtLocal=iso=>{if(!iso)return'';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`};
     mm.innerHTML=`<h3>✏️ Editar jornada — ${esc(j.veiculos?.placa||'')}</h3>
-      ${f('ed-rot','Nº do roteiro (do ERP)',j.roteiro,'number')}
+      <label>Nº do roteiro (do ERP) — 0 = 📦 carregamento</label><input id="ed-rot" type="number" inputmode="numeric" value="${esc(j.roteiro==null?'':j.roteiro)}" style="width:100%">
       <label>Roteiros extras (separados por vírgula)</label><input id="ed-extras" value="${esc((j.roteiros_extra||[]).join(', '))}" style="width:100%">
       ${f('ed-kmi','Km inicial (saída)',j.km_inicial,'number')}
       ${f('ed-kmf','Km final (chegada)',j.km_final,'number')}
@@ -1451,8 +1454,8 @@ PAGES.jornadas=async el=>{
   const {data:lista}=await empFilter(sb.from('jornadas').select('*, veiculos(placa), motoristas(nome)')).order('inicio',{ascending:false}).limit(200);
   const l=$('jn');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhuma jornada');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Saída</th><th>Motorista</th><th>Veículo</th><th>Roteiro nº</th><th>Km</th><th>Ocorrências</th><th>Status</th></tr>
-  ${lista.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.motoristas?.nome)}</td><td>${esc(j.veiculos?.placa)}</td><td>${j.roteiro}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${esc(j.ocorrencias||'—')}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div>`;
+  l.innerHTML=`<div class="tblwrap"><table><tr><th>Saída</th><th>Motorista</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Ocorrências</th><th>Status</th></tr>
+  ${lista.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.motoristas?.nome)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${esc(j.ocorrencias||'—')}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div>`;
 };
 PAGES.os=async el=>{
   el.innerHTML=`<h1 class="pg">Ordens de serviço</h1>
