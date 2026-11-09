@@ -1166,13 +1166,14 @@ PAGES.veiculos=async el=>{
   });
 };
 PAGES.motoristas=async el=>{
-  el.innerHTML=`<h1 class="pg">Motoristas</h1>
+  el.innerHTML=`<h1 class="pg">Motoristas <button class="btn mini" id="mot-toggle" style="float:right">${verInativos?'Ver ativos':'Ver inativos'}</button></h1>
   <div class="sec"><h3>Novo motorista</h3>
   <div class="row"><div><label>Nome completo *</label><input id="mo-nome"></div><div><label>CPF</label><input id="mo-cpf"></div></div>
   <div class="row"><div><label>CNH</label><input id="mo-cnh"></div><div><label>Categoria</label><input id="mo-cat" placeholder="D / E"></div></div>
   <div class="row"><div><label>Validade CNH</label><input id="mo-val" type="date"></div><div><label>Contato</label><input id="mo-cont"></div></div>
   <button class="btn" id="mo-btn">Cadastrar motorista</button><div class="msg" id="mo-msg"></div></div>
   <div id="mo-list">${empty('Carregando…')}</div>`;
+  $('mot-toggle').onclick=()=>{window.__motInativos=!verInativos;go('motoristas')};
   $('mo-btn').onclick=async()=>{
     const nome=$('mo-nome').value.trim();
     if(!nome){$('mo-msg').className='msg err';$('mo-msg').textContent='Informe o nome';return}
@@ -1181,7 +1182,8 @@ PAGES.motoristas=async el=>{
     const r=await ins('motoristas',insEmp({nome,cpf:cpf||null,cnh:cnh||null,cnh_categoria:$('mo-cat').value||null,cnh_validade:val||null,contato:$('mo-cont').value||null,situacao}));
     if(r){toast('Motorista cadastrado'+(situacao==='incompleto'?' (com pendências)':''));go('motoristas')}
   };
-  const {data:lista}=await empFilter(sb.from('motoristas').select('*')).order('nome');
+  const verInativos=window.__motInativos===true;
+  const {data:lista}=await empFilter(sb.from('motoristas').select('*')).eq('ativo',!verInativos).order('nome');
   const l=$('mo-list');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhum motorista');return}
   const hojeStr=hoje();
