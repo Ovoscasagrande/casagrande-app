@@ -856,13 +856,14 @@ async function pagConfDetalhe(el,jid){
   $('cf-editar').onclick=()=>{
     const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
     const f=(id,lb,val,tipo='text')=>`<label>${lb}</label><input id="${id}" type="${tipo}" value="${esc(val==null?'':val)}" ${tipo==='number'?'inputmode="numeric"':''} style="width:100%">`;
+    const dtLocal=iso=>{if(!iso)return'';const d=new Date(iso);const p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`};
     mm.innerHTML=`<h3>✏️ Editar jornada — ${esc(j.veiculos?.placa||'')}</h3>
       ${f('ed-rot','Nº do roteiro (do ERP)',j.roteiro,'number')}
       <label>Roteiros extras (separados por vírgula)</label><input id="ed-extras" value="${esc((j.roteiros_extra||[]).join(', '))}" style="width:100%">
       ${f('ed-kmi','Km inicial (saída)',j.km_inicial,'number')}
       ${f('ed-kmf','Km final (chegada)',j.km_final,'number')}
-      ${f('ed-ini','Saída (data e hora)',(j.inicio||'').slice(0,16),'datetime-local')}
-      ${f('ed-fim','Chegada (data e hora)',(j.fim||'').slice(0,16),'datetime-local')}
+      ${f('ed-ini','Saída (data e hora)',dtLocal(j.inicio),'datetime-local')}
+      ${f('ed-fim','Chegada (data e hora)',dtLocal(j.fim),'datetime-local')}
       <label>Ocorrências</label><textarea id="ed-oc" rows="2" style="width:100%">${esc(j.ocorrencias||'')}</textarea>
       <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="ed-ok">Salvar</button></div>`;
     w.classList.add('open');
