@@ -1345,8 +1345,15 @@ PAGES.usuarios=async el=>{
   }else{pw.innerHTML=`<div class="sec"><p class="hint">Nenhum cadastro aguardando aprovação ✓</p></div>`}
   // ---- aprovados ----
   l.innerHTML=ativos.length?`<div class="sec"><h3>👥 Cadastrados (${ativos.length})</h3><div class="tblwrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresa</th><th></th></tr>
-  ${ativos.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td>
-  <td><button class="btn mini" data-ued="${u.id}">✏️</button></td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
+  ${ativos.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td>
+  <td><select data-uper="${u.id}" class="mini-sel">${opt([['gerencia','Gerência'],['motorista','Motorista'],['conferente','Conferente'],['mecanico','Mecânico']],u.perfil)}</select></td>
+  <td><select data-uemp="${u.id}" class="mini-sel">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas']],u.empresa||'OVOS')}</select></td>
+  <td><button class="btn mini" data-usave="${u.id}">💾</button></td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
+  l.querySelectorAll('[data-usave]').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.usave;
+    const p=document.querySelector(`[data-uper="${id}"]`).value,e=document.querySelector(`[data-uemp="${id}"]`).value;
+    if(await upd('usuarios',id,{perfil:p,empresa:e})){toast('Usuário atualizado');go('usuarios')}
+  });
   // ---- veículos para vínculo na aprovação ----
   (async()=>{
     const {data:vlist}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
@@ -1385,13 +1392,7 @@ PAGES.usuarios=async el=>{
     await sb.from('notificacoes').insert({usuario_id:id,titulo:'Cadastro não aprovado',corpo:'Fale com a gerência.'});
     toast('Cadastro recusado — usuário continua sem acesso');go('usuarios');
   });
-  // ---- editar aprovado ----
-  l.querySelectorAll('[data-ued]').forEach(b=>b.onclick=async()=>{
-    const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
-    const p=prompt('Perfil (gerencia/motorista/conferente/mecanico):',u.perfil||'motorista');if(p===null)return;
-    const e=prompt('Empresa (OVOS/TRANSPORTADORA/AMBAS):',u.empresa||'OVOS');if(e===null)return;
-    if(await upd('usuarios',u.id,{perfil:p.trim().toLowerCase(),empresa:e.trim().toUpperCase()}))go('usuarios');
-  });
+
 };
 PAGES.auditoria=async el=>{
   el.innerHTML=`<h1 class="pg">Auditoria</h1><div id="au">${empty('Carregando…')}</div>`;
