@@ -1147,7 +1147,7 @@ PAGES.veiculos=async el=>{
   const crlvBy={};(docs||[]).forEach(d=>{if(!crlvBy[d.veiculo_id])crlvBy[d.veiculo_id]=d});
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Placa</th><th>Marca/Modelo</th><th>Ano</th><th>RENAVAM</th><th>Óleo (km)</th><th>CRLV-e</th><th>Status</th><th></th></tr>
   ${lista.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();return `<tr><td><b>${esc(v.placa)}</b></td><td>${esc(v.marca||'')} ${esc(v.modelo||'')}</td><td>${v.ano||'—'}</td><td>${esc(v.renavam||'—')}</td><td>${v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—'}</td>
-  <td>${d?`<button class="btn mini" data-dc="${d.arquivo_path}">Abrir</button>${d.vencimento?`<div class="hint" style="${venc?'color:var(--bad)':''}">venc. ${fmtD(d.vencimento)}${venc?' ⚠️':''}</div>`:''}`:'<span class="tag reprovada">faltando</span>'}</td>
+  <td>${d?`<button class="btn mini" data-dc="${d.arquivo_path}">Abrir</button> <button class="btn mini" data-dl="${d.arquivo_path}" data-pl="${esc(v.placa)}">⬇️ Baixar</button>${d.vencimento?`<div class="hint" style="${venc?'color:var(--bad)':''}">venc. ${fmtD(d.vencimento)}${venc?' ⚠️':''}</div>`:''}`:'<span class="tag reprovada">faltando</span>'}</td>
   <td>${v.ativo?'<span class="tag fechada">ativo</span>':'<span class="tag arquivado">inativo</span>'}</td>
   <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-crlv="${v.id}" data-placa="${esc(v.placa)}">📄 ${d?'Trocar':'Enviar'}</button> <button class="btn mini" data-tg="${v.id}" data-a="${v.ativo?0:1}">${v.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
@@ -1156,6 +1156,17 @@ PAGES.veiculos=async el=>{
   l.querySelectorAll('[data-dc]').forEach(b=>b.onclick=async()=>{
     const url=await assinar(b.dataset.dc,'documentos');
     if(url)window.open(url,'_blank');else toast('Não foi possível abrir o documento');
+  });
+  l.querySelectorAll('[data-dl]').forEach(b=>b.onclick=async()=>{
+    const url=await assinar(b.dataset.dl,'documentos');
+    if(!url){toast('Não foi possível baixar');return}
+    try{
+      const resp=await fetch(url);const blob=await resp.blob();
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+      a.download='CRLV-e '+(b.dataset.pl||'veiculo')+'.pdf';
+      document.body.appendChild(a);a.click();a.remove();
+      toast('Download iniciado');
+    }catch(_){window.open(url,'_blank')}
   });
   l.querySelectorAll('[data-crlv]').forEach(b=>b.onclick=async()=>{
     const vid=b.dataset.crlv;
