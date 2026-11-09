@@ -762,7 +762,13 @@ async function pagConfDetalhe(el,jid){
   <button class="btn sec" id="cf-voltar" style="margin-top:0">← Voltar para a lista</button>
   <div class="sec" style="margin-top:12px">
     <b style="font-size:16px">${esc(j.motoristas?.nome)}</b>
-    <div class="hint">${esc(j.veiculos?.placa)} — ${esc(j.veiculos?.modelo||'')} · Roteiro nº ${j.roteiro}</div>
+    <div class="hint">${esc(j.veiculos?.placa)} — ${esc(j.veiculos?.modelo||'')}</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+      <label style="font-size:11px;color:var(--mut)">Roteiro nº (corrigível):</label>
+      <input id="cf-rot" type="number" inputmode="numeric" value="${esc(j.roteiro||'')}" style="width:110px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px;font-size:13px">
+      <button class="btn mini" id="cf-rot-save" style="margin-top:0">💾 Salvar roteiro</button>
+    </div>
+    ${(j.roteiros_extra||[]).length?`<div class="hint" style="margin-top:6px">Roteiros extras: ${j.roteiros_extra.map(r=>'nº '+esc(r)).join(', ')}</div>`:''}
     <div class="row" style="margin-top:10px;font-size:13px"><div>📅 Saída<br>${fmtDT(j.inicio)}</div><div>🏁 Chegada<br>${fmtDT(j.fim)}</div></div>
     <div class="row" style="margin-top:8px;font-size:13px"><div>🛣️ Km<br>${km(j.km_inicial)} → ${km(j.km_final)}</div><div>📏 Percorridos<br><b style="color:var(--acc)">${kmP!=null?kmP.toLocaleString('pt-BR')+' km':'—'}</b></div></div>
     ${j.ocorrencias?`<div style="margin-top:10px;background:#241d1a;border:1px solid #5c3a2e;border-radius:10px;padding:10px;font-size:13px">⚠️ <b>Ocorrência do motorista:</b><br>${esc(j.ocorrencias)}</div>`:''}
@@ -774,6 +780,11 @@ async function pagConfDetalhe(el,jid){
     <div class="msg" id="cf-msg"></div>
   </div>`;
   $('cf-voltar').onclick=()=>go('conferencia');
+  $('cf-rot-save').onclick=async()=>{
+    const n=parseInt($('cf-rot').value);
+    if(!n){toast('Informe o número do roteiro');return}
+    if(await upd('jornadas',j.id,{roteiro:n})){toast('Roteiro corrigido para nº '+n);go('conferencia')}
+  };
   const cw=$('cf-comps');
   for(const cpt of comps){
     const div=document.createElement('div');
