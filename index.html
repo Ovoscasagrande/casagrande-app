@@ -914,7 +914,7 @@ async function renderCharts(e){
     html+=`<div class="sec"><h3>🛣️ Jornadas por dia (30 dias)</h3><div style="height:190px"><canvas id="ch-jordia"></canvas></div></div>`;
   }
   if(A.length){
-    html+=`<div class="sec"><h3>⛽ km/L por caminhão</h3><div style="height:${Math.min(90+Object.keys(porV).length*22,420)}px"><canvas id="ch-kml"></canvas></div></div>`;
+    html+=`<div class="sec"><h3>⛽ km/L por caminhão</h3><div style="height:300px"><canvas id="ch-kml"></canvas></div></div>`;
   }
   box.innerHTML=html||empty('Sem dados no período para gráficos');
   if(mostrarRecDesp){
