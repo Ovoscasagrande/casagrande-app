@@ -832,20 +832,20 @@ async function pagConfDetalhe(el,jid){
       </div>`}).join('');
     iw.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{
       const it=CONF_ITENS[b.dataset.ok];
-      const {error}=await sb.from('jornada_conferencia').upsert({jornada_id:jid,item:it,ok:true,obs:null,conferido_por:ME.id,conferido_em:new Date().toISOString()});
+      const {error}=await sb.from('jornada_conferencia').upsert({jornada_id:jid,item:it,ok:true,obs:null,conferido_por:ME.id,conferido_em:new Date().toISOString()},{onConflict:'jornada_id,item'});
       if(error){toast(err(error));return}
       estado[it]={ok:true,obs:''};renderItens();atualizaProg();
     });
     iw.querySelectorAll('[data-no]').forEach(b=>b.onclick=async()=>{
       const it=CONF_ITENS[b.dataset.no];
-      const {error}=await sb.from('jornada_conferencia').upsert({jornada_id:jid,item:it,ok:false,obs:'',conferido_por:ME.id,conferido_em:new Date().toISOString()});
+      const {error}=await sb.from('jornada_conferencia').upsert({jornada_id:jid,item:it,ok:false,obs:'',conferido_por:ME.id,conferido_em:new Date().toISOString()},{onConflict:'jornada_id,item'});
       if(error){toast(err(error));return}
       estado[it]={ok:false,obs:''};renderItens();atualizaProg();
     });
     iw.querySelectorAll('[data-obs]').forEach(t=>t.addEventListener('change',async()=>{
       const it=CONF_ITENS[t.dataset.obs];
       estado[it].obs=t.value;
-      const {error}=await sb.from('jornada_conferencia').upsert({jornada_id:jid,item:it,ok:false,obs:t.value,conferido_por:ME.id,conferido_em:new Date().toISOString()});
+      const {error}=await sb.from('jornada_conferencia').upsert({jornada_id:jid,item:it,ok:false,obs:t.value,conferido_por:ME.id,conferido_em:new Date().toISOString()},{onConflict:'jornada_id,item'});
       if(error)toast(err(error));
     }));
   };
