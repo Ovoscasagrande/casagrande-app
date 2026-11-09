@@ -878,7 +878,7 @@ async function renderCharts(e){
   box.innerHTML=html||empty('Sem dados no período para gráficos');
   if(R.length||D.length){
     const acc=chartTheme().ok;
-    bar('ch-recdesp',meses,Object.values(mRec).map(x=>Math.round(x)),Object.values(mDesp).map(x=>Math.round(x)),'Recebimentos','Despesas',acc,'#e05252');
+    bar('ch-recdesp',meses,Object.values(mRec).map(x=>Math.round(x)),'Recebimentos',Object.values(mDesp).map(x=>Math.round(x)),'Despesas',acc,'#e05252');
   }
   if(J.length){
     const dias=[...new Set(J.map(x=>f(x.inicio)))].sort().slice(-30);
