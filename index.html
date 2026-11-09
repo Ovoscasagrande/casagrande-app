@@ -1166,6 +1166,7 @@ PAGES.veiculos=async el=>{
   });
 };
 PAGES.motoristas=async el=>{
+  const verInativos=window.__motInativos===true;
   el.innerHTML=`<h1 class="pg">Motoristas <button class="btn mini" id="mot-toggle" style="float:right">${verInativos?'Ver ativos':'Ver inativos'}</button></h1>
   <div class="sec"><h3>Novo motorista</h3>
   <div class="row"><div><label>Nome completo *</label><input id="mo-nome"></div><div><label>CPF</label><input id="mo-cpf"></div></div>
@@ -1182,7 +1183,6 @@ PAGES.motoristas=async el=>{
     const r=await ins('motoristas',insEmp({nome,cpf:cpf||null,cnh:cnh||null,cnh_categoria:$('mo-cat').value||null,cnh_validade:val||null,contato:$('mo-cont').value||null,situacao}));
     if(r){toast('Motorista cadastrado'+(situacao==='incompleto'?' (com pendências)':''));go('motoristas')}
   };
-  const verInativos=window.__motInativos===true;
   const {data:lista}=await empFilter(sb.from('motoristas').select('*')).eq('ativo',!verInativos).order('nome');
   const l=$('mo-list');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhum motorista');return}
