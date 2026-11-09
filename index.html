@@ -152,7 +152,7 @@ if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.se
 const SUPABASE_URL_KEY='fc_url', SUPABASE_ANON_KEY='fc_anon';
 let sb=null;
 function api(){return sb}
-function loadConn(){return{url:localStorage.getItem(SUPABASE_URL_KEY)||'',anon:localStorage.getItem(SUPABASE_ANON_KEY)||''}}
+function loadConn(){return{url:localStorage.getItem(SUPABASE_URL_KEY)||DEFAULT_URL,anon:localStorage.getItem(SUPABASE_ANON_KEY)||DEFAULT_ANON}}
 function saveConn(url,anon){localStorage.setItem(SUPABASE_URL_KEY,url.trim());localStorage.setItem(SUPABASE_ANON_KEY,anon.trim());sb=window.supabase.createClient(url.trim(),anon.trim())}
 function hasConn(){const c=loadConn();return !!(c.url&&c.anon)}
 function readParams(){
@@ -162,6 +162,8 @@ function readParams(){
 }
 function ensureClient(){if(!sb&&hasConn())saveConn(loadConn().url,loadConn().anon);return sb}
 /* ============ estado ============ */
+const DEFAULT_URL='https://ppiqkrvlvtsnsthnfibg.supabase.co';
+const DEFAULT_ANON='sb_publishable_O9oB4kDpibrJPSoWDlgX-A_yAsQ2znY';
 let ME=null, NAV=[], PAGE='home';
 /* ===== multi-empresa ===== */
 const EMPNOME={OVOS:'OVOS CASAGRANDE',TRANSPORTADORA:'TRANSPORTADORA CASAGRANDE'};
