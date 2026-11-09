@@ -1056,7 +1056,7 @@ PAGES.os=async el=>{
 };
 PAGES.usuarios=async el=>{
   el.innerHTML=`<h1 class="pg">Usuários</h1><div id="u-pend">${empty('Carregando…')}</div><div id="u-list">${empty('')}</div>`;
-  const {data:lista}=await sel('usuarios','*','nome');
+  const lista=await sel('usuarios','*','nome');
   const l=$('u-list'),pw=$('u-pend');
   if(!lista){l.innerHTML=empty('Erro ao carregar');pw.innerHTML='';return}
   const pend=lista.filter(u=>u.perfil==='pendente');
