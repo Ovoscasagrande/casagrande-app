@@ -648,47 +648,68 @@ PAGES.jornada=async el=>{
   }
 };
 PAGES.gastos=async el=>{
-  el.innerHTML=`<h1 class="pg">Incluir gasto</h1>
+  el.innerHTML=`<h1 class="pg">Incluir gasto</h1><div id="g-root">${empty('Carregando…')}</div>`;
+  // gasto exige jornada aberta: é ela que diz o caminhão e o km de partida
+  const {data:aberta}=await sb.from('jornadas').select('id,veiculo_id,km_inicial,veiculos(placa)').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
+  const root=$('g-root');
+  if(!aberta){
+    root.innerHTML=`<div class="sec" style="text-align:center;padding:28px 16px">
+      <div style="font-size:42px">🛣️</div>
+      <h3 style="margin:10px 0 6px">Nenhuma jornada aberta</h3>
+      <p class="hint" style="margin:0 0 14px">Para lançar um gasto, inicie a jornada primeiro — o gasto fica vinculado ao caminhão e ao km da viagem.</p>
+      <button class="btn" id="g-irj">🛣️ Ir para minha jornada</button></div>`;
+    $('g-irj').onclick=()=>go('jornada');
+    return;
+  }
+  const placa=aberta.veiculos?.placa||'';
+  root.innerHTML=`<div class="sec" style="background:var(--card);border:1px solid #333;border-radius:12px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:20px">🚚</span>
+    <div><div style="font-weight:700;font-size:15px">${esc(placa)}</div><div class="hint" style="margin:0">Jornada aberta · saída em ${fmtKm(aberta.km_inicial)} km</div></div></div>
   <div class="sec"><h3>Novo lançamento</h3>
   <label>Tipo</label><select id="g-tipo"><option value="abastecimento">⛽ Abastecimento</option><option value="despesa">💰 Outro gasto</option></select>
   <div id="g-form"></div></div>`;
   const render=async()=>{
     const t=$('g-tipo').value, f=$('g-form');
-    const {data:veics}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa,modelo)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
-    const vopts=(veics||[]).map(v=>`<option value="${v.veiculo_id}">${esc(v.veiculos.placa)}</option>`).join('');
     if(t==='abastecimento'){
-      f.innerHTML=`<label>Veículo</label><select id="a-veic">${vopts}</select>
-      <label>Posto</label><input id="a-posto" placeholder="nome do posto">
-      <label>Quilometragem</label><input id="a-km" type="number" inputmode="numeric">
+      f.innerHTML=`<label>Posto</label><input id="a-posto" placeholder="nome do posto">
+      <label>Quilometragem (mínimo ${fmtKm(aberta.km_inicial)})</label><input id="a-km" type="number" inputmode="numeric" min="${aberta.km_inicial}">
       <label>Combustível</label><select id="a-comb">${opt([['S10','Diesel S10'],['S500','Diesel S500'],['Gasolina','Gasolina'],['Etanol','Etanol'],['ARLA','ARLA-32']],null)}</select>
       <label>Litros</label><input id="a-litros" type="number" step="0.01" inputmode="decimal">
-      <label>Preço por litro (R$)</label><input id="a-preco" type="number" step="0.001" inputmode="decimal">
-      <label>Valor total (R$)</label><input id="a-total" type="number" step="0.01" inputmode="decimal">
+      <label>Preço por litro (R$)</label><input id="a-preco" inputmode="decimal" placeholder="0,000">
+      <label>Valor total (R$)</label><input id="a-total" inputmode="decimal" readonly style="background:#262626;font-weight:700">
+      <div class="hint" id="a-calc" style="margin:-6px 0 8px"></div>
       <label>Abastecimento parcial?</label><select id="a-parcial"><option value="false">Tanque cheio / normal</option><option value="true">Parcial (não conta na média)</option></select>
       ${blocoFoto('a-foto','Foto do comprovante')}
       <button class="btn" id="a-btn">Lançar abastecimento</button><div class="msg" id="a-msg"></div>`;
       const getAFoto=bindFoto('a-foto');
+      const calc=()=>{
+        const l=parseBR($('a-litros').value),pr=parseBR($('a-preco').value);
+        const tot=(l>0&&pr>0)?Math.round(l*pr*100)/100:0;
+        $('a-total').value=tot?fmtBR2(tot):'';
+        $('a-calc').textContent=(l>0&&pr>0)?`${fmtBR2(l)} L × R$ ${fmtBR2(pr)} = R$ ${fmtBR2(tot)}`:'';
+      };
+      $('a-litros').addEventListener('input',calc);$('a-preco').addEventListener('input',calc);
       $('a-btn').onclick=async()=>{
-        const litros=parseFloat($('a-litros').value),total=parseFloat($('a-total').value),kmv=parseFloat($('a-km').value);
+        const litros=parseBR($('a-litros').value),total=parseBR($('a-total').value),kmv=parseFloat($('a-km').value),preco=parseBR($('a-preco').value);
         const file=getAFoto();
-        if(!litros||!total||!kmv){$('a-msg').className='msg err';$('a-msg').textContent='Preencha km, litros e valor total';return}
+        if(!litros||!preco||!kmv){$('a-msg').className='msg err';$('a-msg').textContent='Preencha km, litros e preço do litro';return}
+        if(kmv<aberta.km_inicial){$('a-msg').className='msg err';$('a-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;return}
         if(!file){$('a-msg').className='msg err';$('a-msg').textContent='A foto do comprovante é obrigatória';return}
         const path=`${ME.id}/${Date.now()}.jpg`;
         const p=await uploadFoto(file,path);
         if(!p)return;
-        const r=await ins('abastecimentos',insEmp({jornada_id:(await jornadaAbertaId())||null,motorista_id:ME.motorista.id,veiculo_id:$('a-veic').value,posto:$('a-posto').value||null,km:kmv,combustivel:$('a-comb').value,litros,preco_litro:parseFloat($('a-preco').value)||null,valor_total:total,parcial:$('a-parcial').value==='true',foto_path:p}));
+        const r=await ins('abastecimentos',insEmp({jornada_id:aberta.id,motorista_id:ME.motorista.id,veiculo_id:aberta.veiculo_id,posto:$('a-posto').value||null,km:kmv,combustivel:$('a-comb').value,litros,preco_litro:preco,valor_total:total||Math.round(litros*preco*100)/100,parcial:$('a-parcial').value==='true',foto_path:p}));
         if(r){toast('Abastecimento lançado!');go('gastos')}
       };
     }else{
       const {data:tipos}=await sb.from('tipos_despesa').select('*').eq('ativo',true).in('empresa',empAtiva()==='GRUPO'?['OVOS','TRANSPORTADORA']:[empAtiva()]);
       const tps=(tipos||[]);
       const cats=tps.length?tps.map(t=>[t.nome,t.nome]):[['Pneu/borracharia','Pneu/borracharia'],['Manutenção emergencial','Manutenção emergencial'],['Peças','Peças'],['Pedágio','Pedágio'],['Estacionamento','Estacionamento'],['Alimentação','Alimentação'],['Outros','Outros']];
-      f.innerHTML=`<label>Veículo</label><select id="d-veic"><option value="">—</option>${vopts}</select>
-      <label>Tipo</label><select id="d-cat">${opt(cats,null)}</select>
+      f.innerHTML=`<label>Tipo de gasto</label><select id="d-cat">${opt(cats,null)}</select>
       <div id="d-campos" class="campx"></div>
       <label>Descrição</label><input id="d-desc" placeholder="o que foi pago">
-      <label>Valor (R$)</label><input id="d-valor" type="number" step="0.01" inputmode="decimal">
-      <label>Quilometragem (opcional)</label><input id="d-km" type="number" inputmode="numeric">
+      <label>Valor (R$)</label><input id="d-valor" inputmode="decimal" placeholder="0,00">
+      <label>Quilometragem (opcional)</label><input id="d-km" type="number" inputmode="numeric" min="${aberta.km_inicial}">
       ${blocoFoto('d-foto','Foto do recibo')}
       <label>Observações</label><textarea id="d-obs"></textarea>
       <button class="btn" id="d-btn">Lançar despesa</button><div class="msg" id="d-msg"></div>`;
@@ -700,19 +721,25 @@ PAGES.gastos=async el=>{
       };
       $('d-cat').onchange=renderCampos;renderCampos();
       $('d-btn').onclick=async()=>{
-        const valor=parseFloat($('d-valor').value),file=getDFoto();
+        const valor=parseBR($('d-valor').value),file=getDFoto();
         if(!valor||!file){$('d-msg').className='msg err';$('d-msg').textContent='Preencha o valor e anexe a foto do recibo';return}
+        const kmv=parseFloat($('d-km').value);
+        if($('d-km').value&&kmv<aberta.km_inicial){$('d-msg').className='msg err';$('d-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;return}
         const extras={};
         document.querySelectorAll('#d-campos .dx').forEach(i=>{if(i.value.trim())extras[i.dataset.n]=i.value.trim()});
         const path=`${ME.id}/${Date.now()}.jpg`;
         const p=await uploadFoto(file,path);if(!p)return;
-        const r=await ins('despesas',insEmp({jornada_id:(await jornadaAbertaId())||null,motorista_id:ME.motorista.id,veiculo_id:$('d-veic').value||null,categoria:$('d-cat').value,descricao:$('d-desc').value||null,km:parseFloat($('d-km').value)||null,valor,foto_path:p,obs:$('d-obs').value||null,extras}));
+        const r=await ins('despesas',insEmp({jornada_id:aberta.id,motorista_id:ME.motorista.id,veiculo_id:aberta.veiculo_id,categoria:$('d-cat').value,descricao:$('d-desc').value||null,km:kmv||null,valor,foto_path:p,obs:$('d-obs').value||null,extras}));
         if(r){toast('Despesa lançada! Aguardando aprovação');go('gastos')}
       };
     }
   };
   $('g-tipo').onchange=render;render();
 };
+/* máscara/parse de números BR: aceita 1.234,56 e 1234.56 */
+function parseBR(v){if(v==null)return 0;v=String(v).trim();if(!v)return 0;v=v.replace(/\s/g,'');if(v.includes(',')){v=v.replace(/\./g,'').replace(',','.')}return parseFloat(v)||0}
+function fmtBR2(n){return (Math.round(n*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:3})}
+function fmtKm(n){return n==null?'—':Number(n).toLocaleString('pt-BR')}
 async function jornadaAbertaId(){if(!ME.motorista)return null;const {data}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();return data?data.id:null}
 PAGES.avisos=async el=>{
   if(ME.perfil==='motorista')return pagAvisosMotorista(el);
