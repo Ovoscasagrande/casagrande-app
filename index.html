@@ -580,12 +580,12 @@ PAGES.jornada=async el=>{
       $('j-msg').className='msg';$('j-msg').textContent='Verificando cronograma…';
       const {data:chk}=await sb.rpc('checar_jornada',{p_veiculo:v});
       if(chk&&chk!=='OK'){$('j-msg').className='msg err';$('j-msg').textContent=chk;return}
-      let rots=[];
+      let rots=[...(window.__rots||[])];
       if(empAtiva()==='OVOS'){
-        const principal=parseInt($('j-rot').value);
-        if(!principal){$('j-msg').className='msg err';$('j-msg').textContent='Informe o número do roteiro (vem do ERP)';return}
-        rots=[principal,...(window.__rots||[])];
+        const campo=parseInt($('j-rot').value);
+        if(campo)rots.push(campo);
         rots=rots.filter((x,i)=>rots.indexOf(x)===i);
+        if(!rots.length){$('j-msg').className='msg err';$('j-msg').textContent='Informe o número do roteiro (vem do ERP)';return}
       }
       const r=await ins('jornadas',insEmp({motorista_id:ME.motorista.id,veiculo_id:v,roteiro:rots[0]||0,roteiros_extra:rots.slice(1),km_inicial:kmv}));
       if(r){toast('Jornada iniciada! CRLV-e liberado na aba Multas e documentos');go('jornada')}
