@@ -116,6 +116,7 @@ body[data-emp="TRANSPORTADORA"]{--acc:#1e5aa8}
     <button class="btn" id="li-btn">Entrar</button>
     <div class="msg" id="li-msg"></div>
     <div class="hint" style="font-size:11px;color:var(--mut);margin-top:8px">Conta nova passa pela aprovação da gerência</div>
+    <button class="btn sec" id="li-esqueci" style="margin-top:10px">🔑 Esqueci minha senha</button>
     <button class="btn sec" id="li-cfg" style="margin-top:10px">⚙️ Configurar conexão</button>
     <div class="msg" id="cfg-msg"></div>
     <button class="btn sec" id="li-criar" style="margin-top:10px">➕ Criar conta (equipe)</button>
@@ -128,6 +129,14 @@ body[data-emp="TRANSPORTADORA"]{--acc:#1e5aa8}
     <button class="btn" id="cr-btn">Criar minha conta</button>
     <div class="msg" id="cr-msg"></div>
     <button class="btn sec" id="cr-voltar" style="margin-top:10px">← Voltar para o login</button>
+  </div>
+  <div class="card hide" id="card-redef">
+    <h2>Nova senha</h2>
+    <label>Nova senha (mín. 6)</label><input id="rd-p1" type="password" autocomplete="new-password">
+    <label>Confirmar nova senha</label><input id="rd-p2" type="password" autocomplete="new-password">
+    <button class="btn" id="rd-btn">Salvar nova senha</button>
+    <div class="msg" id="rd-msg"></div>
+    <button class="btn sec" id="rd-voltar" style="margin-top:10px">← Voltar para o login</button>
   </div>
 </div>
 <div id="app" class="hide">
@@ -165,6 +174,7 @@ function ensureClient(){if(!sb&&hasConn())saveConn(loadConn().url,loadConn().ano
 const DEFAULT_URL='https://ppiqkrvlvtsnsthnfibg.supabase.co';
 const DEFAULT_ANON='sb_publishable_O9oB4kDpibrJPSoWDlgX-A_yAsQ2znY';
 let ME=null, NAV=[], PAGE='home';
+const IS_RECOVERY=/type=recovery/.test(location.hash);
 /* ===== multi-empresa ===== */
 const EMPNOME={OVOS:'OVOS CASAGRANDE',TRANSPORTADORA:'TRANSPORTADORA CASAGRANDE'};
 const EMPLOGO={
@@ -210,7 +220,13 @@ async function init(){
   readParams();
   if(!ensureClient()){showCfg();return}
   const {data} = await sb.auth.getSession();
+  if(data.session&&IS_RECOVERY){showRedefinir();return}
   if(data.session){await afterLogin()}else{showLogin()}
+}
+function showRedefinir(){
+  $('app').classList.add('hide');$('login').classList.remove('hide');
+  $('card-login').classList.add('hide');$('card-criar').classList.add('hide');
+  $('card-redef').classList.remove('hide');
 }
 async function showLogin(){
   $('app').classList.add('hide');$('login').classList.remove('hide');
@@ -229,6 +245,22 @@ $('li-cfg').onclick=async()=>{
   try{saveConn(url,anon);$('cfg-msg').className='msg ok';$('cfg-msg').textContent='Conexão salva!';await init()}catch(e){$('cfg-msg').className='msg err';$('cfg-msg').textContent=err(e)}
 };
 $('li-btn').onclick=login;
+$('rd-btn').onclick=async()=>{
+  const p1=$('rd-p1').value,p2=$('rd-p2').value;
+  if(p1.length<6){$('rd-msg').className='msg err';$('rd-msg').textContent='A senha precisa de pelo menos 6 caracteres';return}
+  if(p1!==p2){$('rd-msg').className='msg err';$('rd-msg').textContent='As senhas não conferem';return}
+  const {error}=await sb.auth.updateUser({password:p1});
+  if(error){$('rd-msg').className='msg err';$('rd-msg').textContent=err(error)}
+  else{$('rd-msg').className='msg ok';$('rd-msg').textContent='Senha alterada! Entre com a nova.';await sb.auth.signOut();setTimeout(()=>location.reload(),1500)}
+};
+$('rd-voltar').onclick=()=>{$('card-redef').classList.add('hide');$('card-login').classList.remove('hide')};
+$('li-esqueci').onclick=async()=>{
+  const email=$('li-email').value.trim();
+  if(!email){$('li-msg').className='msg err';$('li-msg').textContent='Digite seu e-mail no campo acima e clique de novo';return}
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  if(error){$('li-msg').className='msg err';$('li-msg').textContent=err(error)}
+  else{$('li-msg').className='msg ok';$('li-msg').textContent='Link de recuperação enviado ao seu e-mail'}
+};
 $('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
 $('li-criar').onclick=()=>{$('card-login').classList.add('hide');$('card-criar').classList.remove('hide');$('cr-msg').textContent=''};
 $('cr-voltar').onclick=()=>{$('card-criar').classList.add('hide');$('card-login').classList.remove('hide')};
