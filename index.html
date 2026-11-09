@@ -1153,10 +1153,15 @@ PAGES.motoristas=async el=>{
     const cpf=prompt('CPF:',m.cpf||'');if(cpf===null)return;
     const cnh=prompt('CNH:',m.cnh||'');if(cnh===null)return;
     const cat=prompt('Categoria da CNH:',m.cnh_categoria||'');if(cat===null)return;
-    const val=prompt('Validade da CNH (AAAA-MM-DD):',m.cnh_validade||'');if(val===null)return;
+    const val=prompt('Validade da CNH (DD-MM-AAAA):',m.cnh_validade?m.cnh_validade.split('-').reverse().join('-'):'');if(val===null)return;
+    let valIso=null;
+    if(val){const p=val.split('-').map(x=>x.trim());
+      if(p.length===3&&p[0].length===2&&p[2].length===4){valIso=p[2]+'-'+p[1]+'-'+p[0]}
+      else{$('m-msg')&&($('m-msg').className='msg err');toast('Data inválida — use DD-MM-AAAA (ex.: 15-03-2027)');return}}
+    else{valIso=null}
     const cont=prompt('Contato:',m.contato||'');if(cont===null)return;
     const sit=(cpf&&cnh&&val)?'completo':'incompleto';
-    if(await upd('motoristas',m.id,{cpf:cpf||null,cnh:cnh||null,cnh_categoria:cat||null,cnh_validade:val||null,contato:cont||null,situacao:sit}))go('motoristas');
+    if(await upd('motoristas',m.id,{cpf:cpf||null,cnh:cnh||null,cnh_categoria:cat||null,cnh_validade:valIso,contato:cont||null,situacao:sit}))go('motoristas');
   });
 };
 PAGES.jornadas=async el=>{
