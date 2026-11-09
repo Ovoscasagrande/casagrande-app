@@ -105,6 +105,7 @@ body[data-emp="TRANSPORTADORA"]{--acc:#1e5aa8}
 .seletor button{background:var(--field);color:var(--mut);border:1px solid #333;border-radius:20px;padding:7px 14px;font-size:13px;cursor:pointer}
 .seletor button.on{background:var(--acc);color:#141414;border-color:var(--acc);font-weight:700}
 .campx{margin-top:6px}
+.mini-sel{background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:7px 8px;font-size:12px}
 .dynrow{display:flex;gap:8px;align-items:center;margin-top:6px}
 .dynrow input{flex:1}
 .dynrow button{margin-top:0}
@@ -297,6 +298,8 @@ $('cr-voltar').onclick=()=>{$('card-criar').classList.add('hide');$('card-login'
 $('cr-btn').onclick=async()=>{
   const nome=$('cr-nome').value.trim(),email=$('cr-email').value.trim(),pass=$('cr-pass').value;
   if(!nome||!email||pass.length<6){$('cr-msg').className='msg err';$('cr-msg').textContent='Preencha nome, email e senha (mín. 6 caracteres)';return}
+  if(!/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(email)){$('cr-msg').className='msg err';$('cr-msg').textContent='E-mail inválido — confira se escreveu certo (ex.: nome@gmail.com)';return}
+  if(nome.length<3||!/^[A-Za-zÀ-ÿ'\s]+$/.test(nome)){$('cr-msg').className='msg err';$('cr-msg').textContent='Digite seu nome completo (só letras)';return}
   $('cr-btn').disabled=true;
   try{
     const {error}=await sb.auth.signUp({email,password:pass});
@@ -1052,57 +1055,65 @@ PAGES.os=async el=>{
   });
 };
 PAGES.usuarios=async el=>{
-  el.innerHTML=`<h1 class="pg">Usuários</h1>
-  <div class="sec"><h3>Vincular login a um perfil</h3>
-  <p class="hint">1) Crie o usuário no Supabase (Dashboard → Authentication → Add user). 2) Cole o ID (UUID) aqui com nome e perfil.</p>
-  <div class="row"><div><label>UUID do usuário</label><input id="u-id" placeholder="xxxxxxxx-xxxx-..."></div><div><label>Nome</label><input id="u-nome"></div></div>
-  <div class="row"><div><label>Perfil</label><select id="u-perfil">${opt([['gerencia','Gerência'],['motorista','Motorista'],['conferente','Conferente'],['mecanico','Mecânico']],null)}</select></div><div><label>&nbsp;</label><button class="btn" id="u-btn">Vincular</button></div></div>
-  <div class="msg" id="u-msg"></div></div>
-  <div id="u-pend"></div>
-  <div id="u-list">${empty('Carregando…')}</div>`;
-  $('u-btn').onclick=async()=>{
-    const id=$('u-id').value.trim(),nome=$('u-nome').value.trim();
-    if(!id||!nome){$('u-msg').className='msg err';$('u-msg').textContent='Informe UUID e nome';return}
-    const {error}=await sb.from('usuarios').upsert({id,nome,perfil:$('u-perfil').value});
-    if(error){$('u-msg').className='msg err';$('u-msg').textContent=err(error)}
-    else{toast('Usuário vinculado');go('usuarios')}
-  };
+  el.innerHTML=`<h1 class="pg">Usuários</h1><div id="u-pend">${empty('Carregando…')}</div><div id="u-list">${empty('')}</div>`;
   const {data:lista}=await sel('usuarios','*','nome');
-  const l=$('u-list');
-  if(!lista||!lista.length){l.innerHTML=empty('Nenhum usuário vinculado');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>Perfil</th><th>Empresa</th><th>Ativo</th><th></th></tr>
-  ${lista.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td><td>${u.ativo?'sim':'não'}</td>
-  <td><button class="btn mini" data-ued="${u.id}">✏️ editar</button></td></tr>`).join('')}</table></div>`;
+  const l=$('u-list'),pw=$('u-pend');
+  if(!lista){l.innerHTML=empty('Erro ao carregar');pw.innerHTML='';return}
+  const pend=lista.filter(u=>u.perfil==='pendente');
+  const ativos=lista.filter(u=>u.perfil!=='pendente');
+  // ---- pendentes ----
+  if(pend.length){
+    pw.innerHTML=`<div class="sec"><h3>⏳ Aguardando sua aprovação (${pend.length})</h3>`+pend.map(u=>{
+      const emailOk=/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(u.email||'');
+      const nomeOk=u.nome&&u.nome.trim().length>=3&&!/[0-9._-]{3,}/.test(u.nome);
+      return `<div style="padding:10px 0;border-bottom:1px solid #242424;font-size:13px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+          <div style="min-width:0">
+            <b>${esc(u.nome)}</b>${nomeOk?'':' <span class="tag reprovada">nome estranho?</span>'}
+            <div class="hint" style="word-break:break-all">${esc(u.email||'—')}${emailOk?'':' <span class="tag reprovada">e-mail inválido</span>'}</div>
+            <div class="hint">criou conta em ${fmtDT(u.criado_em)}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
+          <select data-perfil="${u.id}" class="mini-sel">${opt([['motorista','Motorista'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],u.perfil!=='pendente'?u.perfil:'motorista')}</select>
+          <select data-emp="${u.id}" class="mini-sel">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas']],u.empresa&&u.empresa!=='OVOS'?u.empresa:'OVOS')}</select>
+          <button class="btn mini" data-apr="${u.id}">✓ Aprovar</button>
+          <button class="btn mini" data-rec="${u.id}" style="border-color:#5c3a2e">✗ Recusar</button>
+        </div>
+      </div>`}).join('')+`</div>`;
+  }else{pw.innerHTML=`<div class="sec"><p class="hint">Nenhum cadastro aguardando aprovação ✓</p></div>`}
+  // ---- aprovados ----
+  l.innerHTML=ativos.length?`<div class="sec"><h3>👥 Cadastrados (${ativos.length})</h3><div class="tblwrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresa</th><th></th></tr>
+  ${ativos.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td>
+  <td><button class="btn mini" data-ued="${u.id}">✏️</button></td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
+  // ---- aprovar/recusar ----
+  pw.querySelectorAll('[data-apr]').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.apr;
+    const selP=document.querySelector(`[data-perfil="${id}"]`),selE=document.querySelector(`[data-emp="${id}"]`);
+    const p=selP.value,e=selE.value;
+    const r=await upd('usuarios',id,{perfil:p,empresa:e});
+    if(!r)return;
+    if(p==='motorista'){
+      const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',id).maybeSingle();
+      if(!mex){const u=lista.find(x=>x.id===id);await sb.from('motoristas').insert({nome:u?u.nome:'Motorista',usuario_id:id,situacao:'incompleto',empresa:e==='AMBAS'?'OVOS':e})}
+      else{await sb.from('motoristas').update({empresa:e==='AMBAS'?'OVOS':e}).eq('usuario_id',id)}
+    }
+    await sb.from('notificacoes').insert({usuario_id:id,titulo:'Cadastro aprovado ✓',corpo:'Seu acesso foi liberado'+(p==='motorista'?' — vincule seu caminhão com a gerência':''),link:'home'});
+    toast('Aprovado: '+p+' · '+e);go('usuarios');
+  });
+  pw.querySelectorAll('[data-rec]').forEach(b=>b.onclick=async()=>{
+    const id=b.dataset.rec;
+    if(!confirm('Recusar este cadastro? O usuário fica sem acesso. (Para apagar de vez: Supabase → Authentication)'))return;
+    await sb.from('notificacoes').insert({usuario_id:id,titulo:'Cadastro não aprovado',corpo:'Fale com a gerência.'});
+    toast('Cadastro recusado — usuário continua sem acesso');go('usuarios');
+  });
+  // ---- editar aprovado ----
   l.querySelectorAll('[data-ued]').forEach(b=>b.onclick=async()=>{
-    const u=(lista||[]).find(x=>x.id===b.dataset.ued);if(!u)return;
+    const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
     const p=prompt('Perfil (gerencia/motorista/conferente/mecanico):',u.perfil||'motorista');if(p===null)return;
     const e=prompt('Empresa (OVOS/TRANSPORTADORA/AMBAS):',u.empresa||'OVOS');if(e===null)return;
     if(await upd('usuarios',u.id,{perfil:p.trim().toLowerCase(),empresa:e.trim().toUpperCase()}))go('usuarios');
   });
-  const pend=(lista||[]).filter(u=>u.perfil==='pendente');
-  const pw=$('u-pend');
-  if(pend.length){
-    pw.innerHTML=`<div class="sec"><h3>⏳ Aguardando aprovação (${pend.length})</h3>`+pend.map(u=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #242424;font-size:13px"><div><b>${esc(u.nome)}</b><div class="hint">criou conta em ${fmtDT(u.criado_em)}</div></div><div style="display:flex;gap:5px;flex-wrap:wrap">
-      <button class="btn mini" data-prom="${u.id}" data-p="motorista" data-e="OVOS">Mot·OVOS</button>
-      <button class="btn mini" data-prom="${u.id}" data-p="motorista" data-e="TRANSPORTADORA">Mot·Transp</button>
-      <button class="btn mini" data-prom="${u.id}" data-p="conferente" data-e="OVOS">Conf·OVOS</button>
-      <button class="btn mini" data-prom="${u.id}" data-p="mecanico" data-e="AMBAS">Mec·Ambas</button>
-      <button class="btn mini" data-prom="${u.id}" data-p="gerencia" data-e="AMBAS">Ger·Ambas</button>
-      <button class="btn mini" data-prom="${u.id}" data-p="motorista" data-e="AMBAS">Mot·Ambas</button>
-    </div></div>`).join('')+`<p class="hint" style="margin-top:8px">Outra combinação? Aprove com uma opção e depois use ✏️ editar na lista.</p></div>`;
-    pw.querySelectorAll('[data-prom]').forEach(b=>b.onclick=async()=>{
-      const p=b.dataset.p,id=b.dataset.prom;
-      const r=await upd('usuarios',id,{perfil:p});
-      if(!r)return;
-      if(p==='motorista'){
-        const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',id).maybeSingle();
-        if(!mex){const u=(lista||[]).find(x=>x.id===id);await sb.from('motoristas').insert({nome:u?u.nome:'Motorista',usuario_id:id,situacao:'incompleto',empresa:b.dataset.e==='AMBAS'?'OVOS':b.dataset.e})}
-      }
-      await sb.from('usuarios').update({empresa:b.dataset.e}).eq('id',b.dataset.prom);
-      if(b.dataset.e!=='AMBAS'){await sb.from('motoristas').update({empresa:b.dataset.e}).eq('usuario_id',b.dataset.prom)}
-      toast('Perfil definido: '+p+' · '+b.dataset.e);go('usuarios');
-    });
-  }else{pw.innerHTML=''}
 };
 PAGES.auditoria=async el=>{
   el.innerHTML=`<h1 class="pg">Auditoria</h1><div id="au">${empty('Carregando…')}</div>`;
