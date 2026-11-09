@@ -1070,7 +1070,12 @@ PAGES.notif=async el=>{
   const {data:lista}=await sb.from('notificacoes').select('*').eq('usuario_id',ME.id).order('criado_em',{ascending:false}).limit(50);
   const l=$('nt');
   if(!lista||!lista.length){l.innerHTML=empty('Nada por aqui');return}
-  l.innerHTML=lista.map(n=>`<div class="sec" style="padding:12px 16px"><b style="font-size:14px">${esc(n.titulo)}</b><p class="hint">${esc(n.corpo||'')}</p><p style="font-size:11px;color:#666">${fmtDT(n.criado_em)}</p></div>`).join('');
+  l.innerHTML=lista.map(n=>{
+    const podeIr=n.link&&NAV.includes(n.link);
+    return `<div class="sec" data-go="${podeIr?esc(n.link):''}" style="padding:12px 16px;${podeIr?'cursor:pointer;border-left:3px solid var(--acc)':''}">
+      <b style="font-size:14px">${esc(n.titulo)}</b><p class="hint">${esc(n.corpo||'')}</p>
+      <p style="font-size:11px;color:#666">${fmtDT(n.criado_em)}${podeIr?' · <span style="color:var(--acc)">toque para abrir →</span>':''}</p></div>`}).join('');
+  l.querySelectorAll('[data-go]').forEach(d=>{if(d.dataset.go)d.onclick=()=>go(d.dataset.go)});
   await sb.from('notificacoes').update({lida:true}).eq('usuario_id',ME.id).eq('lida',false);
   $('bdg').classList.add('hide');
 };
