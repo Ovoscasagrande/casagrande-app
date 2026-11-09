@@ -1161,16 +1161,31 @@ PAGES.motoristas=async el=>{
     const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
     const {data:atual}=await sb.from('motorista_veiculo').select('id,veiculo_id,ativo,veiculos(placa)').eq('motorista_id',mid);
     const ativos=(atual||[]).filter(x=>x.ativo);
-    const lista2=(vs||[]).map(v=>v.placa+(v.modelo?' · '+v.modelo:'')+'|'+v.id).join('\n');
-    const msg='Veículos disponíveis (número = opção):\n'+(vs||[]).map((v,i)=>(i+1)+'. '+v.placa+(v.modelo?' · '+v.modelo:'')).join('\n')+'\n\nDigite o NÚMERO para VINCULAR (0 = deixar sem veículo):';
-    const r=prompt(msg,'0');
-    if(r===null)return;
-    const n=parseInt(r);
-    if(n>0&&(!vs||!vs[n-1])){toast('Opção inválida');return}
-    // desativa vínculos atuais
-    for(const x of ativos){await sb.from('motorista_veiculo').update({ativo:false}).eq('id',x.id)}
-    if(n>0){await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:vs[n-1].id,ativo:true});toast('Veículo vinculado: '+vs[n-1].placa)}
-    else{toast('Motorista sem veículo vinculado')}
+    const nomes=vs||[];
+    const nomeDe=id=>nomes.find(v=>v.id===id)?.placa||'?';
+    let ligados=ativos.map(x=>nomeDe(x.veiculo_id));
+    for(;;){
+      const msg='VEÍCULOS DESTE MOTORISTA:\n'+(ligados.length?ligados.map((p,i)=>'  • '+p).join('\n'):'  (nenhum)')+
+        '\n\nFROTA (número = opção):\n'+nomes.map((v,i)=>(i+1)+'. '+v.placa+(v.modelo?' · '+v.modelo:'')).join('\n')+
+        '\n\nDigite o NÚMERO para ADICIONAR · o número com X na frente (ex.: X3) para REMOVER · 0 para concluir:';
+      const r=prompt(msg,'0');
+      if(r===null)return;
+      const t=(r||'').trim().toUpperCase();
+      if(t==='0'||t===''){break}
+      const rem=t.startsWith('X');
+      const n=parseInt(rem?t.slice(1):t);
+      if(!n||n<1||n>nomes.length){toast('Opção inválida: '+r);continue}
+      const v=nomes[n-1];
+      if(rem){
+        const alvo=ativos.find(x=>x.veiculo_id===v.id);
+        if(!alvo){toast(v.placa+' não está vinculado');continue}
+        if(await sb.from('motorista_veiculo').update({ativo:false}).eq('id',alvo.id).then(r=>!r)){ligados=ligados.filter(p=>p!==v.placa);toast('Removido: '+v.placa)}
+      }else{
+        if(ativos.find(x=>x.veiculo_id===v.id)){toast(v.placa+' já está vinculado');continue}
+        const {error}=await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:v.id,ativo:true});
+        if(!error){ativos.push({veiculo_id:v.id});ligados.push(v.placa);toast('Vinculado: '+v.placa)}
+      }
+    }
     go('motoristas');
   });
   l.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{
