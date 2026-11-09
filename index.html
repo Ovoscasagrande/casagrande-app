@@ -919,9 +919,9 @@ PAGES.multas=async el=>{
     <button class="btn" id="m-btn">Cadastrar multa</button><div class="msg" id="m-msg"></div></div>`:''}
   <div id="m-list">${empty('Carregando…')}</div>`;
   if(ehGestao){
-    const {data:veics}=await sel('veiculos','id,placa,ativo','placa');
+    const veics=await sel('veiculos','id,placa,ativo','placa');
     $('m-veic').innerHTML=(veics||[]).filter(v=>v.ativo).map(v=>`<option value="${v.id}">${esc(v.placa)}</option>`).join('');
-    const {data:mots}=await sel('motoristas','id,nome,ativo','nome');
+    const mots=await sel('motoristas','id,nome,ativo','nome');
     $('m-mot').innerHTML+= (mots||[]).filter(m=>m.ativo).map(m=>`<option value="${m.id}">${esc(m.nome)}</option>`).join('');
     $('m-btn').onclick=async()=>{
       const file=$('m-arq').files[0];
@@ -1355,7 +1355,7 @@ PAGES.os=async el=>{
     <button class="btn" id="o-btn">Abrir ordem de serviço</button><div class="msg" id="o-msg"></div></div>`}
   <div id="o-list">${empty('Carregando…')}</div>`;
   if(ME.perfil!=='mecanico'){
-    const {data:veics}=await sel('veiculos','id,placa,ativo','placa');
+    const veics=await sel('veiculos','id,placa,ativo','placa');
     $('o-veic').innerHTML=(veics||[]).filter(v=>v.ativo).map(v=>`<option value="${v.id}">${esc(v.placa)}</option>`).join('');
     const {data:avs}=await sb.from('avisos').select('id,texto,veiculos(placa)').in('status',['recebido','em_analise','encaminhado']).order('criado_em',{ascending:false});
     $('o-aviso').innerHTML+= (avs||[]).map(a=>`<option value="${a.id}">${esc(a.veiculos?.placa)} — ${esc(a.texto.slice(0,40))}</option>`).join('');
@@ -1478,7 +1478,7 @@ PAGES.usuarios=async el=>{
 };
 PAGES.auditoria=async el=>{
   el.innerHTML=`<h1 class="pg">Auditoria</h1><div id="au">${empty('Carregando…')}</div>`;
-  const {data:lista}=await sel('auditoria','*, usuarios(nome)','criado_em');
+  const lista=await sel('auditoria','*, usuarios(nome)','criado_em');
   const l=$('au');
   if(!lista||!lista.length){l.innerHTML=empty('Sem registros');return}
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Quem</th><th>Ação</th></tr>
