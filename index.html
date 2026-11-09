@@ -402,8 +402,11 @@ PAGES.jornada=async el=>{
   if(!aberta){
     const {data:veics}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa,modelo)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
     if(!veics||!veics.length){w.innerHTML=`<div class="sec">Nenhum veículo vinculado a você. Peça à gerência.</div>`;return}
+    const {data:bloq} = ME.empresa!=='AMBAS' ? await sb.rpc('veiculos_bloqueados') : {data:null};
+    const bloqueados=new Set(bloq||[]);
     w.innerHTML=`<div class="sec"><h3>Iniciar jornada</h3>
-      <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}">${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}</option>`).join('')}</select>
+      <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}" ${bloqueados.has(v.veiculo_id)?'disabled':''}>${bloqueados.has(v.veiculo_id)?'🔒 ':''}${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}${bloqueados.has(v.veiculo_id)?' (aguardando conferência)':''}</option>`).join('')}</select>
+      ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
       <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500">
       ${empAtiva()==='OVOS'?`<label>Roteiro (1–10)</label><select id="j-rot">${Array.from({length:10},(_,i)=>`<option value="${i+1}">Roteiro ${i+1}</option>`).join('')}</select>`:''}
       <button class="btn" id="j-iniciar">▶ Iniciar jornada</button><div class="msg" id="j-msg"></div></div>
@@ -411,6 +414,9 @@ PAGES.jornada=async el=>{
     $('j-iniciar').onclick=async()=>{
       const v=$('j-veic').value,kmv=parseFloat($('j-km').value);
       if(!kmv&&kmv!==0){$('j-msg').className='msg err';$('j-msg').textContent='Informe a km inicial';return}
+      $('j-msg').className='msg';$('j-msg').textContent='Verificando cronograma…';
+      const {data:chk}=await sb.rpc('checar_jornada',{p_veiculo:v});
+      if(chk&&chk!=='OK'){$('j-msg').className='msg err';$('j-msg').textContent=chk;return}
       const r=await ins('jornadas',insEmp({motorista_id:ME.motorista.id,veiculo_id:v,roteiro:empAtiva()==='OVOS'?parseInt($('j-rot').value):0,km_inicial:kmv}));
       if(r){toast('Jornada iniciada! CRLV-e liberado em Multas e documentos');go('jornada')}
     };
