@@ -905,18 +905,19 @@ async function renderCharts(e){
       scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}}}}});
   };
   let html='';
-  if(R.length||D.length){
+  const acc=chartTheme().ok;
+  const mostrarRecDesp=(e==='GRUPO'||e==='TRANSPORTADORA')&&(R.length||D.length);
+  if(mostrarRecDesp){
     html+=`<div class="sec"><h3>💰 Recebimentos × Despesas (6 meses)</h3><div style="height:210px"><canvas id="ch-recdesp"></canvas></div></div>`;
   }
   if(J.length){
     html+=`<div class="sec"><h3>🛣️ Jornadas por dia (30 dias)</h3><div style="height:190px"><canvas id="ch-jordia"></canvas></div></div>`;
   }
   if(A.length){
-    html+=`<div class="sec"><h3>⛽ km/L por caminhão</h3><div style="height:${Math.min(90+A.length*22,420)}px"><canvas id="ch-kml"></canvas></div></div>`;
+    html+=`<div class="sec"><h3>⛽ km/L por caminhão</h3><div style="height:${Math.min(90+Object.keys(porV).length*22,420)}px"><canvas id="ch-kml"></canvas></div></div>`;
   }
   box.innerHTML=html||empty('Sem dados no período para gráficos');
-  if(R.length||D.length){
-    const acc=chartTheme().ok;
+  if(mostrarRecDesp){
     bar('ch-recdesp',meses,Object.values(mRec).map(x=>Math.round(x)),'Recebimentos',Object.values(mDesp).map(x=>Math.round(x)),'Despesas',acc,'#e05252');
   }
   if(J.length){
@@ -928,8 +929,7 @@ async function renderCharts(e){
   }
   if(A.length){
     const porV={};
-    A.forEach(a=>{const g=porV[a.veiculo_id]=porV[a.veiculo_id]||{L:0,km:0};g.L+=Number(a.litros||0);g.km+=0});
-    // km rodados: das jornadas fechadas do período (por veículo)
+    A.forEach(a=>{const g=porV[a.veiculo_id]=porV[a.veiculo_id]||{L:0,km:0};g.L+=Number(a.litros||0)});
     J.filter(x=>x.km_final!=null).forEach(x=>{if(porV[x.veiculo_id])porV[x.veiculo_id].km+=Number(x.km_final)-Number(x.km_inicial)});
     const ids=Object.keys(porV);
     const vs2=await sb.from('veiculos').select('id,placa').in('id',ids);
@@ -937,7 +937,7 @@ async function renderCharts(e){
     const rows=ids.map(id=>({p:placa[id]||'?',kml:porV[id].L>0?porV[id].km/porV[id].L:0})).filter(r=>r.kml>0.1);
     rows.sort((a,b)=>b.kml-a.kml);
     if(CHARTS.kml)CHARTS.kml.destroy();
-    CHARTS.kml=new Chart(document.getElementById('ch-kml'),{type:'bar',data:{labels:rows.map(r=>r.p),datasets:[{label:'km/L',data:rows.map(r=>r.kml),backgroundColor:chartTheme().ok}]},
+    CHARTS.kml=new Chart(document.getElementById('ch-kml'),{type:'bar',data:{labels:rows.map(r=>r.p),datasets:[{label:'km/L',data:rows.map(r=>r.kml),backgroundColor:acc}]},
       options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
   }
 };
