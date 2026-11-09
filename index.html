@@ -969,10 +969,36 @@ PAGES.multas=async el=>{
   if(!lista||!lista.length){l.innerHTML=empty('Nenhuma multa cadastrada');return}
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Veículo</th><th>Motorista</th><th>Órgão</th><th>Infração</th><th>Prazo</th><th>Valor</th><th>Status</th><th></th></tr>
   ${lista.map(m=>`<tr><td>${esc(m.veiculos?.placa)}</td><td>${esc(m.motoristas?.nome||'—')}</td><td>${esc(m.orgao||'—')}</td><td>${fmtD(m.data_infracao)}</td><td>${fmtD(m.prazo)}</td><td>${fmtBRL(m.valor)}</td><td>${tag(m.status)}</td>
-  <td>${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?`<button class="btn mini" data-cie="${m.id}">Confirmar ciência</button>`:''}</td></tr>`).join('')}</table></div>`;
+  <td><button class="btn mini" data-det="${m.id}">Ver detalhes</button>${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?` <button class="btn mini" data-cie="${m.id}">Confirmar ciência</button>`:''}</td></tr>`).join('')}</table></div>`;
   l.querySelectorAll('[data-cie]').forEach(b=>b.onclick=async()=>{
     const {error}=await sb.rpc('confirmar_ciencia',{p_multa_id:b.dataset.cie});
     if(error){toast(err(error))}else{toast('Ciência registrada');go('multas')}
+  });
+  l.querySelectorAll('[data-det]').forEach(b=>b.onclick=async()=>{
+    const m=lista.find(x=>x.id===b.dataset.det);if(!m)return;
+    const foto=await fotoHtml(m.notificacao_path,'documentos');
+    const linha=(k,v)=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #2a2a2a"><span style="color:#9a9a9a">${k}</span><span style="text-align:right">${v}</span></div>`;
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<div><h3 style="margin-top:0">🚨 Multa — ${esc(m.veiculos?.placa||'')}</h3>
+      ${linha('Motorista',esc(m.motoristas?.nome||'—'))}
+      ${linha('Órgão/autuação',esc(m.orgao||'—'))}
+      ${linha('Data da infração',fmtD(m.data_infracao))}
+      ${linha('Prazo',fmtD(m.prazo))}
+      ${linha('Valor',fmtBRL(m.valor))}
+      ${linha('Status',tag(m.status))}
+      ${m.obs?`<div style="margin-top:10px"><span style="color:#9a9a9a">Observações:</span><br>${esc(m.obs)}</div>`:''}
+      ${m.notificacao_path?`<div style="margin-top:12px"><span style="color:#9a9a9a">Notificação da multa:</span><br>${foto||'<p class="hint">Não foi possível carregar a foto agora.</p>'}</div>`:'<p class="hint" style="margin-top:12px">Sem foto da notificação anexada.</p>'}
+      ${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?`<button class="btn" id="md-cie" style="margin-top:12px">✅ Li e estou ciente desta multa</button>`:''}
+    </div>`;
+    w.classList.add('open');
+    w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    const x=document.createElement('button');x.className='btn sec';x.textContent='Fechar';x.style.cssText='margin-top:12px;width:100%';
+    x.onclick=()=>w.classList.remove('open');mm.appendChild(x);
+    const cie=document.getElementById('md-cie');
+    if(cie)cie.onclick=async()=>{
+      const {error}=await sb.rpc('confirmar_ciencia',{p_multa_id:m.id});
+      if(error){toast(err(error))}else{toast('Ciência registrada');w.classList.remove('open');go('multas')}
+    };
   });
 };
 /* ============ PÁGINAS — GERÊNCIA ============ */
