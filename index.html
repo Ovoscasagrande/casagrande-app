@@ -414,7 +414,7 @@ function menusPara(){
     pendente:['home'],
     gerencia:['home','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
     motorista:['home','jornada','gastos','recnovo','avisos','multas'],
-    conferente:['home','conferencia','despesas','recebimentos','avisos','multas'],
+    conferente:['home','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
     mecanico:['home','os']
   };
   let m=(base[ME.perfil]||base.gerencia).slice();
@@ -594,9 +594,30 @@ PAGES.jornada=async el=>{
     w.innerHTML=`<div class="sec"><h3>Jornada aberta — ${esc(aberta.veiculos?.placa||'')}${aberta.roteiro?` · Roteiro ${aberta.roteiro}`:''}</h3>
       <p class="hint">Início: ${fmtDT(aberta.inicio)} · Km inicial: ${km(aberta.km_inicial)}</p>
       <div id="j-crlv" style="margin:8px 0">${empty('Carregando documento…')}</div>
+      <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
+        <button class="btn mini" id="j-carga" type="button">📦 Registrar carregamento</button>
+        <span class="hint" id="j-carga-n" style="margin:0"></span>
+      </div>
+      <div id="j-cargas" style="margin-bottom:8px"></div>
       <label>Quilometragem final</label><input id="j-kmf" type="number" inputmode="numeric" placeholder="km na chegada">
       <label>Ocorrências (opcional)</label><textarea id="j-oc" placeholder="algo aconteceu no trajeto?"></textarea>
       <button class="btn" id="j-fechar">🏁 Finalizar jornada</button><div class="msg" id="j-msg2"></div></div>`;
+    // carregamentos: lista + registrar
+    (async()=>{
+      const {data:cgs}=await sb.from('jornada_carregamentos').select('*').eq('jornada_id',aberta.id).order('criado_em');
+      const render=()=>{
+        $('j-cargas').innerHTML=(cgs||[]).map(c=>`<div style="background:var(--field);border:1px solid #333;border-radius:10px;padding:8px 10px;font-size:12px;margin-bottom:6px">📦 Carregou em ${fmtDT(c.criado_em)}${c.observacao?' — '+esc(c.observacao):''}</div>`).join('');
+        $('j-carga-n').textContent=(cgs||[]).length?`${cgs.length} carregamento(s) nesta jornada`:'';
+      };
+      render();
+      $('j-carga').onclick=async()=>{
+        const obs=prompt('Observação do carregamento (opcional):');
+        if(obs===null)return;
+        const {error}=await sb.from('jornada_carregamentos').insert({jornada_id:aberta.id,motorista_id:ME.motorista.id,veiculo_id:aberta.veiculo_id,observacao:obs||null});
+        if(error){toast(err(error));return}
+        toast('Carregamento registrado');go('jornada');
+      };
+    })();
     (async()=>{
       const box=$('j-crlv');
       const {data:doc}=await sb.from('veiculos_documentos').select('arquivo_path,vencimento').eq('veiculo_id',aberta.veiculo_id).eq('tipo','CRLV-e').order('criado_em',{ascending:false}).limit(1).maybeSingle();
@@ -790,6 +811,7 @@ async function pagConfDetalhe(el,jid){
       <button class="btn mini" id="cf-rot-save" style="margin-top:0">💾 Salvar roteiro</button>
     </div>
     ${(j.roteiros_extra||[]).length?`<div class="hint" style="margin-top:6px">Roteiros extras: ${j.roteiros_extra.map(r=>'nº '+esc(r)).join(', ')}</div>`:''}
+    <div id="cf-cargas" class="hint" style="margin-top:6px"></div>
     <div class="row" style="margin-top:10px;font-size:13px"><div>📅 Saída<br>${fmtDT(j.inicio)}</div><div>🏁 Chegada<br>${fmtDT(j.fim)}</div></div>
     <div class="row" style="margin-top:8px;font-size:13px"><div>🛣️ Km<br>${km(j.km_inicial)} → ${km(j.km_final)}</div><div>📏 Percorridos<br><b style="color:var(--acc)">${kmP!=null?kmP.toLocaleString('pt-BR')+' km':'—'}</b></div></div>
     ${j.ocorrencias?`<div style="margin-top:10px;background:#241d1a;border:1px solid #5c3a2e;border-radius:10px;padding:10px;font-size:13px">⚠️ <b>Ocorrência do motorista:</b><br>${esc(j.ocorrencias)}</div>`:''}
@@ -805,6 +827,11 @@ async function pagConfDetalhe(el,jid){
     <div class="msg" id="cf-msg"></div>
   </div>`;
   $('cf-voltar').onclick=()=>go('conferencia');
+  (async()=>{
+    const {data:cgs}=await sb.from('jornada_carregamentos').select('*').eq('jornada_id',j.id).order('criado_em');
+    const el2=document.getElementById('cf-cargas');
+    if(el2)el2.innerHTML=(cgs||[]).length?`📦 Carregamentos: ${(cgs||[]).map(c=>fmtDT(c.criado_em)).join(' · ')}`:'';
+  })();
   $('cf-rot-save').onclick=async()=>{
     const n=parseInt($('cf-rot').value);
     if(!n){toast('Informe o número do roteiro');return}
