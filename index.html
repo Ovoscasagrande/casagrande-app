@@ -62,6 +62,14 @@ th{color:var(--mut);text-align:left;font-weight:600;padding:9px 10px;border-bott
 td{padding:9px 10px;border-bottom:1px solid #242424;vertical-align:top}
 tr:last-child td{border-bottom:none}
 .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+#modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:200;padding:16px}
+#modal-wrap.open{display:flex}
+#modal{background:var(--card,#1e1e1e);border:1px solid #333;border-radius:14px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;padding:18px}
+#modal h3{margin:0 0 12px;font-size:16px}
+#modal label{font-size:11px;color:var(--mut);margin:10px 0 4px;display:block}
+#modal input,#modal select,#modal textarea{width:100%;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:9px 10px;font-size:13px}
+#modal .mrow{display:flex;gap:8px;margin-top:14px}
+#modal .mrow .btn{flex:1}
 .tag.aberta{background:#3a2f14;color:var(--acc)}
 .tag.conferencia{background:#14304a;color:#7db8e8}
 .tag.fechada{background:#1c3320;color:#7fd88f}
@@ -155,6 +163,7 @@ body[data-emp="TRANSPORTADORA"]{--acc:#1e5aa8}
     <button class="btn sec" id="rd-voltar" style="margin-top:10px">← Voltar para o login</button>
   </div>
 </div>
+<div id="modal-wrap"><div id="modal"></div></div>
 <div id="app" class="hide">
   <header>
     <button class="burger" id="burger">☰</button>
@@ -246,6 +255,34 @@ function toast(t){const el=$('toast');el.textContent=t;el.classList.add('on');cl
 function fmt(v){return v==null||v===''?'—':v}
 function fmtD(d){if(!d)return'—';const x=new Date(d);return x.toLocaleDateString('pt-BR')}
 function fmtDT(d){if(!d)return'—';const x=new Date(d);return x.toLocaleDateString('pt-BR')+' '+x.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function pedirTexto(titulo,label,valor=''){
+  return new Promise(res=>{
+    openModal(titulo,[{id:'pt-val',label:label,tipo:'textarea',valor:valor}],async v=>{
+      if(!v['pt-val']||!v['pt-val'].trim()){toast('Informe o motivo');return false}
+      res(v['pt-val'].trim());return true;
+    });
+    const oldCancel=document.getElementById('m-cancel').onclick;
+    document.getElementById('m-cancel').onclick=()=>{document.getElementById('modal-wrap').classList.remove('open');res(null)};
+  });
+}
+function openModal(titulo,campos,aoSalvar){
+  const w=document.getElementById('modal-wrap'),m=document.getElementById('modal');
+  m.innerHTML=`<h3>${esc(titulo)}</h3>`+campos.map(f=>{
+    let inp;
+    if(f.tipo==='select')inp=`<select id="${f.id}">${(f.opcoes||[]).map(o=>`<option value="${esc(o[0])}" ${o[0]===(f.valor||'')?'selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
+    else if(f.tipo==='textarea')inp=`<textarea id="${f.id}" rows="3" placeholder="${esc(f.placeholder||'')}">${esc(f.valor||'')}</textarea>`;
+    else inp=`<input id="${f.id}" type="${f.tipo||'text'}" value="${esc(f.valor!=null?f.valor:'')}" placeholder="${esc(f.placeholder||'')}" ${f.inputmode?`inputmode="${f.inputmode}"`:''}>`;
+    return `<label>${esc(f.label)}</label>${inp}`;
+  }).join('')+`<div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="m-ok">Salvar</button></div>`;
+  w.classList.add('open');
+  document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+  w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+  document.getElementById('m-ok').onclick=async()=>{
+    const vals={};campos.forEach(f=>vals[f.id]=document.getElementById(f.id).value);
+    const ok=await aoSalvar(vals);
+    if(ok!==false)w.classList.remove('open');
+  };
+}
 function fmtBRL(v){return v==null?'—':Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function km(v){return v==null?'—':Number(v).toLocaleString('pt-BR',{maximumFractionDigits:0})+' km'}
 function hoje(){return new Date().toISOString().slice(0,10)}
@@ -775,7 +812,7 @@ PAGES.despesas=async el=>{
   <td>${(x.status==='aguardando'&&(ME.perfil==='gerencia'||ME.perfil==='conferente'))?`<button class="btn mini" data-ok="${x.id}">✓</button> <button class="btn mini" data-no="${x.id}">✗</button>`:''}</td></tr>`).join('')}</table></div>`;
   d.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(await upd('despesas',b.dataset.ok,{status:'aprovada',aprovada_por:ME.id,aprovada_em:new Date().toISOString()}))go('despesas')});
   d.querySelectorAll('[data-no]').forEach(b=>b.onclick=async()=>{
-    const motivo=prompt('Motivo da reprovação:');
+    const motivo=await pedirTexto('Reprovar despesa','Motivo da reprovação');if(motivo===null)return;
     if(motivo===null)return;
     if(await upd('despesas',b.dataset.no,{status:'reprovada',motivo_reprovacao:motivo,aprovada_por:ME.id,aprovada_em:new Date().toISOString()}))go('despesas');
   });
@@ -1160,48 +1197,37 @@ PAGES.motoristas=async el=>{
     const mid=b.dataset.vv;
     const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
     const {data:atual}=await sb.from('motorista_veiculo').select('id,veiculo_id,ativo,veiculos(placa)').eq('motorista_id',mid);
-    const ativos=(atual||[]).filter(x=>x.ativo);
-    const nomes=vs||[];
-    const nomeDe=id=>nomes.find(v=>v.id===id)?.placa||'?';
-    let ligados=ativos.map(x=>nomeDe(x.veiculo_id));
-    for(;;){
-      const msg='VEÍCULOS DESTE MOTORISTA:\n'+(ligados.length?ligados.map((p,i)=>'  • '+p).join('\n'):'  (nenhum)')+
-        '\n\nFROTA (número = opção):\n'+nomes.map((v,i)=>(i+1)+'. '+v.placa+(v.modelo?' · '+v.modelo:'')).join('\n')+
-        '\n\nDigite o NÚMERO para ADICIONAR · o número com X na frente (ex.: X3) para REMOVER · 0 para concluir:';
-      const r=prompt(msg,'0');
-      if(r===null)return;
-      const t=(r||'').trim().toUpperCase();
-      if(t==='0'||t===''){break}
-      const rem=t.startsWith('X');
-      const n=parseInt(rem?t.slice(1):t);
-      if(!n||n<1||n>nomes.length){toast('Opção inválida: '+r);continue}
-      const v=nomes[n-1];
-      if(rem){
-        const alvo=ativos.find(x=>x.veiculo_id===v.id);
-        if(!alvo){toast(v.placa+' não está vinculado');continue}
-        if(await sb.from('motorista_veiculo').update({ativo:false}).eq('id',alvo.id).then(r=>!r)){ligados=ligados.filter(p=>p!==v.placa);toast('Removido: '+v.placa)}
-      }else{
-        if(ativos.find(x=>x.veiculo_id===v.id)){toast(v.placa+' já está vinculado');continue}
-        const {error}=await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:v.id,ativo:true});
-        if(!error){ativos.push({veiculo_id:v.id});ligados.push(v.placa);toast('Vinculado: '+v.placa)}
+    const ativos=new Set((atual||[]).filter(x=>x.ativo).map(x=>x.veiculo_id));
+    const campos=(vs||[]).map(v=>({id:'vv-'+v.id,label:v.placa+(v.modelo?' · '+v.modelo:'')+(v.empresa&&v.empresa!=='AMBAS'?' ('+v.empresa+')':''),tipo:'vvchk',valor:ativos.has(v.id)}));
+    const w=document.getElementById('modal-wrap'),m=document.getElementById('modal');
+    m.innerHTML=`<h3>🚚 Veículos do motorista</h3><p class="hint" style="margin:0 0 8px">Toque para marcar/desmarcar. Pode deixar vários — o caminhão em viagem fica bloqueado sozinho.</p>`+
+      campos.map(f=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #242424;cursor:pointer"><input type="checkbox" id="${f.id}" ${f.valor?'checked':''} style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">${esc(f.label)}</span></label>`).join('')+
+      `<div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="m-ok">Salvar</button></div>`;
+    w.classList.add('open');
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-ok').onclick=async()=>{
+      let n=0;
+      for(const v of vs||[]){
+        const marcado=document.getElementById('vv-'+v.id).checked;
+        if(marcado&&!ativos.has(v.id)){const {error}=await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:v.id,ativo:true});if(!error)n++}
+        if(!marcado&&ativos.has(v.id)){await sb.from('motorista_veiculo').update({ativo:false}).eq('motorista_id',mid).eq('veiculo_id',v.id);n++}
       }
-    }
-    go('motoristas');
+      w.classList.remove('open');toast(n?'Vínculos atualizados':'Nada mudou');go('motoristas');
+    };
   });
   l.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{
     const m=(lista||[]).find(x=>x.id===b.dataset.ed);if(!m)return;
-    const cpf=prompt('CPF:',m.cpf||'');if(cpf===null)return;
-    const cnh=prompt('CNH:',m.cnh||'');if(cnh===null)return;
-    const cat=prompt('Categoria da CNH:',m.cnh_categoria||'');if(cat===null)return;
-    const val=prompt('Validade da CNH (DD-MM-AAAA):',m.cnh_validade?m.cnh_validade.split('-').reverse().join('-'):'');if(val===null)return;
-    let valIso=null;
-    if(val){const p=val.split('-').map(x=>x.trim());
-      if(p.length===3&&p[0].length===2&&p[2].length===4){valIso=p[2]+'-'+p[1]+'-'+p[0]}
-      else{$('m-msg')&&($('m-msg').className='msg err');toast('Data inválida — use DD-MM-AAAA (ex.: 15-03-2027)');return}}
-    else{valIso=null}
-    const cont=prompt('Contato:',m.contato||'');if(cont===null)return;
-    const sit=(cpf&&cnh&&val)?'completo':'incompleto';
-    if(await upd('motoristas',m.id,{cpf:cpf||null,cnh:cnh||null,cnh_categoria:cat||null,cnh_validade:valIso,contato:cont||null,situacao:sit}))go('motoristas');
+    openModal('Editar motorista — '+m.nome,[
+      {id:'ed-cpf',label:'CPF',valor:m.cpf||'',placeholder:'000.000.000-00',inputmode:'numeric'},
+      {id:'ed-cnh',label:'CNH',valor:m.cnh||'',inputmode:'numeric'},
+      {id:'ed-cat',label:'Categoria da CNH',valor:m.cnh_categoria||'',placeholder:'D / E'},
+      {id:'ed-val',label:'Validade da CNH',tipo:'date',valor:m.cnh_validade||''},
+      {id:'ed-cont',label:'Contato (WhatsApp)',valor:m.contato||'',placeholder:'(19) 99999-9999',inputmode:'tel'},
+    ],async v=>{
+      const sit=(v['ed-cpf']&&v['ed-cnh']&&v['ed-val'])?'completo':'incompleto';
+      return await upd('motoristas',m.id,{cpf:v['ed-cpf']||null,cnh:v['ed-cnh']||null,cnh_categoria:v['ed-cat']||null,cnh_validade:v['ed-val']||null,contato:v['ed-cont']||null,situacao:sit})?(go('motoristas'),true):false;
+    });
   });
 };
 PAGES.jornadas=async el=>{
@@ -1242,14 +1268,18 @@ PAGES.os=async el=>{
   <td>${ME.perfil==='mecanico'&&o.status!=='concluida'?`<button class="btn mini" data-osd="${o.id}">✏️ Atualizar</button>`:''}</td></tr>`).join('')}</table></div>`;
   l.querySelectorAll('[data-osd]').forEach(b=>b.onclick=async()=>{
     const o=lista.find(x=>x.id===b.dataset.osd);
-    const diag=prompt('Diagnóstico:',o.diagnostico||'');if(diag===null)return;
-    const serv=prompt('Serviço realizado:',o.servico||'');if(serv===null)return;
-    const pecas=prompt('Peças utilizadas:',o.pecas||'');if(pecas===null)return;
-    const mo=prompt('Mão de obra (R$):',o.mao_obra||'');if(mo===null)return;
-    const custos=prompt('Outros custos (R$):',o.custos||'');if(custos===null)return;
-    const novoStatus=FLOW[o.status]||o.status;
-    const r=await upd('ordens_servico',o.id,{diagnostico:diag,servico:serv,pecas:pecas,mao_obra:parseFloat(mo)||null,custos:parseFloat(custos)||null,status:novoStatus,concluida_em:novoStatus==='concluida'?new Date().toISOString():o.concluida_em});
-    if(r){toast('OS atualizada');go('os')}
+    openModal('Atualizar OS — '+(o.veiculos?.placa||''),[
+      {id:'os-diag',label:'Diagnóstico',tipo:'textarea',valor:o.diagnostico||''},
+      {id:'os-serv',label:'Serviço realizado',tipo:'textarea',valor:o.servico||''},
+      {id:'os-pecas',label:'Peças utilizadas',valor:o.pecas||''},
+      {id:'os-mo',label:'Mão de obra (R$)',tipo:'number',valor:o.mao_obra||''},
+      {id:'os-custos',label:'Outros custos (R$)',tipo:'number',valor:o.custos||''},
+    ],async v=>{
+      const novoStatus=FLOW[o.status]||o.status;
+      const r=await upd('ordens_servico',o.id,{diagnostico:v['os-diag'],servico:v['os-serv'],pecas:v['os-pecas'],mao_obra:parseFloat(v['os-mo'])||null,custos:parseFloat(v['os-custos'])||null,status:novoStatus,concluida_em:novoStatus==='concluida'?new Date().toISOString():o.concluida_em});
+      if(r){toast('OS atualizada');go('os');return true}
+      return false;
+    });
   });
 };
 PAGES.usuarios=async el=>{
