@@ -137,6 +137,11 @@ body[data-emp="TRANSPORTADORA"]{--acc:#1e5aa8}
     <label>Seu nome</label><input id="cr-nome" placeholder="nome completo">
     <label>Email</label><input id="cr-email" type="email" autocomplete="username">
     <label>Senha (mín. 6)</label><input id="cr-pass" type="password" autocomplete="new-password">
+    <label>CPF</label><input id="cr-cpf" inputmode="numeric" placeholder="000.000.000-00">
+    <label>CNH</label><input id="cr-cnh" inputmode="numeric" placeholder="nº da CNH">
+    <div class="row"><div><label>Categoria</label><input id="cr-cat" placeholder="D / E"></div><div><label>Validade da CNH</label><input id="cr-val" type="date"></div></div>
+    <label>Contato (WhatsApp)</label><input id="cr-cont" inputmode="tel" placeholder="(19) 99999-9999">
+    <p class="hint" style="margin:6px 0 0">A gerência confere esses dados na hora de liberar seu acesso.</p>
     <button class="btn" id="cr-btn">Criar minha conta</button>
     <div class="msg" id="cr-msg"></div>
     <button class="btn sec" id="cr-voltar" style="margin-top:10px">← Voltar para o login</button>
@@ -308,7 +313,8 @@ $('cr-btn').onclick=async()=>{
     const {error}=await sb.auth.signUp({email,password:pass});
     if(error)throw error;
     let pendOk=false;
-    try{const {error:e2}=await sb.rpc('auto_cadastro_pendente',{p_nome:nome});pendOk=!e2}catch(_){}
+    const cpf=$('cr-cpf').value.trim(),cnh=$('cr-cnh').value.trim(),cat=$('cr-cat').value.trim(),val=$('cr-val').value,cont=$('cr-cont').value.trim();
+    try{const {error:e2}=await sb.rpc('auto_cadastro_pendente',{p_nome:nome,p_cpf:cpf,p_cnh:cnh,p_cat:cat,p_val:val||null,p_contato:cont});pendOk=!e2}catch(_){}
     try{await sb.auth.signOut()}catch(_){}
     $('card-criar').classList.add('hide');$('card-login').classList.remove('hide');
     $('li-msg').className='msg ok';
@@ -1142,11 +1148,30 @@ PAGES.motoristas=async el=>{
   const l=$('mo-list');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhum motorista');return}
   const hojeStr=hoje();
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>CPF</th><th>CNH</th><th>Validade</th><th>Situação</th><th></th></tr>
-  ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;return `<tr><td><b>${esc(m.nome)}</b></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
-  <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-ed="${m.id}">✏️</button> <button class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
+  const {data:vinc}=await sb.from('motorista_veiculo').select('motorista_id,ativo,veiculos(id,placa,modelo)');
+  const vincBy={};(vinc||[]).forEach(v=>{if(v.ativo)vincBy[v.motorista_id]=vincBy[v.motorista_id]||[];if(v.ativo)vincBy[v.motorista_id].push(v.veiculos)});
+  l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>CPF</th><th>CNH</th><th>Validade</th><th>Veículo</th><th>Situação</th><th></th></tr>
+  ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';return `<tr><td><b>${esc(m.nome)}</b></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
+  <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-vv="${m.id}">🚚 veículo</button> <button class="btn mini" data-ed="${m.id}">✏️</button> <button class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
     if(await upd('motoristas',b.dataset.tg,{ativo:b.dataset.a==='1'}))go('motoristas');
+  });
+  l.querySelectorAll('[data-vv]').forEach(b=>b.onclick=async()=>{
+    const mid=b.dataset.vv;
+    const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
+    const {data:atual}=await sb.from('motorista_veiculo').select('id,veiculo_id,ativo,veiculos(placa)').eq('motorista_id',mid);
+    const ativos=(atual||[]).filter(x=>x.ativo);
+    const lista2=(vs||[]).map(v=>v.placa+(v.modelo?' · '+v.modelo:'')+'|'+v.id).join('\n');
+    const msg='Veículos disponíveis (número = opção):\n'+(vs||[]).map((v,i)=>(i+1)+'. '+v.placa+(v.modelo?' · '+v.modelo:'')).join('\n')+'\n\nDigite o NÚMERO para VINCULAR (0 = deixar sem veículo):';
+    const r=prompt(msg,'0');
+    if(r===null)return;
+    const n=parseInt(r);
+    if(n>0&&(!vs||!vs[n-1])){toast('Opção inválida');return}
+    // desativa vínculos atuais
+    for(const x of ativos){await sb.from('motorista_veiculo').update({ativo:false}).eq('id',x.id)}
+    if(n>0){await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:vs[n-1].id,ativo:true});toast('Veículo vinculado: '+vs[n-1].placa)}
+    else{toast('Motorista sem veículo vinculado')}
+    go('motoristas');
   });
   l.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{
     const m=(lista||[]).find(x=>x.id===b.dataset.ed);if(!m)return;
@@ -1235,8 +1260,16 @@ PAGES.usuarios=async el=>{
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
           <select data-perfil="${u.id}" class="mini-sel">${opt([['motorista','Motorista'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],u.perfil!=='pendente'?u.perfil:'motorista')}</select>
           <select data-emp="${u.id}" class="mini-sel">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas']],u.empresa&&u.empresa!=='OVOS'?u.empresa:'OVOS')}</select>
+          <span data-veic-wrap="${u.id}" style="display:none"><select data-veic="${u.id}" class="mini-sel"><option value="">— sem veículo —</option></select></span>
           <button class="btn mini" data-apr="${u.id}">✓ Aprovar</button>
           <button class="btn mini" data-rec="${u.id}" style="border-color:#5c3a2e">✗ Recusar</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:var(--mut)">
+          <span>CPF: <input data-cpf="${u.id}" value="${esc(u.cpf||'')}" style="width:110px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:6px;padding:4px 6px;font-size:11px"></span>
+          <span>CNH: <input data-cnh="${u.id}" value="${esc(u.cnh||'')}" style="width:90px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:6px;padding:4px 6px;font-size:11px"></span>
+          <span>Cat.: <input data-cat="${u.id}" value="${esc(u.cnh_categoria||'')}" placeholder="D/E" style="width:44px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:6px;padding:4px 6px;font-size:11px"></span>
+          <span>Validade: <input data-val="${u.id}" type="date" value="${esc(u.cnh_validade||'')}" style="background:var(--field);color:var(--ink);border:1px solid #333;border-radius:6px;padding:4px 6px;font-size:11px"></span>
+          <span>Contato: <input data-cont="${u.id}" value="${esc(u.contato||'')}" style="width:110px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:6px;padding:4px 6px;font-size:11px"></span>
         </div>
       </div>`}).join('')+`</div>`;
   }else{pw.innerHTML=`<div class="sec"><p class="hint">Nenhum cadastro aguardando aprovação ✓</p></div>`}
@@ -1244,19 +1277,36 @@ PAGES.usuarios=async el=>{
   l.innerHTML=ativos.length?`<div class="sec"><h3>👥 Cadastrados (${ativos.length})</h3><div class="tblwrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresa</th><th></th></tr>
   ${ativos.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td>
   <td><button class="btn mini" data-ued="${u.id}">✏️</button></td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
+  // ---- veículos para vínculo na aprovação ----
+  (async()=>{
+    const {data:vlist}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
+    pw.querySelectorAll('[data-veic]').forEach(sel=>{
+      sel.innerHTML='<option value="">— sem veículo —</option>'+(vlist||[]).map(v=>`<option value="${v.id}">${esc(v.placa)}${v.modelo?' · '+esc(v.modelo):''}${v.empresa&&v.empresa!=='AMBAS'?' ('+v.empresa+')':''}</option>`).join('');
+    });
+  })();
   // ---- aprovar/recusar ----
+  pw.querySelectorAll('[data-perfil]').forEach(sel=>sel.onchange=()=>{
+    const id=sel.dataset.perfil,w=document.querySelector(`[data-veic-wrap="${id}"]`);
+    if(w)w.style.display=sel.value==='motorista'?'':'none';
+  });
   pw.querySelectorAll('[data-apr]').forEach(b=>b.onclick=async()=>{
     const id=b.dataset.apr;
     const selP=document.querySelector(`[data-perfil="${id}"]`),selE=document.querySelector(`[data-emp="${id}"]`);
     const p=selP.value,e=selE.value;
-    const r=await upd('usuarios',id,{perfil:p,empresa:e});
+    const g=n=>document.querySelector(`[${n}="${id}"]`);
+    const dados={cpf:g('data-cpf')?.value.trim()||null,cnh:g('data-cnh')?.value.trim()||null,cnh_categoria:g('data-cat')?.value.trim()||null,cnh_validade:g('data-val')?.value||null,contato:g('data-cont')?.value.trim()||null};
+    const sit=(dados.cpf&&dados.cnh&&dados.cnh_validade)?'completo':'incompleto';
+    const r=await upd('usuarios',id,{perfil:p,empresa:e,...dados});
     if(!r)return;
     if(p==='motorista'){
       const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',id).maybeSingle();
-      if(!mex){const u=lista.find(x=>x.id===id);await sb.from('motoristas').insert({nome:u?u.nome:'Motorista',usuario_id:id,situacao:'incompleto',empresa:e==='AMBAS'?'OVOS':e})}
-      else{await sb.from('motoristas').update({empresa:e==='AMBAS'?'OVOS':e}).eq('usuario_id',id)}
+      let mid=mex?.id;
+      if(!mid){const u=lista.find(x=>x.id===id);const {data:mn}=await sb.from('motoristas').insert({nome:u?u.nome:'Motorista',usuario_id:id,situacao:sit,empresa:e==='AMBAS'?'OVOS':e,...dados}).select('id');mid=mn?.[0]?.id}
+      else{await sb.from('motoristas').update({empresa:e==='AMBAS'?'OVOS':e,situacao:sit,...dados}).eq('usuario_id',id)}
+      const vid=document.querySelector(`[data-veic="${id}"]`)?.value;
+      if(mid&&vid){await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:vid,ativo:true})}
     }
-    await sb.from('notificacoes').insert({usuario_id:id,titulo:'Cadastro aprovado ✓',corpo:'Seu acesso foi liberado'+(p==='motorista'?' — vincule seu caminhão com a gerência':''),link:'home'});
+    await sb.from('notificacoes').insert({usuario_id:id,titulo:'Cadastro aprovado ✓',corpo:'Seu acesso foi liberado'+(p==='motorista'?' — bom trabalho!':''),link:'home'});
     toast('Aprovado: '+p+' · '+e);go('usuarios');
   });
   pw.querySelectorAll('[data-rec]').forEach(b=>b.onclick=async()=>{
