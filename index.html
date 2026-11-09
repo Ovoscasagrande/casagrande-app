@@ -796,6 +796,10 @@ async function pagConfDetalhe(el,jid){
   </div>
   <div class="sec"><h3>Comprovantes da jornada (${comps.length})</h3><div id="cf-comps">${comps.length?'':empty('Nenhum comprovante anexado a esta jornada')}</div></div>
   <div class="sec"><h3>Checklist de conferência</h3><div id="cf-itens"></div>
+    <div style="margin-top:12px">
+      <label style="font-size:11px;color:var(--mut)">📄 NF que voltou (opcional — se alguma nota retornou, digite o número aqui)</label>
+      <input id="cf-nf" placeholder="ex.: 12345, 12346" style="width:100%;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:9px 10px;font-size:13px;margin-top:4px">
+    </div>
     <div style="margin-top:12px;font-size:12px;color:var(--mut)" id="cf-prog"></div>
     <button class="btn" id="cf-fechar" style="margin-top:10px">✓ Fechar jornada</button>
     <div class="msg" id="cf-msg"></div>
@@ -852,14 +856,19 @@ async function pagConfDetalhe(el,jid){
   const atualizaProg=()=>{
     const ok=CONF_ITENS.filter(it=>estado[it]&&estado[it].ok===true).length;
     const no=CONF_ITENS.filter(it=>estado[it]&&estado[it].ok===false).length;
+    const nfLivre=($('cf-nf')?.value||'').trim().length>0;
     $('cf-prog').textContent=`${ok}/5 conferidos${no?` · ${no} pendente(s) — fica registrado quem marcou e quando`:''}`;
-    $('cf-fechar').disabled=ok<5;
-    $('cf-fechar').textContent=ok<5?`Faltam ${5-ok} item(ns)`:'✓ Fechar jornada';
+    $('cf-fechar').disabled=ok<5&&!nfLivre;
+    $('cf-fechar').textContent=ok<5?(nfLivre?'✓ Fechar jornada (com NF devolvida)':`Faltam ${5-ok} item(ns)`):'✓ Fechar jornada';
   };
+  $('cf-nf').addEventListener('input',atualizaProg);
   renderItens();atualizaProg();
   $('cf-fechar').onclick=async()=>{
-    const r=await upd('jornadas',jid,{status:'fechada',conferida_por:ME.id,conferida_em:new Date().toISOString()});
-    if(r){toast('Jornada fechada ✓');go('conferencia')}
+    const nf=($('cf-nf')?.value||'').trim();
+    const patch={status:'fechada',conferida_por:ME.id,conferida_em:new Date().toISOString()};
+    if(nf)patch.ocorrencias=(j.ocorrencias?j.ocorrencias+' | ':'')+'NF devolvida: '+nf;
+    const r=await upd('jornadas',jid,patch);
+    if(r){toast('Jornada fechada ✓'+(nf?' (NF devolvida registrada)':''));go('conferencia')}
   };
 };
 PAGES.abastecimentos=async el=>{
