@@ -361,7 +361,7 @@ function logout(){sb.auth.signOut().then(()=>location.reload())}
 function menusPara(){
   const base={
     pendente:['home'],
-    gerencia:['home','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','documentos','tipos','usuarios','auditoria'],
+    gerencia:['home','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','documentos','tipos','usuarios','auditoria'],
     motorista:['home','jornada','gastos','recnovo','avisos','multas','documentos'],
     conferente:['home','conferencia','despesas','recebimentos','avisos','multas'],
     mecanico:['home','os']
@@ -374,7 +374,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
+const TITLES={relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
 function buildNav(){
   const items=menusPara();
   NAV=items;
@@ -384,7 +384,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
+const ICONS={relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -1001,6 +1001,102 @@ async function renderCharts(e){
   }
   renderTab();
 }
+PAGES.relatorios=async el=>{
+  el.innerHTML=`<h1 class="pg">Relatórios</h1><div id="rel">${empty('Carregando…')}</div>`;
+  const ini='2026-06-01', fim='2026-11-30';
+  const [mts,jrn,abs,desp,mlt]=await Promise.all([
+    empFilter(sb.from('motoristas').select('id,nome,empresa')),
+    empFilter(sb.from('jornadas').select('motorista_id,km_inicial,km_final,inicio')).gte('inicio',ini).lte('inicio',fim+'T23:59:59'),
+    empFilter(sb.from('abastecimentos').select('motorista_id,posto,litros,valor_total,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
+    empFilter(sb.from('despesas').select('motorista_id,categoria,valor,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
+    empFilter(sb.from('multas').select('motorista_id,valor,data_infracao')).gte('data_infracao',ini)
+  ]);
+  const M=mts.data||[],J=jrn.data||[],A=abs.data||[],D=desp.data||[],X=mlt.data||[];
+  const box=$('rel');
+  const fmtK=v=>v>=1000?(v/1000).toFixed(1).replace('.',',')+'k':Math.round(v);
+  const acc=chartTheme().ok;
+  const meses=['Jun','Jul','Ago','Set','Out','Nov'];
+  const idx=dt=>{const mm=(dt||'').slice(5,7);return meses[Number(mm)-6]||null};
+  const mk=()=>{const m={};meses.forEach(x=>m[x]=0);return m};
+  const mComb=mk(),mDesp=mk();
+  A.forEach(x=>{const k=idx(x.data);if(k)mComb[k]+=Number(x.valor_total||0)});
+  D.forEach(x=>{const k=idx(x.data);if(k)mDesp[k]+=Number(x.valor||0)});
+  // ---- postos ----
+  const postos={};
+  A.forEach(x=>{const pn=(x.posto||'—').trim()||'—';const g=postos[pn]=postos[pn]||{n:0,L:0,R:0};g.n++;g.L+=Number(x.litros||0);g.R+=Number(x.valor_total||0)});
+  const pTop=Object.entries(postos).sort((a,b)=>b[1].R-a[1].R);
+  // ---- categorias ----
+  const cats={};
+  D.forEach(x=>{const c=(x.categoria||'Outros').trim()||'Outros';cats[c]=(cats[c]||0)+Number(x.valor||0)});
+  const cTop=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  const ehManut=c=>/pe[cç]a|pneu|manuten|borrachari|mec[aâ]nic|[óo]leo|oficina/i.test(c||'');
+  // ---- motoristas ----
+  const mot={};
+  M.forEach(m=>mot[m.id]={nome:m.nome,nJ:0,km:0,L:0,comb:0,manut:0,outras:0,multas:0,vMultas:0});
+  J.forEach(x=>{const g=mot[x.motorista_id];if(!g)return;g.nJ++;if(x.km_final!=null)g.km+=Number(x.km_final)-Number(x.km_inicial)});
+  A.forEach(x=>{const g=mot[x.motorista_id];if(!g)return;g.L+=Number(x.litros||0);g.comb+=Number(x.valor_total||0)});
+  D.forEach(x=>{const g=mot[x.motorista_id];if(!g)return;if(ehManut(x.categoria))g.manut+=Number(x.valor||0);else g.outras+=Number(x.valor||0)});
+  X.forEach(x=>{const g=mot[x.motorista_id];if(!g)return;g.multas++;g.vMultas+=Number(x.valor||0)});
+  Object.values(mot).forEach(g=>{g.total=g.comb+g.manut+g.outras+g.vMultas;g.kml=g.L>0?g.km/g.L:0});
+  let rows=Object.values(mot).filter(g=>g.nJ||g.comb||g.manut||g.outras||g.multas);
+  // ---- abas ----
+  const tabs=[['gastos','💰 Gastos'],['motoristas','🧑‍✈️ Motoristas']];
+  if(!window.__relTab)window.__relTab='gastos';
+  const destr=()=>{Object.keys(CHARTS).forEach(k=>{if(k.startsWith('rel')){try{CHARTS[k].destroy()}catch(_){}delete CHARTS[k]}})};
+  function renderTab(){
+    destr();
+    const t=window.__relTab;
+    let html=`<div class="dbtabs">${tabs.map(x=>`<button data-t="${x[0]}" class="${t===x[0]?'on':''}">${x[1]}</button>`).join('')}</div><div id="rel-body"></div>`;
+    box.innerHTML=html;
+    box.querySelectorAll('.dbtabs button').forEach(b=>b.onclick=()=>{window.__relTab=b.dataset.t;renderTab()});
+    const el=document.getElementById('rel-body');
+    if(t==='gastos'){
+      const tComb=A.reduce((s,x)=>s+Number(x.valor_total||0),0),tDesp=D.reduce((s,x)=>s+Number(x.valor||0),0);
+      el.innerHTML=`<div class="kpis">
+        <div class="kpi"><div class="v">${fmtBRL(tComb+tDesp)}</div><div class="l">Total gasto (6 meses)</div></div>
+        <div class="kpi"><div class="v">${fmtBRL(tComb)}</div><div class="l">⛽ Combustível</div></div>
+        <div class="kpi"><div class="v">${fmtBRL(tDesp)}</div><div class="l">🔧 Outras despesas</div></div>
+        <div class="kpi"><div class="v">${pTop.length}</div><div class="l">Postos diferentes</div></div>
+      </div>
+      <div class="sec"><h3>📅 Gasto por mês — combustível × despesas</h3><div style="height:210px"><canvas id="rel-mes"></canvas></div></div>
+      <div class="sec"><h3>🏪 Postos — quanto abasteceu em cada um</h3>
+        ${pTop.length?`<p class="hint">🏆 O posto que mais abastece: <b>${esc(pTop[0][0])}</b> — ${pTop[0][1].n} abastecimentos · ${fmtBRL(pTop[0][1].R)} · ${Math.round(pTop[0][1].L).toLocaleString('pt-BR')} L</p><div style="height:${Math.min(pTop.length,8)*34+40}px"><canvas id="rel-postos"></canvas></div>`:`<p class="hint">Sem abastecimentos no período.</p>`}
+      </div>
+      <div class="sec"><h3>🥧 Despesas por tipo</h3>${cTop.length?`<div style="height:230px"><canvas id="rel-cats"></canvas></div>`:`<p class="hint">Sem despesas no período.</p>`}</div>`;
+      if(CHARTS['rel-mes'])CHARTS['rel-mes'].destroy();
+      CHARTS['rel-mes']=new Chart(document.getElementById('rel-mes'),{type:'bar',data:{labels:meses,datasets:[
+        {label:'⛽ Combustível',data:meses.map(m=>Math.round(mComb[m])),backgroundColor:acc},
+        {label:'🔧 Despesas',data:meses.map(m=>Math.round(mDesp[m])),backgroundColor:'#4a90d9'}]},
+        options:{responsive:true,plugins:{legend:{labels:{color:'#9a9a9a',font:{size:10}}}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}}}}});
+      if(pTop.length){
+        const top=pTop.slice(0,8);
+        CHARTS['rel-postos']=new Chart(document.getElementById('rel-postos'),{type:'bar',data:{labels:top.map(x=>x[0]),datasets:[{label:'R$ abastecidos',data:top.map(x=>Math.round(x[1].R)),backgroundColor:acc}]},
+          options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
+      }
+      if(cTop.length){
+        let ent=cTop.slice(0,6);
+        if(cTop.length>6)ent=ent.slice(0,5).concat([['Outros',cTop.slice(5).reduce((s,x)=>s+x[1],0)]]);
+        CHARTS['rel-cats']=new Chart(document.getElementById('rel-cats'),{type:'doughnut',data:{labels:ent.map(x=>x[0]),datasets:[{data:ent.map(x=>Math.round(x[1])),backgroundColor:[acc,'#4a90d9','#3ecf6e','#e05252','#9a6ad9','#e0a052'],borderColor:'#1a1a1a',borderWidth:2}]},
+          options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9a9a9a',font:{size:10},boxWidth:12}}}}});
+      }
+    }
+    if(t==='motoristas'){
+      const ordenar={km:(a,b)=>b.km-a.km,manut:(a,b)=>b.manut-a.manut,total:(a,b)=>b.total-a.total};
+      if(!window.__relSort)window.__relSort='km';
+      rows.sort(ordenar[window.__relSort]);
+      el.innerHTML=`<div class="dbtabs" style="margin-top:0">
+        <button data-s="km" class="${window.__relSort==='km'?'on':''}">🛣️ Mais rodou</button>
+        <button data-s="manut" class="${window.__relSort==='manut'?'on':''}">🔧 Mais gastou manutenção</button>
+        <button data-s="total" class="${window.__relSort==='total'?'on':''}">💰 Maior gasto total</button>
+      </div>
+      <div class="sec"><div class="tblwrap"><table><tr><th>Motorista</th><th>Jorn.</th><th>Km</th><th>km/L</th><th>⛽ R$</th><th>🔧 Manut. R$</th><th>Outros R$</th><th>🚨 Multas</th><th>TOTAL R$</th></tr>
+      ${rows.map((g,i)=>`<tr${i===0?' style="background:rgba(252,200,92,.08)"':''}><td><b>${esc(g.nome)}</b></td><td>${g.nJ}</td><td>${Math.round(g.km).toLocaleString('pt-BR')}</td><td>${g.kml?g.kml.toFixed(1).replace('.',','):'—'}</td><td>${Math.round(g.comb).toLocaleString('pt-BR')}</td><td>${Math.round(g.manut).toLocaleString('pt-BR')}</td><td>${Math.round(g.outras).toLocaleString('pt-BR')}</td><td>${g.multas?g.multas+' × '+Math.round(g.vMultas).toLocaleString('pt-BR'):'—'}</td><td><b>${Math.round(g.total).toLocaleString('pt-BR')}</b></td></tr>`).join('')}
+      </table></div><p class="hint">Período: jun → nov 2026 · linha destacada = 1º do critério escolhido · manutenção = peças, pneus, mecânica e óleo.</p></div>`;
+      el.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{window.__relSort=b.dataset.s;renderTab()});
+    }
+  }
+  renderTab();
+};
 PAGES.veiculos=async el=>{
   el.innerHTML=`<h1 class="pg">Veículos</h1>
   <div class="sec"><h3>Novo veículo</h3>
