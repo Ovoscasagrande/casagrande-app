@@ -1526,7 +1526,15 @@ PAGES.usuarios=async el=>{
     const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
     const p=prompt('Perfil (gerencia/motorista/conferente/mecanico):',u.perfil||'motorista');if(p===null)return;
     const e=prompt('Empresa (OVOS/TRANSPORTADORA/AMBAS):',u.empresa||'OVOS');if(e===null)return;
-    if(await upd('usuarios',u.id,{perfil:p.trim().toLowerCase(),empresa:e.trim().toUpperCase()}))go('usuarios');
+    const np=p.trim().toLowerCase(),ne=e.trim().toUpperCase();
+    const r=await upd('usuarios',u.id,{perfil:np,empresa:ne});
+    if(!r)return;
+    if(np==='motorista'){
+      const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',u.id).maybeSingle();
+      if(!mex){await sb.from('motoristas').insert({nome:u.nome,usuario_id:u.id,situacao:'incompleto',empresa:ne==='AMBAS'?'OVOS':ne})}
+      else{await sb.from('motoristas').update({empresa:ne==='AMBAS'?'OVOS':ne}).eq('usuario_id',u.id)}
+    }
+    go('usuarios');
   });
 };
 PAGES.auditoria=async el=>{
