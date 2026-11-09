@@ -91,6 +91,9 @@ main>*{position:relative;z-index:1}
 :root{--acc-ovos:#fcc85c;--acc-transp:#1e5aa8}
 .emp-btn{display:inline-flex;align-items:center;gap:6px;background:var(--field);border:1px solid #333;color:var(--ink);border-radius:18px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
 .emp-btn span{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.dbtabs{display:flex;gap:6px;margin:2px 0 10px;overflow-x:auto}
+.dbtabs button{flex:1;min-width:104px;background:var(--field);border:1px solid #333;color:var(--mut);border-radius:10px;padding:9px 6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.dbtabs button.on{background:var(--acc);color:#111;border-color:var(--acc)}
 .emp-menu{position:absolute;top:54px;right:10px;background:var(--card);border:1px solid #333;border-radius:12px;padding:6px;display:none;z-index:80;box-shadow:0 8px 24px rgba(0,0,0,.55);min-width:220px}
 .emp-menu.open{display:block}
 .emp-menu button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:10px 12px;border-radius:8px;font-size:13px;cursor:pointer}
@@ -881,25 +884,27 @@ const CHARTS={};
 function chartTheme(){return {ok:getComputedStyle(document.body).getPropertyValue('--acc').trim()||'#fcc85c'}}
 async function renderCharts(e){
   const box=document.getElementById('db-charts');if(!box)return;
-  const f=x=>x.slice(0,10);
+  const f=x=>(x||'').slice(0,10);
   const ini='2026-10-01', fim='2026-11-30';
-  const [jrn,abs,desp,rec]=await Promise.all([
+  const [jrn,abs,desp,rec,mlt,despP]=await Promise.all([
     empFilter(sb.from('jornadas').select('inicio,km_inicial,km_final,veiculo_id,motorista_id,status')).gte('inicio',ini).lte('inicio',fim+'T23:59:59'),
     empFilter(sb.from('abastecimentos').select('veiculo_id,litros,valor_total,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
     empFilter(sb.from('despesas').select('valor,categoria,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
-    empFilter(sb.from('recebimentos').select('valor,tipo,data')).gte('data',ini).lte('data',fim+'T23:59:59')
+    empFilter(sb.from('recebimentos').select('valor,tipo,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
+    empFilter(sb.from('multas').select('valor,data_infracao')).gte('data_infracao',ini),
+    empFilter(sb.from('despesas').select('valor,data')).eq('status','aguardando').gte('data',ini).lte('data',fim+'T23:59:59')
   ]);
-  const J=jrn.data||[],A=abs.data||[],D=desp.data||[],R=rec.data||[];
-  const isTransp=e==='TRANSPORTADORA';
+  const J=jrn.data||[],A=abs.data||[],D=desp.data||[],R=rec.data||[],M=mlt.data||[],DP=despP.data||[];
   const meses=['Jun','Jul','Ago','Set','Out','Nov'];
   const mk=()=>{const m={};meses.forEach(x=>m[x]=0);return m};
-  const mRec=mk(),mDesp=mk(),mJor=mk();
-  const MESES=['01','02','03','04','05','06','07','08','09','10','11','12'];
-  const idx=dt=>{const mm=dt.slice(5,7);return meses[Number(mm)-6]||null};
-  R.forEach(x=>{const k=idx(x.data);if(k)mRec[k]+=Number(x.valor)});
-  D.forEach(x=>{const k=idx(x.data);if(k)mDesp[k]+=Number(x.valor)});
-  J.forEach(x=>{const k=idx(x.inicio);if(k)mJor[k]++});
+  const mRec=mk(),mDesp=mk(),mLuc=mk(),mMult=mk(),mPend=mk();
+  const idx=dt=>{const mm=(dt||'').slice(5,7);return meses[Number(mm)-6]||null};
+  R.forEach(x=>{const k=idx(x.data);if(k){mRec[k]+=Number(x.valor);mLuc[k]+=Number(x.valor)}});
+  D.forEach(x=>{const k=idx(x.data);if(k){mDesp[k]+=Number(x.valor);mLuc[k]-=Number(x.valor)}});
+  M.forEach(x=>{const k=idx(x.data_infracao);if(k)mMult[k]+=Number(x.valor||0)});
+  DP.forEach(x=>{const k=idx(x.data);if(k)mPend[k]+=Number(x.valor||0)});
   const fmtK=v=>v>=1000?(v/1000).toFixed(1).replace('.',',')+'k':Math.round(v);
+  const acc=chartTheme().ok;
   const bar=(id,labels,s1,n1,s2,n2,c1,c2)=>{
     if(CHARTS[id])CHARTS[id].destroy();
     CHARTS[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[
@@ -907,43 +912,95 @@ async function renderCharts(e){
       options:{responsive:true,plugins:{legend:{labels:{color:'#9a9a9a',font:{size:10}}}},
       scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}}}}});
   };
-  let html='';
-  const acc=chartTheme().ok;
-  const mostrarRecDesp=(e==='GRUPO'||e==='TRANSPORTADORA')&&(R.length||D.length);
-  if(mostrarRecDesp){
-    html+=`<div class="sec"><h3>💰 Recebimentos × Despesas (6 meses)</h3><div style="height:210px"><canvas id="ch-recdesp"></canvas></div></div>`;
+  const bar1=(id,labels,vals,nome,cores)=>{
+    if(CHARTS[id])CHARTS[id].destroy();
+    CHARTS[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{label:nome,data:vals,backgroundColor:cores||acc}]},
+      options:{responsive:true,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}}}}});
+  };
+  const line1=(id,labels,vals,nome)=>{
+    if(CHARTS[id])CHARTS[id].destroy();
+    CHARTS[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{label:nome,data:vals,borderColor:'#4a90d9',backgroundColor:'rgba(74,144,217,.12)',fill:true,tension:.3,pointRadius:3}]},
+      options:{responsive:true,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
+  };
+  const donut=(id,labels,vals)=>{
+    if(CHARTS[id])CHARTS[id].destroy();
+    CHARTS[id]=new Chart(document.getElementById(id),{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:[acc,'#4a90d9','#3ecf6e','#e05252','#9a6ad9','#e0a052','#777'],borderColor:'#1a1a1a',borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9a9a9a',font:{size:10},boxWidth:12}}}}});
+  };
+  // ---- abas ----
+  const temDin=(e==='GRUPO'||e==='TRANSPORTADORA')&&(R.length||D.length);
+  const temOpe=!!(J.length||A.length);
+  const temCtl=!!(M.length||DP.length);
+  const tabs=[temDin?['dinheiro','💰 Dinheiro']:null,temOpe?['operacao','🚚 Operação']:null,temCtl?['controle','📋 Controle']:null].filter(Boolean);
+  if(!tabs.length){box.innerHTML=empty('Sem dados no período para gráficos');return}
+  if(!window.__dbTab||!tabs.find(t=>t[0]===window.__dbTab))window.__dbTab=tabs[0][0];
+  box.innerHTML=`<div class="dbtabs">${tabs.map(t=>`<button data-t="${t[0]}" class="${window.__dbTab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div><div id="db-tab-body"></div>`;
+  box.querySelectorAll('.dbtabs button').forEach(b=>b.onclick=()=>{window.__dbTab=b.dataset.t;box.querySelectorAll('.dbtabs button').forEach(x=>x.classList.toggle('on',x===b));renderTab()});
+  function renderTab(){
+    const el=document.getElementById('db-tab-body');if(!el)return;
+    Object.keys(CHARTS).forEach(k=>{try{CHARTS[k]&&CHARTS[k].destroy&&CHARTS[k].destroy()}catch(_){}delete CHARTS[k]});
+    let html='';const t=window.__dbTab;
+    if(t==='dinheiro'){
+      html+=`<div class="sec"><h3>💰 Recebimentos × Despesas (6 meses)</h3><div style="height:210px"><canvas id="ch-recdesp"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>📈 Lucro por mês (recebeu − gastou)</h3><div style="height:190px"><canvas id="ch-lucro"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>🥧 Despesas por tipo (período)</h3><div style="height:230px"><canvas id="ch-tipo"></canvas></div></div>`;
+      el.innerHTML=html;
+      bar('ch-recdesp',meses,Object.values(mRec).map(x=>Math.round(x)),'Recebimentos',Object.values(mDesp).map(x=>Math.round(x)),'Despesas',acc,'#e05252');
+      const luc=Object.values(mLuc).map(x=>Math.round(x));
+      bar1('ch-lucro',meses,luc,'Lucro (R$)',luc.map(v=>v>=0?'#3ecf6e':'#e05252'));
+      const porTipo={};D.forEach(x=>{const g=(x.categoria||'Outros').trim()||'Outros';porTipo[g]=(porTipo[g]||0)+Number(x.valor||0)});
+      let ent=Object.entries(porTipo).sort((a,b)=>b[1]-a[1]);
+      if(ent.length>6){ent=ent.slice(0,5).concat([['Outros',ent.slice(5).reduce((s,x)=>s+x[1],0)]])}
+      donut('ch-tipo',ent.map(x=>x[0]),ent.map(x=>Math.round(x[1])));
+    }
+    if(t==='operacao'){
+      html+=`<div class="sec"><h3>🛣️ Jornadas por dia (30 dias)</h3><div style="height:190px"><canvas id="ch-jordia"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>⛽ km/L por caminhão (período)</h3><div style="height:300px"><canvas id="ch-kml"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>📉 km/L da frota por mês</h3><div style="height:180px"><canvas id="ch-kmlmes"></canvas></div></div>`;
+      el.innerHTML=html;
+      const dias=[...new Set(J.map(x=>f(x.inicio)))].sort().slice(-30);
+      if(dias.length){
+        const cnt=dias.map(d=>J.filter(x=>f(x.inicio)===d).length);
+        CHARTS.jd=new Chart(document.getElementById('ch-jordia'),{type:'line',data:{labels:dias.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),datasets:[{label:'Jornadas',data:cnt,borderColor:acc,backgroundColor:'rgba(255,255,255,.06)',fill:true,tension:.3,pointRadius:2}]},
+          options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:10}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
+      }
+      (async()=>{
+        const porV={};
+        A.forEach(a=>{const g=porV[a.veiculo_id]=porV[a.veiculo_id]||{L:0,km:0};g.L+=Number(a.litros||0)});
+        J.filter(x=>x.km_final!=null).forEach(x=>{if(porV[x.veiculo_id])porV[x.veiculo_id].km+=Number(x.km_final)-Number(x.km_inicial)});
+        const ids=Object.keys(porV);
+        if(!ids.length)return;
+        const vs2=await sb.from('veiculos').select('id,placa').in('id',ids);
+        const placa={};(vs2.data||[]).forEach(x=>placa[x.id]=x.placa);
+        const rows=ids.map(id=>({p:placa[id]||'?',kml:porV[id].L>0?porV[id].km/porV[id].L:0})).filter(r=>r.kml>0.1);
+        rows.sort((a,b)=>b.kml-a.kml);
+        if(document.getElementById('ch-kml')){
+          if(CHARTS.kml)CHARTS.kml.destroy();
+          CHARTS.kml=new Chart(document.getElementById('ch-kml'),{type:'bar',data:{labels:rows.map(r=>r.p),datasets:[{label:'km/L',data:rows.map(r=>r.kml),backgroundColor:acc}]},
+            options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
+        }
+        const mL=mk(),mKm=mk();
+        A.forEach(a=>{const k=idx(a.data);if(k)mL[k]+=Number(a.litros||0)});
+        J.filter(x=>x.km_final!=null).forEach(x=>{const k=idx(x.inicio);if(k)mKm[k]+=Number(x.km_final)-Number(x.km_inicial)});
+        const kmlM=meses.map(m=>mL[m]>0?Math.round(mKm[m]/mL[m]*10)/10:0);
+        if(document.getElementById('ch-kmlmes')){
+          if(kmlM.some(v=>v>0))line1('ch-kmlmes',meses,kmlM,'km/L');
+          else document.getElementById('ch-kmlmes').closest('.sec').innerHTML='<p class="hint">Sem abastecimentos suficientes para o km/L mensal.</p>';
+        }
+      })();
+    }
+    if(t==='controle'){
+      html+=`<div class="sec"><h3>🚨 Multas por mês (R$)</h3><div style="height:190px"><canvas id="ch-mult"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>⏳ Reembolsos aguardando aprovação (R$/mês)</h3><div style="height:190px"><canvas id="ch-pend"></canvas></div></div>`;
+      el.innerHTML=html;
+      bar1('ch-mult',meses,Object.values(mMult).map(x=>Math.round(x)),'Multas (R$)','#e05252');
+      bar1('ch-pend',meses,Object.values(mPend).map(x=>Math.round(x)),'Pendente (R$)','#e0a052');
+    }
   }
-  if(J.length){
-    html+=`<div class="sec"><h3>🛣️ Jornadas por dia (30 dias)</h3><div style="height:190px"><canvas id="ch-jordia"></canvas></div></div>`;
-  }
-  if(A.length){
-    html+=`<div class="sec"><h3>⛽ km/L por caminhão</h3><div style="height:300px"><canvas id="ch-kml"></canvas></div></div>`;
-  }
-  box.innerHTML=html||empty('Sem dados no período para gráficos');
-  if(mostrarRecDesp){
-    bar('ch-recdesp',meses,Object.values(mRec).map(x=>Math.round(x)),'Recebimentos',Object.values(mDesp).map(x=>Math.round(x)),'Despesas',acc,'#e05252');
-  }
-  if(J.length){
-    const dias=[...new Set(J.map(x=>f(x.inicio)))].sort().slice(-30);
-    const cnt=dias.map(d=>J.filter(x=>f(x.inicio)===d).length);
-    if(CHARTS.jd)CHARTS.jd.destroy();
-    CHARTS.jd=new Chart(document.getElementById('ch-jordia'),{type:'line',data:{labels:dias.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),datasets:[{label:'Jornadas',data:cnt,borderColor:chartTheme().ok,backgroundColor:'rgba(255,255,255,.06)',fill:true,tension:.3,pointRadius:2}]},
-      options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:10}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
-  }
-  if(A.length){
-    const porV={};
-    A.forEach(a=>{const g=porV[a.veiculo_id]=porV[a.veiculo_id]||{L:0,km:0};g.L+=Number(a.litros||0)});
-    J.filter(x=>x.km_final!=null).forEach(x=>{if(porV[x.veiculo_id])porV[x.veiculo_id].km+=Number(x.km_final)-Number(x.km_inicial)});
-    const ids=Object.keys(porV);
-    const vs2=await sb.from('veiculos').select('id,placa').in('id',ids);
-    const placa={};(vs2.data||[]).forEach(x=>placa[x.id]=x.placa);
-    const rows=ids.map(id=>({p:placa[id]||'?',kml:porV[id].L>0?porV[id].km/porV[id].L:0})).filter(r=>r.kml>0.1);
-    rows.sort((a,b)=>b.kml-a.kml);
-    if(CHARTS.kml)CHARTS.kml.destroy();
-    CHARTS.kml=new Chart(document.getElementById('ch-kml'),{type:'bar',data:{labels:rows.map(r=>r.p),datasets:[{label:'km/L',data:rows.map(r=>r.kml),backgroundColor:acc}]},
-      options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
-  }
-};
+  renderTab();
+}
 PAGES.veiculos=async el=>{
   el.innerHTML=`<h1 class="pg">Veículos</h1>
   <div class="sec"><h3>Novo veículo</h3>
