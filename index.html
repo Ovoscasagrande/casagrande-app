@@ -808,31 +808,53 @@ function fmtKm(n){return n==null?'—':Number(n).toLocaleString('pt-BR')}
 async function jornadaAbertaId(){if(!ME.motorista)return null;const {data}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();return data?data.id:null}
 /* ============ MEU HISTÓRICO (motorista/promotor) ============ */
 PAGES['meu-historico']=async el=>{
-  el.innerHTML=`<h1 class="pg">Meu histórico</h1><div id="mh">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Meu histórico</h1>
+  <div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap" id="mh-abas">
+    ${[['resumo','📊 Resumo'],['jornadas','🛣️ Jornadas'],['gastos','💰 Gastos'],['multas','🚨 Multas'],['avisos','📣 Meus avisos']].map(([v,t],i)=>`<button class="btn mini mhab" data-a="${v}" ${i===0?'':''}>${t}</button>`).join('')}
+  </div>
+  <div id="mh">${empty('Carregando…')}</div>`;
   const ini=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
-  const [js,as,ds]=await Promise.all([
+  const [js,as,ds,ms,avs]=await Promise.all([
     sb.from('jornadas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).gte('inicio',ini).order('inicio',{ascending:false}).limit(100),
-    sb.from('abastecimentos').select('litros,valor_total,km,data').eq('motorista_id',ME.motorista.id).gte('data',ini),
-    sb.from('despesas').select('valor,categoria,status,data').eq('motorista_id',ME.motorista.id).gte('data',ini)
+    sb.from('abastecimentos').select('litros,valor_total,km,data,posto,combustivel').eq('motorista_id',ME.motorista.id).gte('data',ini),
+    sb.from('despesas').select('valor,categoria,status,data,descricao').eq('motorista_id',ME.motorista.id).gte('data',ini),
+    sb.from('multas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).order('criado_em',{ascending:false}).limit(50),
+    sb.from('avisos').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).gte('criado_em',ini).order('criado_em',{ascending:false}).limit(50)
   ]);
-  const J=(js.data||[]),A=(as.data||[]),D=(ds.data||[]);
+  const J=(js.data||[]),A=(as.data||[]),D=(ds.data||[]),M=(ms.data||[]),AV=(avs.data||[]);
   const kmTot=J.filter(x=>x.km_final!=null).reduce((s,x)=>s+Number(x.km_final)-Number(x.km_inicial),0);
   const litros=A.reduce((s,x)=>s+Number(x.litros),0);
   const gasto=A.reduce((s,x)=>s+Number(x.valor_total),0)+D.reduce((s,x)=>s+Number(x.valor),0);
   const pend=D.filter(x=>x.status==='aguardando').reduce((s,x)=>s+Number(x.valor),0);
   const kml=litros>0?Math.round(kmTot/litros*10)/10:null;
   const box=$('mh');
-  box.innerHTML=`<div class="kpis">
-    <div class="kpi"><div class="v">${km(kmTot)}</div><div class="l">Km rodados (30 dias)</div></div>
-    <div class="kpi"><div class="v">${J.length}</div><div class="l">Jornadas</div></div>
-    <div class="kpi"><div class="v">${kml?kml+' km/L':'—'}</div><div class="l">Média da frota</div></div>
-    <div class="kpi"><div class="v">${fmtBRL(gasto)}</div><div class="l">Gastos (30 dias)</div></div>
-    ${pend?`<div class="kpi"><div class="v">${fmtBRL(pend)}</div><div class="l">Aguardando aprovação</div></div>`:''}
-  </div>
-  <div class="sec"><h3>Minhas jornadas</h3>${J.length?`<div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>
-  ${J.slice(0,30).map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa||'')}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div>`:empty('Nenhuma jornada nos últimos 30 dias')}</div>
-  <div class="sec"><h3>Meus gastos</h3>${D.length||A.length?`<div class="tblwrap"><table><tr><th>Data</th><th>Tipo</th><th>Valor</th><th>Status</th></tr>
-  ${[...A.map(x=>({data:x.data,t:'⛽ Abastecimento',v:x.valor_total,st:'aprovada'})),...D.map(x=>({data:x.data,t:'💰 '+(x.categoria||'gasto'),v:x.valor,st:x.status}))].sort((a,b)=>b.data<a.data?-1:1).slice(0,30).map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.t)}</td><td>${fmtBRL(x.v)}</td><td>${tag(x.st)}</td></tr>`).join('')}</table></div>`:empty('Nenhum gasto nos últimos 30 dias')}</div>`;
+  const abas={
+    resumo:()=>`<div class="kpis">
+      <div class="kpi"><div class="v">${km(kmTot)}</div><div class="l">Km rodados (30 dias)</div></div>
+      <div class="kpi"><div class="v">${J.length}</div><div class="l">Jornadas</div></div>
+      <div class="kpi"><div class="v">${kml?kml+' km/L':'—'}</div><div class="l">Seu consumo médio</div></div>
+      <div class="kpi"><div class="v">${fmtBRL(gasto)}</div><div class="l">Gastos (30 dias)</div></div>
+      ${pend?`<div class="kpi"><div class="v">${fmtBRL(pend)}</div><div class="l">Aguardando aprovação</div></div>`:''}
+    </div>
+    <div class="sec"><h3>Últimas jornadas</h3>${J.length?`<div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>
+    ${J.slice(0,10).map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa||'')}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div>`:empty('Nenhuma jornada nos últimos 30 dias')}</div>`,
+    jornadas:()=>J.length?`<div class="sec"><h3>Todas (30 dias)</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>
+    ${J.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa||'')}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:empty('Nenhuma jornada nos últimos 30 dias'),
+    gastos:()=> (D.length||A.length)?`<div class="sec"><h3>Abastecimentos (${A.length})</h3><div class="tblwrap"><table><tr><th>Data</th><th>Posto</th><th>Comb.</th><th>Litros</th><th>Valor</th></tr>
+    ${A.slice(0,30).map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.posto||'—')}</td><td>${esc(x.combustivel||'')}</td><td>${x.litros}</td><td>${fmtBRL(x.valor_total)}</td></tr>`).join('')}</table></div>
+    <h3 style="margin-top:12px">Outros gastos (${D.length})</h3><div class="tblwrap"><table><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th>Status</th></tr>
+    ${D.slice(0,30).map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.categoria||'')}</td><td>${esc(x.descricao||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${tag(x.status)}</td></tr>`).join('')}</table></div></div>`:empty('Nenhum gasto nos últimos 30 dias'),
+    multas:()=> M.length?`<div class="sec"><h3>Minhas multas (${M.length})</h3>${M.map(m=>`
+      <div style="padding:10px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(m.veiculos?.placa||'')}</b> · ${fmtBRL(m.valor)} · ${tag(m.status)}
+      <div class="hint">${esc(m.orgao||'')} · infração ${fmtD(m.data_infracao)}${m.prazo?' · prazo '+fmtD(m.prazo):''}</div></div>`).join('')}</div>`:empty('Nenhuma multa — parabéns! 🎉'),
+    avisos:()=> AV.length?`<div class="sec"><h3>Meus avisos (30 dias)</h3>${AV.map(a=>`
+      <div style="padding:10px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(a.veiculos?.placa||'')}</b> · ${esc(a.categoria||'')} · ${tag(a.status)}
+      <div class="hint">${esc(a.texto)}</div></div>`).join('')}</div>`:empty('Nenhum aviso nos últimos 30 dias')
+  };
+  const render=a=>{box.innerHTML=abas[a]();
+    document.querySelectorAll('#mh-abas .mhab').forEach(b=>b.classList.toggle('on',b.dataset.a===a));};
+  document.querySelectorAll('#mh-abas .mhab').forEach(b=>b.onclick=()=>render(b.dataset.a));
+  render('resumo');
 };
 /* ============ MANUAIS (só gerência) ============ */
 PAGES.manuais=async el=>{
