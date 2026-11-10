@@ -2816,11 +2816,14 @@ async function pagRotaDetalhe(id){
     ${e.motivo?`<p class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo)}</p>`:''}
     ${e.carga_ok?'<span class="tag ok">carga conferida</span>':''}
     ${e.foto_path?`<div id="rd-foto-${e.id}">${empty('comprovante…')}</div>`:''}</div>`}).join('')||empty(''))+`</div>`;
-  if(ME.perfil==='gerencia'&&r.status!=='encerrada')html+=`<div class="sec"><button class="btn" id="rd-enc">✅ Encerrar rota</button></div>`;
+  if(ME.perfil==='gerencia'&&['aberto','em_rota','planejada','distribuida'].includes(r.status)){
+    html+=`<div class="sec"><button class="btn" id="rd-enc">✅ Encerrar rota</button> <button class="btn sec" id="rd-cancel" style="border-color:#5c3a2e;color:#e88">❌ Cancelar roteiro</button></div>`;
+  }
   $('main').innerHTML=html;
-  $('rd-volt').onclick=()=>go('rotas');
+  $('rd-volt').onclick=()=>go(PAGE==='roteiros'?'roteiros':'rotas');
   for(const e of (ents||[]).filter(x=>x.foto_path)){const d=$('rd-foto-'+e.id);if(d)d.innerHTML=await fotoHtml(e.foto_path)}
-  const enc=$('rd-enc');if(enc)enc.onclick=async()=>{await upd('rotas',id,{status:'encerrada',fim:new Date().toISOString()});toast('Rota encerrada');pagRotaDetalhe(id)};
+  const enc=$('rd-enc');if(enc)enc.onclick=async()=>{await upd('rotas',id,{status:'finalizado',fim:new Date().toISOString()});toast('Rota encerrada');pagRotaDetalhe(id)};
+  const cnc=$('rd-cancel');if(cnc)cnc.onclick=()=>cancelarRoteiro(id);
 }
 async function pagHojeDist(el){
   el.innerHTML=`<h1 class="pg">Hoje — Distribuidora</h1><div id="hd">${empty('Carregando…')}</div>`;
@@ -3448,6 +3451,12 @@ PAGES['pedidos-rota']=async el=>{
           rota=r2.data;error=r2.error;
           if(rota)toast('⚠️ Rode o SQL do roteiro para gravar o nº');
         }
+        if(error&&/status|check/i.test(error.message||'')){
+          // check antigo ainda: usar 'distribuida' (compatível) — SQL do status pendente
+          const r3=await sb.from('rotas').insert({data:hoje(),motorista_id:mid,veiculo_id:vid,status:'distribuida',sequencia:seq,roteiro:num}).select().single();
+          rota=r3.data;error=r3.error;
+          if(rota)toast('⚠️ Rode o SQL do status para o ciclo ABERTO/EM ROTA/FINALIZADO');
+        }
       }
       if(error){$('pr-msg').className='msg err';$('pr-msg').textContent=err(error);return null}
       const linhas=ord.concat(sem).map((c,i)=>{
@@ -3673,23 +3682,44 @@ async function geraPdfRoteiro(rota,lote){
 PAGES.roteiros=async el=>{
   if(ME.perfil!=='gerencia'){el.innerHTML=empty('Só a gerência acessa esta página');return}
   el.innerHTML=`<h1 class="pg">Roteiros</h1><div id="rt-root">${empty('Carregando…')}</div>`;
-  const {data:lista}=await sb.from('rotas').select('*, motoristas(nome), veiculos(placa,modelo), entregas(status,cliente_id,carga,clientes_dist(nome))').not('roteiro','is',null).order('roteiro',{ascending:false}).limit(60);
+  const {data:lista}=await sb.from('rotas').select('*, motoristas(nome), veiculos(placa,modelo), entregas(status,cliente_id,carga,clientes_dist(nome))').order('roteiro',{ascending:false,nullsFirst:false}).order('criado_em',{ascending:false}).limit(60);
   const root=$('rt-root');
   if(!lista||!lista.length){root.innerHTML=empty('Nenhum roteiro gerado — crie em Pedidos & Rota');return}
-  const LBL={aberto:['ABERTO','aguardando o motorista abrir a jornada'],em_rota:['EM ROTA','motorista em jornada'],finalizado:['FINALIZADO','entregue e conferido']};
+  const LBL={aberto:['ABERTO','aguardando o motorista abrir a jornada'],em_rota:['EM ROTA','motorista em jornada'],finalizado:['FINALIZADO','entregue e conferido'],cancelado:['CANCELADO','cancelado pela gerência']};
   root.innerHTML=lista.map(r=>{
     const ents=r.entregas||[];
     const ok=ents.filter(e=>e.status==='entregue').length,nr=ents.filter(e=>e.status==='nao_realizada').length;
     const st=LBL[r.status]||[r.status||'ABERTO',''];
-    const cor={aberto:'info',em_rota:'warning',finalizado:'ok'}[r.status]||'info';
+    const cor={aberto:'info',em_rota:'warning',finalizado:'ok',cancelado:'bad'}[r.status]||'info';
     return `<div class="sec" data-rt="${r.id}" style="cursor:pointer">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <b style="font-size:15px;color:var(--acc)">R${String(r.roteiro).padStart(5,'0')}</b>
+      <b style="font-size:15px;color:var(--acc)">${r.roteiro?('R'+String(r.roteiro).padStart(5,'0')):'<span style="color:var(--mut)">sem nº (teste antigo)</span>'}</b>
       <span class="tag ${cor}">${st[0]}</span></div>
     <p class="hint">${fmtD(r.data)} · ${esc(r.motoristas?.nome||'—')} · ${esc(r.veiculos?.placa||'—')} · ${ents.length} entregas${ents.length?` · ✅ ${ok} · ❌ ${nr}`:''}</p>
     <p class="hint" style="color:var(--mut)">${st[1]}</p></div>`}).join('');
   root.querySelectorAll('[data-rt]').forEach(d=>d.onclick=()=>pagRotaDetalhe(d.dataset.rt));
 };
+async function cancelarRoteiro(id){
+  const {data:r}=await sb.from('rotas').select('*, entregas(status)').eq('id',id).maybeSingle();
+  if(!r){toast('Roteiro não encontrado');return}
+  if(r.status==='finalizado'){toast('Roteiro finalizado não pode ser cancelado');return}
+  const ents=r.entregas||[];
+  const feitas=ents.filter(e=>e.status==='entregue'||e.status==='nao_realizada').length;
+  openModal('❌ Cancelar R'+String(r.roteiro||0).padStart(5,'0'),[
+    {id:'cr-motivo',label:'Motivo do cancelamento *',tipo:'textarea'}
+  ],async v=>{
+    const motivo=(v['cr-motivo']||'').trim();
+    if(!motivo){toast('Informe o motivo');return false}
+    // volta entregas pendentes e marca a rota cancelada
+    await sb.from('entregas').update({status:'cancelada',motivo:'Roteiro cancelado: '+motivo}).eq('rota_id',id).in('status',['pendente','andamento']);
+    const rr=await upd('rotas',id,{status:'cancelado',fim:new Date().toISOString()});
+    if(rr){toast('Roteiro cancelado');go('roteiros')}
+    return !!rr;
+  });
+}
+async function pagRotaDetalheDist(id){
+  await pagRotaDetalhe(id);
+}
 /* ============ notificações ============ */
 PAGES.notif=async el=>{
   el.innerHTML=`<h1 class="pg">Notificações</h1><div id="nt">${empty('Carregando…')}</div>`;
