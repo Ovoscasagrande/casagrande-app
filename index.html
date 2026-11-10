@@ -274,6 +274,7 @@ document.addEventListener('click',ev=>{
   if(m&&m.classList.contains('open')&&!m.contains(ev.target)){const b=document.getElementById('emp-btn');if(!b||!b.contains(ev.target))m.classList.remove('open')}
 });
 function empFilter(q){const e=empAtiva();if(e==='GRUPO'||!ME)return q;return q.in('empresa',[e,'AMBAS'])}
+function empresasGrupo(){return ME&&ME.empresa==='TODAS'?['OVOS','TRANSPORTADORA','DISTRIBUIDORA']:['OVOS','TRANSPORTADORA']}
 function insEmp(row){const e=empAtiva();if(e&&e!=='GRUPO')row.empresa=e;return row}
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -832,7 +833,7 @@ PAGES.gastos=async el=>{
         if(r){toast('Abastecimento lançado!');go('gastos')}
       };
     }else{
-      const {data:tipos}=await sb.from('tipos_despesa').select('*').eq('ativo',true).in('empresa',empAtiva()==='GRUPO'?['OVOS','TRANSPORTADORA']:[empAtiva()]);
+      const {data:tipos}=await sb.from('tipos_despesa').select('*').eq('ativo',true).in('empresa',empAtiva()==='GRUPO'?empresasGrupo():[empAtiva()]);
       const tps=(tipos||[]);
       const cats=tps.length?tps.map(t=>[t.nome,t.nome]):[['Pneu/borracharia','Pneu/borracharia'],['Manutenção emergencial','Manutenção emergencial'],['Peças','Peças'],['Pedágio','Pedágio'],['Estacionamento','Estacionamento'],['Alimentação','Alimentação'],['Outros','Outros']];
       f.innerHTML=`<label>Tipo de gasto</label><select id="d-cat">${opt(cats,null)}</select>
@@ -2552,7 +2553,7 @@ PAGES.tipos=async el=>{
   const carregar=async()=>{
     const tp=$('tp');
     const e=empAtiva();
-    if(e==='GRUPO'){tp.innerHTML=`<div class="sec">Escolha <b>OVOS</b> ou <b>Transportadora</b> acima para gerenciar os tipos desta empresa.</div>`;return}
+    if(e==='GRUPO'){tp.innerHTML=`<div class="sec">Escolha <b>${ME.empresa==='TODAS'?'uma das três empresas':'OVOS ou Transportadora'}</b> acima para gerenciar os tipos.</div>`;return}
     const {data:td}=await sb.from('tipos_despesa').select('*').eq('empresa',e).order('nome');
     const {data:tr}=await sb.from('tipos_recebimento').select('*').eq('empresa',e).order('nome');
     tp.innerHTML=`
