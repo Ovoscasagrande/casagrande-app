@@ -2249,12 +2249,14 @@ PAGES.jornadas=async el=>{
   carregar('');
 };
 PAGES.os=async el=>{
-  el.innerHTML=`<h1 class="pg">Ordens de serviço</h1>
+  el.innerHTML=`<h1 class="pg">🔧 Oficina</h1>
+  ${ME.perfil==='mecanico'?`<div id="o-painel">${empty('Carregando…')}</div>`:''}
   ${ME.perfil==='mecanico'?'':`<div class="sec"><h3>Abrir OS</h3>
     <label>Veículo</label><select id="o-veic"></select>
     <label>Descrição do problema/serviço</label><textarea id="o-desc"></textarea>
     <label>Vincular aviso (opcional)</label><select id="o-aviso"><option value="">—</option></select>
     <button class="btn" id="o-btn">Abrir ordem de serviço</button><div class="msg" id="o-msg"></div></div>`}
+  <div class="sec"><h3>${ME.perfil==='mecanico'?'Todas as ordens de serviço':'Ordens de serviço'}</h3></div>
   <div id="o-list">${empty('Carregando…')}</div>`;
   if(ME.perfil!=='mecanico'){
     const veics=await sel('veiculos','id,placa,ativo','placa');
@@ -2269,6 +2271,49 @@ PAGES.os=async el=>{
     };
   }
   const {data:lista}=await empFilter(sb.from('ordens_servico').select('*, veiculos(placa)')).order('aberta_em',{ascending:false}).limit(100);
+  // ===== painel do mecânico: KPIs, gráficos, óleo e avisos =====
+  if(ME.perfil==='mecanico'){
+    const pn=$('o-painel');
+    const hoje0=hoje();
+    const abertas=lista.filter(o=>o.status!=='concluida');
+    const porStatus={recebida:0,em_analise:0,aguardando_peca:0,em_execucao:0,concluida:0};
+    lista.forEach(o=>porStatus[o.status]=(porStatus[o.status]||0)+1);
+    const conclMes=lista.filter(o=>o.status==='concluida'&&(o.aberta_em||'').slice(0,7)===hoje0.slice(0,7)).length;
+    const custoMes=lista.filter(o=>(o.aberta_em||'').slice(0,7)===hoje0.slice(0,7)).reduce((s,o)=>s+Number(o.mao_obra||0)+Number(o.custos||0),0);
+    // óleo por veículo
+    const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,km_atual,intervalo_oleo_km,ultima_troca_oleo_km')).order('placa');
+    const oleo=(vs||[]).map(v=>{
+      const falta=(v.km_atual!=null&&v.intervalo_oleo_km&&v.ultima_troca_oleo_km!=null)?Number(v.km_atual)-(Number(v.ultima_troca_oleo_km)+Number(v.intervalo_oleo_km)):null;
+      return {...v, falta};
+    }).filter(v=>v.falta!=null).sort((a,b)=>b.falta-a.falta);
+    const vencidos=oleo.filter(v=>v.falta>=0);
+    const proximos=oleo.filter(v=>v.falta<0).slice(0,5);
+    // avisos encaminhados (fila do mecânico)
+    const {data:avs}=await empFilter(sb.from('avisos').select('*, veiculos(placa), motoristas(nome)')).in('status',['encaminhado','em_analise']).order('criado_em',{ascending:false}).limit(20);
+    // OS por veículo (top 5 com OS abertas)
+    const porVeic={};abertas.forEach(o=>{const p=o.veiculos?.placa||'?';porVeic[p]=(porVeic[p]||0)+1});
+    const topVeic=Object.entries(porVeic).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const maxV=topVeic.length?topVeic[0][1]:1;
+    pn.innerHTML=`<div class="kpis">
+      <div class="kpi"><div class="v">${abertas.length}</div><div class="l">OS em aberto</div></div>
+      <div class="kpi"><div class="v">${porStatus.em_execucao||0}</div><div class="l">Em execução</div></div>
+      <div class="kpi"><div class="v">${porStatus.aguardando_peca||0}</div><div class="l">Aguardando peça</div></div>
+      <div class="kpi"><div class="v">${conclMes}</div><div class="l">Concluídas no mês</div></div>
+      <div class="kpi"><div class="v">${fmtBRL(custoMes)}</div><div class="l">Custo do mês</div></div>
+    </div>
+    ${vencidos.length?`<div class="sec" style="border:1px solid #8b3a3a"><h3 style="color:var(--bad)">🛢️ Troca de óleo VENCIDA (${vencidos.length})</h3>
+      ${vencidos.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span style="color:var(--bad);font-weight:700">VENCIDA há ${km(v.falta)}</span></div>`).join('')}</div>`:''}
+    ${proximos.length?`<div class="sec"><h3>🛢️ Óleo — próximas trocas</h3>
+      ${proximos.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span>próxima em ${km(-v.falta)}</span></div>`).join('')}</div>`:''}
+    ${avs&&avs.length?`<div class="sec"><h3>📣 Avisos encaminhados para você (${avs.length})</h3>
+      ${avs.map(a=>`<div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(a.veiculos?.placa||'')}</b> · ${esc(a.categoria||'')} · ${esc(a.motoristas?.nome||'')}<div class="hint">${esc(a.texto)}</div></div>`).join('')}</div>`:''}
+    <div class="sec"><h3>OS em aberto por veículo</h3>
+      ${topVeic.length?topVeic.map(([p,n])=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+        <span style="width:90px;font-size:13px;font-weight:700">${esc(p)}</span>
+        <div style="flex:1;background:#262626;border-radius:6px;height:14px;overflow:hidden"><div style="width:${Math.round(n/maxV*100)}%;height:100%;background:var(--acc)"></div></div>
+        <span style="font-size:13px;color:var(--mut)">${n}</span></div>`).join(''):empty('Nenhuma OS em aberto')}</div>`;
+  }
   const l=$('o-list');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhuma OS');return}
   const FLOW={recebida:'em_analise',em_analise:'aguardando_peca',aguardando_peca:'em_execucao',em_execucao:'concluida'};
