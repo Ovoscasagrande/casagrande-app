@@ -219,6 +219,10 @@ const EMPLOGO={
 };
 function empAtiva(){return window.__EMP||'OVOS'}
 function setEmp(e){
+  if(window.__empTravada&&e!==window.__empTravada){
+    toast('Você tem jornada aberta na '+(EMPNOME[window.__empTravada]||window.__empTravada)+' — finalize para trocar de empresa');
+    return;
+  }
   window.__EMP=e;applyBranding();buildNav();applyEmpBtn();bindEmpMenu();
   if(!NAV.includes(PAGE)){go('home');toast('Você está em '+(EMPNOME[e]||'GRUPO'))}
   else{go(PAGE)}
@@ -239,12 +243,22 @@ function applyEmpBtn(){
   const cor=e==='TRANSPORTADORA'?'#1e5aa8':e==='GRUPO'?'#9a9a9a':'#fcc85c';
   const nome=e==='TRANSPORTADORA'?'TRANSPORTADORA':e==='GRUPO'?'GRUPO':'OVOS';
   b.style.display='';
+  if(window.__empTravada){
+    b.innerHTML=`<span style="background:${cor}"></span>${nome} 🔒`;
+    b.title='Jornada aberta nesta empresa — finalize para trocar';
+    return;
+  }
   b.innerHTML=`<span style="background:${cor}"></span>${nome} ▾`;
 }
 function bindEmpMenu(){
   const b=document.getElementById('emp-btn'),m=document.getElementById('emp-menu');
   if(!b||!m)return;
   if(!ME||ME.empresa!=='AMBAS'){b.style.display='none';m.classList.remove('open');return}
+  if(window.__empTravada){
+    m.classList.remove('open');
+    b.onclick=()=>{toast('Você tem jornada aberta na '+(EMPNOME[window.__empTravada]||window.__empTravada)+' — finalize a jornada para trocar de empresa')};
+    return;
+  }
   const opts=[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['GRUPO','Σ GRUPO — as duas']];
   m.innerHTML=opts.map(o=>`<button data-e="${o[0]}" class="${empAtiva()===o[0]?'on':''}">${o[1]}</button>`).join('');
   m.querySelectorAll('button').forEach(x=>x.onclick=()=>{m.classList.remove('open');setEmp(x.dataset.e)});
@@ -403,6 +417,12 @@ async function afterLogin(){
   if(ME.perfil==='motorista'||ME.perfil==='promotor'){
     const {data:m}=await sb.from('motoristas').select('*').eq('usuario_id',user.id).order('criado_em',{ascending:true}).limit(1);
     ME.motorista=m&&m.length?m[0]:null;
+    // jornada aberta trava a empresa: iniciou na OVOS, só sai da OVOS quando fechar (e vice-versa)
+    window.__empTravada=null;
+    if(ME.motorista){
+      const {data:ja}=await sb.from('jornadas').select('empresa').eq('motorista_id',ME.motorista.id).in('status',['aberta','conferencia']).limit(1);
+      if(ja&&ja.length&&ja[0].empresa)window.__empTravada=ja[0].empresa;
+    }
   }
   buildNav();applyEmpBtn();bindEmpMenu();$('login').classList.add('hide');$('app').classList.remove('hide');
   go('home');
@@ -550,6 +570,7 @@ PAGES.home=async el=>{if(ME.perfil==='gerencia')return PAGES.dashboard(el);
 };
 const _homeOrig=PAGES.home;
 PAGES.jornada=async el=>{
+  reavaliaTrava();
   el.innerHTML=`<h1 class="pg">${empAtiva()==='TRANSPORTADORA'?'Jornada (km simples)':'Minha jornada'}</h1><div id="j-wrap">${empty('Carregando…')}</div>`;
   const w=$('j-wrap');
   if(!ME.motorista){w.innerHTML=`<div class="sec">Seu usuário ainda não está vinculado a um cadastro de motorista. Peça à gerência.</div>`;return}
@@ -1269,6 +1290,16 @@ PAGES['pro-cliente']=async el=>{
     toast('Visita concluída ✓');go('pro-roteiro');
   };
 };
+async function reavaliaTrava(){
+  if(!ME||!ME.motorista)return;
+  const {data:ja}=await sb.from('jornadas').select('empresa').eq('motorista_id',ME.motorista.id).in('status',['aberta','conferencia']).limit(1);
+  const antes=window.__empTravada;
+  window.__empTravada=(ja&&ja.length&&ja[0].empresa)?ja[0].empresa:null;
+  if(antes!==window.__empTravada){
+    applyEmpBtn();bindEmpMenu();
+    if(!window.__empTravada)toast('Jornada finalizada — empresas liberadas ✓');
+  }
+}
 PAGES.avisos=async el=>{
   if(ME.perfil==='motorista')return pagAvisosMotorista(el);
   return pagAvisosGestao(el);
