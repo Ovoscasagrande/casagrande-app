@@ -400,7 +400,7 @@ async function afterLogin(){
   ME=u;ME.email=user.email;
   window.__EMP=(ME.empresa==='AMBAS')?'OVOS':(ME.empresa||'OVOS');
   applyBranding();
-  if(ME.perfil==='motorista'){
+  if(ME.perfil==='motorista'||ME.perfil==='promotor'){
     const {data:m}=await sb.from('motoristas').select('*').eq('usuario_id',user.id).maybeSingle();
     ME.motorista=m;
   }
