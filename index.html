@@ -2315,43 +2315,45 @@ PAGES.os=async el=>{
         <span style="width:90px;font-size:13px;font-weight:700">${esc(p)}</span>
         <div style="flex:1;background:#262626;border-radius:6px;height:14px;overflow:hidden"><div style="width:${Math.round(n/maxV*100)}%;height:100%;background:var(--acc)"></div></div>
         <span style="font-size:13px;color:var(--mut)">${n}</span></div>`).join(''):empty('Nenhuma OS em aberto')}</div>`;
-  }
-  // ===== troca de óleo: registrar + histórico =====
-  (async()=>{
-    const {data:trocas}=await sb.from('trocas_oleo').select('*, veiculos(placa), usuarios(nome)').order('data',{ascending:false}).limit(15);
-    const sec=document.createElement('div');sec.className='sec';
-    sec.innerHTML=`<h3>🛢️ Histórico de trocas (${(trocas||[]).length})</h3>
-      ${(trocas||[]).map(t=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px">
-        <span><b>${esc(t.veiculos?.placa||'')}</b> · ${fmtD(t.data)} · ${km(t.km)}${t.obs?' · '+esc(t.obs):''}<div class="hint">por ${esc(t.usuarios?.nome||'—')}</div></span></div>`).join('')||'<p class="hint">Nenhuma troca registrada ainda.</p>'}`;
-    pn.appendChild(sec);
-    document.getElementById('to-btn').onclick=()=>{
-      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
-      mm.innerHTML=`<h3>🛢️ Registrar troca de óleo</h3>
-        <label>Veículo *</label><select id="to-veic" style="width:100%">${(vs||[]).filter(v=>v.ativo!==false).map(v=>`<option value="${v.id}">${esc(v.placa)} — ${esc(v.modelo||'')}${v.km_atual!=null?' · '+km(v.km_atual):''}</option>`).join('')}</select>
-        <label>Km da troca *</label><input id="to-km" inputmode="numeric" placeholder="km no momento da troca" style="width:100%">
-        <label>Data</label><input id="to-data" type="date" value="${hoje()}" style="width:100%">
-        <label>Observação (opcional)</label><input id="to-obs" placeholder="ex.: filtro de óleo e ar trocados" style="width:100%">
-        <div class="msg err" id="to-msg" style="display:none"></div>
-        <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="to-ok">Registrar</button></div>`;
-      w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
-      document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
-      const syncKm=()=>{const v=(vs||[]).find(x=>x.id===document.getElementById('to-veic').value);if(v&&v.km_atual!=null)document.getElementById('to-km').value=v.km_atual};
-      document.getElementById('to-veic').onchange=syncKm;syncKm();
-      document.getElementById('to-ok').onclick=async()=>{
-        const m=document.getElementById('to-msg');
-        const vid=document.getElementById('to-veic').value;
-        const kmv=parseBR(document.getElementById('to-km').value);
-        if(!vid){m.style.display='block';m.textContent='Escolha o veículo';return}
-        if(!kmv&&kmv!==0){m.style.display='block';m.textContent='Informe o km da troca';return}
-        const data=document.getElementById('to-data').value||hoje();
-        const {error:e1}=await sb.from('trocas_oleo').insert({veiculo_id:vid,km:kmv,data,obs:document.getElementById('to-obs').value||null,registrado_por:ME.id});
-        if(e1){m.style.display='block';m.textContent=err(e1);return}
-        const {error:e2}=await sb.from('veiculos').update({ultima_troca_oleo_km:kmv,ultima_troca_oleo_data:data}).eq('id',vid);
-        if(e2){m.style.display='block';m.textContent=err(e2);return}
-        w.classList.remove('open');toast('Troca de óleo registrada ✓');go('os');
+    // troca de óleo: registrar + histórico (dentro do escopo do mecânico)
+    (async()=>{
+      const {data:trocas}=await sb.from('trocas_oleo').select('*, veiculos(placa), usuarios(nome)').order('data',{ascending:false}).limit(15);
+      const pnNow=document.getElementById('o-painel');if(!pnNow)return;
+      const sec=document.createElement('div');sec.className='sec';
+      sec.innerHTML=`<h3>🛢️ Histórico de trocas (${(trocas||[]).length})</h3>
+        ${(trocas||[]).map(t=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px">
+          <span><b>${esc(t.veiculos?.placa||'')}</b> · ${fmtD(t.data)} · ${km(t.km)}${t.obs?' · '+esc(t.obs):''}<div class="hint">por ${esc(t.usuarios?.nome||'—')}</div></span></div>`).join('')||'<p class="hint">Nenhuma troca registrada ainda.</p>'}`;
+      pnNow.appendChild(sec);
+      const tb=document.getElementById('to-btn');
+      if(tb)tb.onclick=()=>{
+        const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+        mm.innerHTML=`<h3>🛢️ Registrar troca de óleo</h3>
+          <label>Veículo *</label><select id="to-veic" style="width:100%">${(vs||[]).filter(v=>v.ativo!==false).map(v=>`<option value="${v.id}">${esc(v.placa)} — ${esc(v.modelo||'')}${v.km_atual!=null?' · '+km(v.km_atual):''}</option>`).join('')}</select>
+          <label>Km da troca *</label><input id="to-km" inputmode="numeric" placeholder="km no momento da troca" style="width:100%">
+          <label>Data</label><input id="to-data" type="date" value="${hoje()}" style="width:100%">
+          <label>Observação (opcional)</label><input id="to-obs" placeholder="ex.: filtro de óleo e ar trocados" style="width:100%">
+          <div class="msg err" id="to-msg" style="display:none"></div>
+          <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="to-ok">Registrar</button></div>`;
+        w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+        document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+        const syncKm=()=>{const v=(vs||[]).find(x=>x.id===document.getElementById('to-veic').value);if(v&&v.km_atual!=null)document.getElementById('to-km').value=v.km_atual};
+        document.getElementById('to-veic').onchange=syncKm;syncKm();
+        document.getElementById('to-ok').onclick=async()=>{
+          const m=document.getElementById('to-msg');
+          const vid=document.getElementById('to-veic').value;
+          const kmv=parseBR(document.getElementById('to-km').value);
+          if(!vid){m.style.display='block';m.textContent='Escolha o veículo';return}
+          if(!kmv&&kmv!==0){m.style.display='block';m.textContent='Informe o km da troca';return}
+          const data=document.getElementById('to-data').value||hoje();
+          const {error:e1}=await sb.from('trocas_oleo').insert({veiculo_id:vid,km:kmv,data,obs:document.getElementById('to-obs').value||null,registrado_por:ME.id});
+          if(e1){m.style.display='block';m.textContent=err(e1);return}
+          const {error:e2}=await sb.from('veiculos').update({ultima_troca_oleo_km:kmv,ultima_troca_oleo_data:data}).eq('id',vid);
+          if(e2){m.style.display='block';m.textContent=err(e2);return}
+          w.classList.remove('open');toast('Troca de óleo registrada ✓');go('os');
+        };
       };
-    };
-  })();
+    })();
+  }
   const l=$('o-list');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhuma OS');return}
   const FLOW={recebida:'em_analise',em_analise:'aguardando_peca',aguardando_peca:'em_execucao',em_execucao:'concluida'};
