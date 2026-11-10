@@ -1460,8 +1460,8 @@ async function pagConfDetalhe(el,jid){
   const {data:checks}=await sb.from('jornada_conferencia').select('*').eq('jornada_id',jid);
   const estado={};(checks||[]).forEach(x=>estado[x.item]={ok:x.ok,obs:x.obs||''});
   const [abs,dsp]=await Promise.all([
-    sb.from('abastecimentos').select('posto,litros,valor_total,foto_path').eq('jornada_id',jid),
-    sb.from('despesas').select('categoria,valor,foto_path').eq('jornada_id',jid)
+    sb.from('abastecimentos').select('id,posto,litros,preco_litro,valor_total,km,foto_path').eq('jornada_id',jid),
+    sb.from('despesas').select('id,categoria,descricao,valor,foto_path').eq('jornada_id',jid)
   ]);
   const comps=[
     ...(abs.data||[]).map(a=>({tabela:'abastecimentos',id:a.id,t:'⛽ Abastecimento — '+(a.posto||'posto'),s:`${a.litros} L · ${fmtBRL(a.valor_total)}`,p:a.foto_path,raw:a})),
