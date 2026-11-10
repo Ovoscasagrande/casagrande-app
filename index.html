@@ -414,7 +414,7 @@ function logout(){sb.auth.signOut().then(()=>location.reload())}
 function menusPara(){
   const base={
     pendente:['home'],
-    gerencia:['home','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
+    gerencia:['home','manuais','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
     motorista:['home','jornada','gastos','recnovo','avisos','multas'],
     promotor:['home','pro-roteiro','jornada','gastos','avisos','multas'],
     conferente:['home','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
@@ -429,7 +429,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-cliente':'Visita ao cliente',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
+const TITLES={manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-cliente':'Visita ao cliente',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
 function buildNav(){
   const items=menusPara();
   NAV=items;
@@ -439,7 +439,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={promotoria:'🏪','pro-roteiro':'📍','pro-cliente':'🏪',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
+const ICONS={manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-cliente':'🏪',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -778,6 +778,39 @@ function parseBR(v){if(v==null)return 0;v=String(v).trim();if(!v)return 0;v=v.re
 function fmtBR2(n){return (Math.round(n*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:3})}
 function fmtKm(n){return n==null?'—':Number(n).toLocaleString('pt-BR')}
 async function jornadaAbertaId(){if(!ME.motorista)return null;const {data}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();return data?data.id:null}
+/* ============ MANUAIS (só gerência) ============ */
+PAGES.manuais=async el=>{
+  el.innerHTML=`<h1 class="pg">📘 Manuais</h1>
+  <div class="sec"><h3>Enviar manual (PDF)</h3>
+    <input type="file" id="mn-arq" accept="application/pdf" style="width:100%">
+    <input id="mn-nome" placeholder="Nome do manual (ex.: Manual do motorista)" style="width:100%;margin-top:6px">
+    <button class="btn" id="mn-btn" style="margin-top:8px">📤 Enviar</button><div class="msg" id="mn-msg"></div></div>
+  <div id="mn-lista">${empty('Carregando…')}</div>`;
+  const carregar=async()=>{
+    const {data:list}=await sb.storage.from('manuais').list('',{limit:50,sortBy:{column:'created_at',order:'desc'}});
+    const l=$('mn-lista');
+    if(!list||!list.length){l.innerHTML=empty('Nenhum manual enviado ainda');return}
+    l.innerHTML=`<div class="sec"><h3>Manuais (${list.length})</h3>${list.map(f=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid #242424">
+        <span style="font-size:13px">📄 ${esc(f.name.replace(/\.pdf$/i,''))}</span>
+        <button class="btn mini" data-dl="${esc(f.name)}">⬇️ Abrir</button></div>`).join('')}</div>`;
+    l.querySelectorAll('[data-dl]').forEach(b=>b.onclick=async()=>{
+      const {data}=await sb.storage.from('manuais').createSignedUrl(b.dataset.dl,300,{download:true});
+      if(data)window.open(data.signedUrl,'_blank');else toast('Não consegui abrir o arquivo');
+    });
+  };
+  $('mn-btn').onclick=async()=>{
+    const file=$('mn-arq').files[0];
+    if(!file){$('mn-msg').className='msg err';$('mn-msg').textContent='Escolha o PDF';return}
+    const nome=($('mn-nome').value||file.name.replace(/\.pdf$/i,'')).trim();
+    const path=`${nome}.pdf`;
+    const {error}=await sb.storage.from('manuais').upload(path,file,{upsert:true,contentType:'application/pdf'});
+    if(error){$('mn-msg').className='msg err';$('mn-msg').textContent=err(error);return}
+    $('mn-msg').className='msg ok';$('mn-msg').textContent='Manual enviado ✓';
+    carregar();
+  };
+  carregar();
+};
 /* ============ PROMOTORIA — GERÊNCIA ============ */
 PAGES.promotoria=async el=>{
   el.innerHTML=`<h1 class="pg">Promotoria</h1>
