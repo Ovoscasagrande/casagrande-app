@@ -2956,6 +2956,120 @@ function parseDanfe(items){
   }
   return out;
 }
+function parsePedido(items){
+  const all=[];
+  for(const it of items){
+    if(!it.str||!it.str.trim())continue;
+    all.push({x:Math.round(it.transform[4]),y:Math.round(it.transform[5]),s:it.str.trim()});
+  }
+  const pagesList=[];let cur=[];let prevY=null;
+  for(const p of all){
+    if(prevY!=null&&p.y-prevY>300){pagesList.push(cur);cur=[]}
+    cur.push(p);prevY=p.y;
+  }
+  if(cur.length)pagesList.push(cur);
+  const lines=[];
+  for(const pg of pagesList){
+    const pl=[];
+    for(const p of pg){
+      let L=pl.find(l=>Math.abs(l.y-p.y)<=2);
+      if(!L){L={y:p.y,cells:[]};pl.push(L)}
+      L.cells.push({x:p.x,s:p.s});
+    }
+    pl.sort((a,b)=>b.y-a.y);
+    for(const L of pl)L.cells.sort((a,b)=>a.x-b.x);
+    lines.push(...pl);
+  }
+  const J=i=>lines[i]?lines[i].cells.map(c=>c.s).join(' '):'';
+  const out={tipo:'pedido',numero:null,data:null,cliente:{},itens:[],obs:null,total:null};
+  for(const L of lines){
+    for(let k=0;k<L.cells.length;k++){
+      const c=L.cells[k].s;
+      if(/^Venda$/.test(c)){
+        const nx=L.cells[k+1]&&L.cells[k+1].s.match(/^\d{2,7}$/);
+        if(nx)out.numero=nx[0];
+      } else {
+        const m=c.match(/^Venda\s*(\d{2,7})$/);
+        if(m)out.numero=m[1];
+      }
+    }
+    if(out.numero)break;
+  }
+  for(const L of lines){
+    if(L.y<700)break;
+    for(const c of L.cells){
+      const d=c.s.match(/^(\d{2}\/\d{2}\/\d{4})$/);
+      if(d){out.data=d[1];break}
+    }
+    if(out.data)break;
+  }
+  let vistos=0;
+  for(let i=0;i<lines.length;i++){
+    const m=J(i).match(/CNPJ:\s*(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/);
+    if(m){
+      vistos++;
+      if(vistos===2){
+        const nomeL=lines[i-1];
+        const nome=nomeL?nomeL.cells.filter(c=>/[A-ZÀ-Ú]{3,}/.test(c.s)&&!/CNPJ|\(\d+\)/.test(c.s)).map(c=>c.s).join(' '):'';
+        out.cliente.nome=nome||'';
+        out.cliente.cnpj=m[1];
+        const end=lines[i+1];
+        if(end)out.cliente.endereco=(end.cells[0].s||'').replace(/\s*CEP:\s*$/,'');
+        break;
+      }
+    }
+  }
+  let ini=-1,fim=-1;
+  lines.forEach((L,i)=>{const t=J(i);
+    if(/Produto\/Serviço/.test(t)&&ini<0)ini=i;
+    if(/\bTotal\b/.test(t)&&ini>=0&&fim<0)fim=i;
+  });
+  if(ini>=0){
+    const end=fim<0?lines.length:fim;
+    for(let i=ini+1;i<end;i++){
+      const L=lines[i];
+      const c0=L.cells[0];
+      const qt=numBR(c0?c0.s:null);
+      if(qt==null)continue;
+      const ci=L.cells.findIndex(c=>/^\d{2,6}\s*-\s*\S/.test(c.s));
+      if(ci<0)continue;
+      const m=L.cells[ci].s.match(/^(\d{2,6})\s*-\s*(.+)$/);
+      out.itens.push({codigo:m[1],descricao:m[2].replace(/\s*-\s*$/,'').trim(),qtd:qt});
+    }
+  }
+  const obsIdx=[];
+  lines.forEach((L,i)=>{if(/Observações/i.test(J(i)))obsIdx.push(i)});
+  for(const i of obsIdx){
+    const jt=J(i);
+    if(/Nº\s*Vencimento/.test(jt))continue;
+    const seg=[];
+    const t0=jt.replace(/^.*Observações:\s*/i,'').trim();
+    if(t0)seg.push(t0);
+    for(let j=i+1;j<lines.length;j++){
+      const t2=J(j);
+      if(/Página|Condição de pagamento|Forma de pagamento|Total|Valor líquido|Nº\s*Vencimento/i.test(t2))break;
+      if(/DISTRIBUIDORA|CNPJ:|vendas|www|\(\d{2}\) \d{4}/i.test(t2))break;
+      if(/^\d{2}\/\d{2}\/\d{4}$/.test(t2))break;
+      seg.push(t2);
+    }
+    if(seg.length){out.obs=seg.join(' | ');break}
+  }
+  for(const L of lines){
+    const jt=L.cells.map(c=>c.s).join(' ');
+    const m=jt.match(/\bTotal\s+([\d.,]+)/);
+    if(m){out.total=numBR(m[1]);break}
+  }
+  return out;
+}
+function detectTipoDoc(items){
+  for(const it of items){
+    if(it.str&&/DANFE/i.test(it.str))return 'nf';
+  }
+  for(const it of items){
+    if(it.str&&/^Venda\s*\d+$/.test(it.str.trim()))return 'pedido';
+  }
+  return 'nf';
+}
 async function lerPdfDanfe(file){
   const buf=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:buf}).promise;
@@ -2965,7 +3079,10 @@ async function lerPdfDanfe(file){
     const tc=await page.getTextContent();
     items=items.concat(tc.items);
   }
-  return parseDanfe(items);
+  const tipo=detectTipoDoc(items);
+  const r=tipo==='pedido'?parsePedido(items):parseDanfe(items);
+  r.tipo=tipo;
+  return r;
 }
 PAGES.nfs=async el=>{
   el.innerHTML=`<h1 class="pg">NFs (PDF)</h1>
@@ -2988,28 +3105,50 @@ PAGES.nfs=async el=>{
       try{
         let r;
         if(/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name))r=await lerPdfDanfe(f);
-        else{toast('Só PDF por aqui — foto de NF entra depois');continue}
-        if(!r.numero||!r.itens.length){toast('Não consegui ler '+f.name+' — confira se é DANFE');continue}
+        else{toast('Só PDF por aqui');continue}
+        if(!r.numero||!r.itens.length){toast('Não consegui ler '+f.name);continue}
         r._arquivo=f;
         lote.push(r);
       }catch(e){toast('Erro em '+f.name+': '+err(e))}
     }
-    prog.textContent=lote.length?('Lidos: '+lote.map(x=>'NF '+x.numero).join(' · ')):'Nada lido';
+    // casar PEDIDO com NF pelo CNPJ do cliente
+    const peds=lote.filter(x=>x.tipo==='pedido'), nfes=lote.filter(x=>x.tipo!=='pedido');
+    for(const p of peds){
+      const nf=nfes.find(n=>n.dest&&n.dest.cnpj&&n.dest.cnpj===p.cliente.cnpj&&!n._pedido);
+      if(nf){nf._pedido=p;p._nf=nf}
+    }
+    const resumo=[];
+    if(nfes.length)resumo.push(nfes.map(x=>'NF '+x.numero).join(' · '));
+    if(peds.length)resumo.push(peds.map(x=>{
+      const st=x._nf?(x._nf.itens.length===x.itens.length&&x._nf.itens.every(it=>{const p2=x.itens.find(p3=>p3.codigo===it.codigo);return p2&&p2.qtd===it.qtd})?'✅ bate':'⚠️ difere'):'sem NF';
+      return 'Pedido '+x.numero+' ('+st+')';
+    }).join(' · '));
+    prog.textContent=resumo.join(' — ')||'Nada lido';
     renderConf();
     ev.target.value='';
   };
   const renderConf=()=>{
     if(!lote.length){$('nf-conf').innerHTML='';return}
-    $('nf-conf').innerHTML=`<div class="sec"><h3>✅ Conferir antes de salvar (${lote.length})</h3>`+lote.map((r,i)=>`
+    $('nf-conf').innerHTML=`<div class="sec"><h3>✅ Conferir antes de salvar (${lote.length})</h3>`+lote.map((r,i)=>{
+      const ped=r._pedido||null;
+      const pedMap=ped?Object.fromEntries(ped.itens.map(it=>[it.codigo,it])):{};
+      return `
       <div style="padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;margin-bottom:8px">
-      <b>NF ${esc(r.numero)}</b> · ${esc(r.emissao||'—')}<br>
+      <b>NF ${esc(r.numero)}</b> · ${esc(r.emissao||'—')} ${ped?`· <span style="color:var(--acc)">Pedido ${esc(ped.numero)} anexado</span>`:''}<br>
       <span class="hint">Cliente: <b style="color:var(--ink)">${esc(r.dest.nome||'?')}</b> ${r.dest.cnpj?'· '+esc(r.dest.cnpj):''} ${r.dest.cidade?'· '+esc(r.dest.cidade)+'/'+esc(r.dest.uf||''):''}</span>
-      ${r.obs?`<p class="hint">Obs: ${esc(r.obs)}</p>`:''}
-      <div style="margin-top:6px">${r.itens.map((it,j)=>`<div style="display:flex;gap:6px;align-items:center;padding:3px 0;font-size:12px">
-        <span style="flex:1">${esc(it.descricao)}</span>
+      ${r.obs?`<p class="hint">Obs NF: ${esc(r.obs)}</p>`:''}
+      ${ped&&ped.obs?`<p class="hint">Obs pedido: ${esc(ped.obs)}</p>`:''}
+      <div style="margin-top:6px">${r.itens.map((it,j)=>{
+        const pj=pedMap[it.codigo];
+        const dif=pj&&Number(pj.qtd)!==Number(it.qtd);
+        const falta=!pj;
+        return `<div style="display:flex;gap:6px;align-items:center;padding:3px 0;font-size:12px${dif?';background:#3a2a12;border-radius:6px;padding-left:4px':''}">
+        <span style="flex:1">${esc(it.descricao)}${falta?' <span class="tag">não estava no pedido</span>':''}${dif?` <b style="color:#e0a052">pedido: ${esc(pj.qtd)}</b>`:''}</span>
         <input data-q="${i}-${j}" type="number" step="0.001" inputmode="decimal" value="${it.qtd}" style="width:80px;background:var(--card);color:var(--ink);border:1px solid #444;border-radius:6px;padding:4px">
         <select data-u="${i}-${j}" style="background:var(--card);color:var(--ink);border:1px solid #444;border-radius:6px;padding:4px">${opt([['UN','UN'],['KG','KG']],it.unid)}</select>
-        <button class="btn mini" data-del="${i}-${j}">🗑</button></div>`).join('')}</div></div>`).join('')+
+        <button class="btn mini" data-del="${i}-${j}">🗑</button></div>`}).join('')}
+      ${ped?ped.itens.filter(pj=>!r.itens.some(it=>it.codigo===pj.codigo)).map(pj=>`<div style="display:flex;gap:6px;padding:3px 0;font-size:12px;color:#e0a052"><span style="flex:1">${esc(pj.descricao)} — <b>no pedido (${esc(pj.qtd)}) mas NÃO veio na NF</b></span></div>`).join(''):''}
+      </div></div>`}).join('')+
       `<button class="btn" id="nf-salvar">💾 Salvar ${lote.length} NF(s) no sistema</button></div>`;
     $('nf-conf').querySelectorAll('[data-q]').forEach(inp=>inp.oninput=()=>{const [i,j]=inp.dataset.q.split('-').map(Number);lote[i].itens[j].qtd=numBR(inp.value)??0});
     $('nf-conf').querySelectorAll('[data-u]').forEach(sel=>sel.onchange=()=>{const [i,j]=sel.dataset.u.split('-').map(Number);lote[i].itens[j].unid=sel.value});
@@ -3018,6 +3157,7 @@ PAGES.nfs=async el=>{
       const btn=$('nf-salvar');btn.disabled=true;btn.textContent='Salvando…';
       let ok=0;
       for(const r of lote){
+        const ped=r._pedido||null;
         // cliente: casa por CNPJ, senão cria
         let cid=null;
         if(r.dest.cnpj){
@@ -3040,7 +3180,15 @@ PAGES.nfs=async el=>{
           const up=await sb.storage.from('nfs').upload(path,r._arquivo,{upsert:true,contentType:'application/pdf'});
           if(up.error)path=null;
         }catch(e){path=null}
-        const {data:nf,error}=await sb.from('notas_fiscais').insert({numero:r.numero,cliente_id:cid,vendedor:r.obs||null,comprador:null,pdf_path:path,lida:true}).select().single();
+        let pedPath=null;
+        if(r._pedido){
+          try{
+            pedPath=ME.id+'/pedido-'+r._pedido.numero+'.pdf';
+            const up2=await sb.storage.from('nfs').upload(pedPath,r._pedido._arquivo,{upsert:true,contentType:'application/pdf'});
+            if(up2.error)pedPath=null;
+          }catch(e){pedPath=null}
+        }
+        const {data:nf,error}=await sb.from('notas_fiscais').insert({numero:r.numero,cliente_id:cid,vendedor:r.obs||null,comprador:ped?null:null,pdf_path:path,pedido_path:pedPath,pedido_obs:r._pedido?r._pedido.obs:null,lida:true}).select().single();
         if(error){toast('NF '+r.numero+': '+err(error));continue}
         const {error:ei}=await sb.from('nf_itens').insert(r.itens.map(it=>({nf_id:nf.id,codigo:it.codigo,descricao:it.descricao,unid:it.unid,qtd:it.qtd})));
         if(ei){toast('Itens da NF '+r.numero+': '+err(ei));continue}
