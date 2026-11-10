@@ -322,11 +322,13 @@ function showCfg(){
   $('li-cfg').textContent='⚙️ Configurar conexão';
 }
 $('li-cfg').onclick=async()=>{
-  const url=prompt('URL do projeto Supabase (Settings → API → Project URL):');
-  if(!url)return;
-  const anon=prompt('Chave anon public (Settings → API → anon public):');
-  if(!anon)return;
-  try{saveConn(url,anon);$('cfg-msg').className='msg ok';$('cfg-msg').textContent='Conexão salva!';await init()}catch(e){$('cfg-msg').className='msg err';$('cfg-msg').textContent=err(e)}
+  openModal('⚙️ Configurar conexão',[
+    {id:'cfg-url',label:'URL do projeto Supabase (Settings → API → Project URL)',valor:''},
+    {id:'cfg-anon',label:'Chave anon public (Settings → API → anon public)',valor:''}
+  ],async v=>{
+    if(!v['cfg-url']||!v['cfg-anon']){toast('Preencha URL e chave');return false}
+    try{saveConn(v['cfg-url'],v['cfg-anon']);toast('Conexão salva!');await init()}catch(e){toast(err(e));return false}
+  });
 };
 $('li-btn').onclick=login;
 $('rd-btn').onclick=async()=>{
@@ -612,12 +614,14 @@ PAGES.jornada=async el=>{
         $('j-carga-n').textContent=(cgs||[]).length?`${cgs.length} carregamento(s) nesta jornada`:'';
       };
       render();
-      $('j-carga').onclick=async()=>{
-        const obs=prompt('Observação do carregamento (opcional):');
-        if(obs===null)return;
-        const {error}=await sb.from('jornada_carregamentos').insert({jornada_id:aberta.id,motorista_id:ME.motorista.id,veiculo_id:aberta.veiculo_id,observacao:obs||null});
-        if(error){toast(err(error));return}
-        toast('Carregamento registrado');go('jornada');
+      $('j-carga').onclick=()=>{
+        openModal('📦 Registrar carregamento',[
+          {id:'cg-obs',label:'Observação (opcional)',tipo:'textarea',placeholder:'ex.: voltou na granja e carregou de novo',valor:''}
+        ],async v=>{
+          const {error}=await sb.from('jornada_carregamentos').insert({jornada_id:aberta.id,motorista_id:ME.motorista.id,veiculo_id:aberta.veiculo_id,observacao:v['cg-obs']||null});
+          if(error){toast(err(error));return false}
+          toast('Carregamento registrado');go('jornada');
+        });
       };
     })();
     (async()=>{
@@ -1422,9 +1426,12 @@ PAGES.veiculos=async el=>{
       const ext=(file.name.split('.').pop()||'pdf').toLowerCase();
       const path=`${vid}/${Date.now()}.${ext}`;
       const ok=await uploadDoc(file,path);if(!ok)return;
-      const venc=prompt('Vencimento do CRLV-e (opcional — deixe vazio se não souber):');
-      const r=await ins('veiculos_documentos',insEmp({veiculo_id:vid,tipo:'CRLV-e',arquivo_path:path,vencimento:venc||null,enviado_por:ME.id}));
-      if(r){toast('CRLV-e atualizado');go('veiculos')}
+      openModal('📄 Vencimento do CRLV-e',[
+        {id:'crlv-venc',label:'Vencimento (opcional — deixe vazio se não souber)',tipo:'date',valor:''}
+      ],async v=>{
+        const r=await ins('veiculos_documentos',insEmp({veiculo_id:vid,tipo:'CRLV-e',arquivo_path:path,vencimento:v['crlv-venc']||null,enviado_por:ME.id}));
+        if(r){toast('CRLV-e atualizado');go('veiculos')}
+      });
     };
     inp.click();
   });
@@ -1634,26 +1641,39 @@ PAGES.usuarios=async el=>{
     await sb.from('notificacoes').insert({usuario_id:id,titulo:'Cadastro aprovado ✓',corpo:'Seu acesso foi liberado'+(p==='motorista'?' — bom trabalho!':''),link:'home'});
     toast('Aprovado: '+p+' · '+e);go('usuarios');
   });
-  pw.querySelectorAll('[data-rec]').forEach(b=>b.onclick=async()=>{
+  pw.querySelectorAll('[data-rec]').forEach(b=>b.onclick=()=>{
     const id=b.dataset.rec;
-    if(!confirm('Recusar este cadastro? O usuário fica sem acesso. (Para apagar de vez: Supabase → Authentication)'))return;
-    await sb.from('notificacoes').insert({usuario_id:id,titulo:'Cadastro não aprovado',corpo:'Fale com a gerência.'});
-    toast('Cadastro recusado — usuário continua sem acesso');go('usuarios');
+    const u=lista.find(x=>x.id===id);
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<h3>🚫 Recusar cadastro</h3>
+      <p style="font-size:13px;color:#dddddd">Recusar o cadastro de <b>${esc(u?u.nome:'este usuário')}</b>? Ele fica sem acesso ao app. (Para apagar de vez: Supabase → Authentication)</p>
+      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Recusar</button></div>`;
+    w.classList.add('open');
+    w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    document.getElementById('m-ok').onclick=async()=>{
+      await sb.from('notificacoes').insert({usuario_id:id,titulo:'Cadastro não aprovado',corpo:'Fale com a gerência.'});
+      w.classList.remove('open');
+      toast('Cadastro recusado — usuário continua sem acesso');go('usuarios');
+    };
   });
   // ---- editar aprovado ----
-  l.querySelectorAll('[data-ued]').forEach(b=>b.onclick=async()=>{
+  l.querySelectorAll('[data-ued]').forEach(b=>b.onclick=()=>{
     const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
-    const p=prompt('Perfil (gerencia/motorista/conferente/mecanico):',u.perfil||'motorista');if(p===null)return;
-    const e=prompt('Empresa (OVOS/TRANSPORTADORA/AMBAS):',u.empresa||'OVOS');if(e===null)return;
-    const np=p.trim().toLowerCase(),ne=e.trim().toUpperCase();
-    const r=await upd('usuarios',u.id,{perfil:np,empresa:ne});
-    if(!r)return;
-    if(np==='motorista'){
-      const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',u.id).maybeSingle();
-      if(!mex){await sb.from('motoristas').insert({nome:u.nome,usuario_id:u.id,situacao:'incompleto',empresa:ne==='AMBAS'?'OVOS':ne})}
-      else{await sb.from('motoristas').update({empresa:ne==='AMBAS'?'OVOS':ne}).eq('usuario_id',u.id)}
-    }
-    go('usuarios');
+    openModal('✏️ Editar — '+u.nome,[
+      {id:'eu-perfil',label:'Perfil',tipo:'select',opcoes:[['motorista','Motorista'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],valor:(u.perfil||'motorista')},
+      {id:'eu-emp',label:'Empresa',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas']],valor:(u.empresa||'OVOS')}
+    ],async v=>{
+      const np=v['eu-perfil'],ne=v['eu-emp'];
+      const r=await upd('usuarios',u.id,{perfil:np,empresa:ne});
+      if(!r)return false;
+      if(np==='motorista'){
+        const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',u.id).maybeSingle();
+        if(!mex){await sb.from('motoristas').insert({nome:u.nome,usuario_id:u.id,situacao:'incompleto',empresa:ne==='AMBAS'?'OVOS':ne})}
+        else{await sb.from('motoristas').update({empresa:ne==='AMBAS'?'OVOS':ne}).eq('usuario_id',u.id)}
+      }
+      go('usuarios');
+    });
   });
 };
 PAGES.auditoria=async el=>{
