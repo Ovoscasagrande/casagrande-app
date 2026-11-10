@@ -451,7 +451,7 @@ function menusPara(){
     if(ex.includes('promotor')&&!m.includes('pro-roteiro'))m.push('pro-roteiro','pro-avulsa');
     if((ex.includes('motorista')||ex.includes('promotor'))&&!m.includes('meu-historico'))m.push('meu-historico');
   }
-  if(e!=='OVOS')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria'&&x!=='pro-avulsa');
+  if(e!=='OVOS'&&ME.perfil!=='gerencia')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria'&&x!=='pro-avulsa');
   if(e==='TRANSPORTADORA')m=m.filter(x=>x!=='conferencia');
   if(e==='OVOS')m=m.filter(x=>x!=='recebimentos');
   if(ME.perfil==='motorista'&&e==='OVOS')m=m.filter(x=>x!=='recnovo');
