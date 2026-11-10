@@ -415,10 +415,10 @@ function menusPara(){
   const base={
     pendente:['home'],
     gerencia:['home','manuais','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
-    motorista:['home','jornada','gastos','recnovo','avisos','multas'],
-    promotor:['home','pro-roteiro','jornada','gastos','avisos','multas'],
-    conferente:['home','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
-    mecanico:['home','os']
+    motorista:['home','manuais','jornada','gastos','recnovo','avisos','multas'],
+    promotor:['home','manuais','pro-roteiro','jornada','gastos','avisos','multas'],
+    conferente:['home','manuais','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
+    mecanico:['home','manuais','os']
   };
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
@@ -780,17 +780,29 @@ function fmtKm(n){return n==null?'—':Number(n).toLocaleString('pt-BR')}
 async function jornadaAbertaId(){if(!ME.motorista)return null;const {data}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();return data?data.id:null}
 /* ============ MANUAIS (só gerência) ============ */
 PAGES.manuais=async el=>{
+  const ehGer=ME.perfil==='gerencia';
   el.innerHTML=`<h1 class="pg">📘 Manuais</h1>
-  <div class="sec"><h3>Enviar manual (PDF)</h3>
+  ${ehGer?`<div class="sec"><h3>Enviar manual (PDF)</h3>
     <input type="file" id="mn-arq" accept="application/pdf" style="width:100%">
-    <input id="mn-nome" placeholder="Nome do manual (ex.: Manual do motorista)" style="width:100%;margin-top:6px">
-    <button class="btn" id="mn-btn" style="margin-top:8px">📤 Enviar</button><div class="msg" id="mn-msg"></div></div>
+    <input id="mn-nome" placeholder="Nome do manual — comece com o perfil (ex.: motorista - Manual do motorista)" style="width:100%;margin-top:6px">
+    <p class="hint" style="margin:6px 0 0">Quem vê o quê: nome com "motorista" → motoristas e promotores · "conferente" → conferentes · "mecanico" → mecânicos · "gerente" ou "promotoria" → só gerência · sem palavra de perfil → todos.</p>
+    <button class="btn" id="mn-btn" style="margin-top:8px">📤 Enviar</button><div class="msg" id="mn-msg"></div></div>`:''}
   <div id="mn-lista">${empty('Carregando…')}</div>`;
+  const alvo=ME.perfil;
+  const visivelPara=f=>{
+    const n=f.name.toLowerCase();
+    if(n.includes('gerente')||n.includes('promotoria'))return alvo==='gerencia';
+    if(n.includes('motorista'))return ['motorista','promotor','gerencia'].includes(alvo);
+    if(n.includes('conferente'))return ['conferente','gerencia'].includes(alvo);
+    if(n.includes('mecanico')||n.includes('mecânico'))return ['mecanico','gerencia'].includes(alvo);
+    return true;
+  };
   const carregar=async()=>{
     const {data:list}=await sb.storage.from('manuais').list('',{limit:50,sortBy:{column:'created_at',order:'desc'}});
     const l=$('mn-lista');
-    if(!list||!list.length){l.innerHTML=empty('Nenhum manual enviado ainda');return}
-    l.innerHTML=`<div class="sec"><h3>Manuais (${list.length})</h3>${list.map(f=>`
+    const meus=(list||[]).filter(visivelPara);
+    if(!meus.length){l.innerHTML=empty('Nenhum manual para você ainda');return}
+    l.innerHTML=`<div class="sec"><h3>Meus manuais (${meus.length})</h3>${meus.map(f=>`
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid #242424">
         <span style="font-size:13px">📄 ${esc(f.name.replace(/\.pdf$/i,''))}</span>
         <button class="btn mini" data-dl="${esc(f.name)}">⬇️ Abrir</button></div>`).join('')}</div>`;
@@ -799,16 +811,18 @@ PAGES.manuais=async el=>{
       if(data)window.open(data.signedUrl,'_blank');else toast('Não consegui abrir o arquivo');
     });
   };
-  $('mn-btn').onclick=async()=>{
-    const file=$('mn-arq').files[0];
-    if(!file){$('mn-msg').className='msg err';$('mn-msg').textContent='Escolha o PDF';return}
-    const nome=($('mn-nome').value||file.name.replace(/\.pdf$/i,'')).trim();
-    const path=`${nome}.pdf`;
-    const {error}=await sb.storage.from('manuais').upload(path,file,{upsert:true,contentType:'application/pdf'});
-    if(error){$('mn-msg').className='msg err';$('mn-msg').textContent=err(error);return}
-    $('mn-msg').className='msg ok';$('mn-msg').textContent='Manual enviado ✓';
-    carregar();
-  };
+  if(ehGer){
+    $('mn-btn').onclick=async()=>{
+      const file=$('mn-arq').files[0];
+      if(!file){$('mn-msg').className='msg err';$('mn-msg').textContent='Escolha o PDF';return}
+      const nome=($('mn-nome').value||file.name.replace(/\.pdf$/i,'')).trim();
+      const path=`${nome}.pdf`;
+      const {error}=await sb.storage.from('manuais').upload(path,file,{upsert:true,contentType:'application/pdf'});
+      if(error){$('mn-msg').className='msg err';$('mn-msg').textContent=err(error);return}
+      $('mn-msg').className='msg ok';$('mn-msg').textContent='Manual enviado ✓';
+      carregar();
+    };
+  }
   carregar();
 };
 /* ============ PROMOTORIA — GERÊNCIA ============ */
