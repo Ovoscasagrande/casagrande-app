@@ -785,6 +785,7 @@ PAGES.promotoria=async el=>{
     <input type="date" id="pm-data" value="${hoje()}" style="flex:1">
     <button class="btn mini" id="pm-ver">Ver</button>
     <button class="btn mini" id="pm-novo">+ Criar roteiro</button>
+    <button class="btn mini" id="pm-ncli">+ Cliente</button>
   </div>
   <div id="pm">${empty('Carregando…')}</div>`;
   const carregar=async()=>{
@@ -855,8 +856,52 @@ PAGES.promotoria=async el=>{
   $('pm-ver').onclick=carregar;
   $('pm-data').onchange=carregar;
   $('pm-novo').onclick=()=>criarRoteiroUI(carregar);
+  $('pm-ncli').onclick=()=>novoClienteUI(carregar);
   carregar();
 };
+function novoClienteUI(recarregar){
+  const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+  mm.innerHTML=`<h3>➕ Cadastrar cliente</h3>
+    <label>Nome do cliente *</label><input id="nc-nome" placeholder="ex.: SUPERMERCADO SEMPRE VALE LOJA 01" style="width:100%">
+    <label>Endereço</label><input id="nc-end" placeholder="rua, número, bairro, cidade" style="width:100%">
+    <label>CNPJ</label><input id="nc-cnpj" placeholder="00.000.000/0000-00" style="width:100%">
+    <label>Localização da loja *</label>
+    <div id="nc-map" style="height:220px;border-radius:10px;border:1px solid #333;margin-top:4px"></div>
+    <div class="hint" id="nc-coord" style="margin:6px 0 0">Toque no mapa para marcar o ponto da loja</div>
+    <div class="msg err" id="nc-msg" style="display:none"></div>
+    <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="nc-ok">Cadastrar</button></div>`;
+  w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+  document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+  // Leaflet (OpenStreetMap, grátis)
+  const css=document.createElement('link');css.rel='stylesheet';css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
+  const js=document.createElement('script');js.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+  js.onload=()=>{
+    const map=L.map('nc-map').setView([-22.9068,-47.0616],13); // Campinas/SP
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    let marker=null;
+    map.on('click',e=>{
+      if(marker)map.removeLayer(marker);
+      marker=L.marker([e.latlng.lat,e.latlng.lng]).addTo(map);
+      window.__ncLat=e.latlng.lat;window.__ncLon=e.latlng.lng;
+      document.getElementById('nc-coord').textContent='Ponto marcado ✓ ('+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5)+')';
+    });
+    setTimeout(()=>map.invalidateSize(),300);
+  };
+  document.head.appendChild(js);
+  document.getElementById('nc-ok').onclick=async()=>{
+    const m=document.getElementById('nc-msg');
+    const nome=(document.getElementById('nc-nome').value||'').trim().toUpperCase();
+    if(!nome){m.style.display='block';m.textContent='Digite o nome do cliente';return}
+    if(window.__ncLat==null){m.style.display='block';m.textContent='Toque no mapa para marcar a localização da loja';return}
+    const {data,error}=await sb.from('clientes_promotoria').insert({
+      nome,endereco:document.getElementById('nc-end').value||null,
+      cnpj:document.getElementById('nc-cnpj').value||null,
+      latitude:window.__ncLat,longitude:window.__ncLon
+    }).select().single();
+    if(error){m.style.display='block';m.textContent=err(error);return}
+    w.classList.remove('open');toast('Cliente cadastrado: '+nome);recarregar&&recarregar();
+  };
+}
 async function limparFotosVelhas(){
   try{await sb.rpc('limpa_fotos_promotoria')}catch(e){}
 }
