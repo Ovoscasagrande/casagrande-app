@@ -435,9 +435,9 @@ function logout(){sb.auth.signOut().then(()=>location.reload())}
 function menusPara(){
   const base={
     pendente:['home'],
-    gerencia:['home','manuais','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
-    motorista:['home','manuais','jornada','gastos','recnovo','avisos','multas'],
-    promotor:['home','manuais','pro-roteiro','pro-avulsa','jornada','gastos','avisos','multas'],
+    gerencia:['home','hoje','manuais','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
+    motorista:['home','manuais','jornada','gastos','meu-historico','recnovo','avisos','multas'],
+    promotor:['home','manuais','pro-roteiro','pro-avulsa','jornada','gastos','meu-historico','avisos','multas'],
     conferente:['home','manuais','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
     mecanico:['home','manuais','os']
   };
@@ -447,6 +447,7 @@ function menusPara(){
     const ex=ME.extra||[];
     if(ex.includes('motorista')&&!m.includes('jornada'))m.push('jornada','gastos');
     if(ex.includes('promotor')&&!m.includes('pro-roteiro'))m.push('pro-roteiro','pro-avulsa');
+    if((ex.includes('motorista')||ex.includes('promotor'))&&!m.includes('meu-historico'))m.push('meu-historico');
   }
   if(e!=='OVOS')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria'&&x!=='pro-avulsa');
   if(e==='TRANSPORTADORA')m=m.filter(x=>x!=='conferencia');
@@ -455,7 +456,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
+const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
 function buildNav(){
   const items=menusPara();
   NAV=items;
@@ -465,7 +466,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
+const ICONS={hoje:'☀️',manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -805,6 +806,34 @@ function parseBR(v){if(v==null)return 0;v=String(v).trim();if(!v)return 0;v=v.re
 function fmtBR2(n){return (Math.round(n*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:3})}
 function fmtKm(n){return n==null?'—':Number(n).toLocaleString('pt-BR')}
 async function jornadaAbertaId(){if(!ME.motorista)return null;const {data}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();return data?data.id:null}
+/* ============ MEU HISTÓRICO (motorista/promotor) ============ */
+PAGES['meu-historico']=async el=>{
+  el.innerHTML=`<h1 class="pg">Meu histórico</h1><div id="mh">${empty('Carregando…')}</div>`;
+  const ini=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+  const [js,as,ds]=await Promise.all([
+    sb.from('jornadas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).gte('inicio',ini).order('inicio',{ascending:false}).limit(100),
+    sb.from('abastecimentos').select('litros,valor_total,km,data').eq('motorista_id',ME.motorista.id).gte('data',ini),
+    sb.from('despesas').select('valor,categoria,status,data').eq('motorista_id',ME.motorista.id).gte('data',ini)
+  ]);
+  const J=(js.data||[]),A=(as.data||[]),D=(ds.data||[]);
+  const kmTot=J.filter(x=>x.km_final!=null).reduce((s,x)=>s+Number(x.km_final)-Number(x.km_inicial),0);
+  const litros=A.reduce((s,x)=>s+Number(x.litros),0);
+  const gasto=A.reduce((s,x)=>s+Number(x.valor_total),0)+D.reduce((s,x)=>s+Number(x.valor),0);
+  const pend=D.filter(x=>x.status==='aguardando').reduce((s,x)=>s+Number(x.valor),0);
+  const kml=litros>0?Math.round(kmTot/litros*10)/10:null;
+  const box=$('mh');
+  box.innerHTML=`<div class="kpis">
+    <div class="kpi"><div class="v">${km(kmTot)}</div><div class="l">Km rodados (30 dias)</div></div>
+    <div class="kpi"><div class="v">${J.length}</div><div class="l">Jornadas</div></div>
+    <div class="kpi"><div class="v">${kml?kml+' km/L':'—'}</div><div class="l">Média da frota</div></div>
+    <div class="kpi"><div class="v">${fmtBRL(gasto)}</div><div class="l">Gastos (30 dias)</div></div>
+    ${pend?`<div class="kpi"><div class="v">${fmtBRL(pend)}</div><div class="l">Aguardando aprovação</div></div>`:''}
+  </div>
+  <div class="sec"><h3>Minhas jornadas</h3>${J.length?`<div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>
+  ${J.slice(0,30).map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa||'')}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div>`:empty('Nenhuma jornada nos últimos 30 dias')}</div>
+  <div class="sec"><h3>Meus gastos</h3>${D.length||A.length?`<div class="tblwrap"><table><tr><th>Data</th><th>Tipo</th><th>Valor</th><th>Status</th></tr>
+  ${[...A.map(x=>({data:x.data,t:'⛽ Abastecimento',v:x.valor_total,st:'aprovada'})),...D.map(x=>({data:x.data,t:'💰 '+(x.categoria||'gasto'),v:x.valor,st:x.status}))].sort((a,b)=>b.data<a.data?-1:1).slice(0,30).map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.t)}</td><td>${fmtBRL(x.v)}</td><td>${tag(x.st)}</td></tr>`).join('')}</table></div>`:empty('Nenhum gasto nos últimos 30 dias')}</div>`;
+};
 /* ============ MANUAIS (só gerência) ============ */
 PAGES.manuais=async el=>{
   const ehGer=ME.perfil==='gerencia';
@@ -1345,8 +1374,9 @@ async function pagAvisosGestao(el){
   const g=$('av-g');
   if(!lista||!lista.length){g.innerHTML=empty('Nenhum aviso');return}
   g.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Motorista</th><th>Veículo</th><th>Categoria</th><th>Aviso</th><th>Status</th><th></th></tr>
-  ${lista.map(a=>`<tr><td>${fmtDT(a.criado_em)}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.categoria||'—')}</td><td>${esc(a.texto)}</td><td>${tag(a.status)}</td>
-  <td><button class="btn mini" data-av="${a.id}" data-st="${a.status==='recebido'?'em_analise':a.status==='em_analise'?'encaminhado':a.status==='encaminhado'?'resolvido':'arquivado'}">${a.status==='recebido'?'▶ Em análise':a.status==='em_analise'?'🔧 Encaminhar p/ mecânico':a.status==='encaminhado'?'✓ Resolver':'🗄 Arquivar'}</button></td></tr>`).join('')}</table></div>`;
+  ${lista.map(a=>{const velho=['recebido','em_analise'].includes(a.status)&&(Date.now()-new Date(a.criado_em))>24*3600e3;
+    return `<tr ${velho?'style="background:rgba(139,58,58,.25)"':''}><td>${fmtDT(a.criado_em)}${velho?'<div style="color:var(--bad);font-weight:700">⚠ +24h sem resposta</div>':''}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.categoria||'—')}</td><td>${esc(a.texto)}</td><td>${tag(a.status)}</td>
+  <td><button class="btn mini" data-av="${a.id}" data-st="${a.status==='recebido'?'em_analise':a.status==='em_analise'?'encaminhado':a.status==='encaminhado'?'resolvido':'arquivado'}">${a.status==='recebido'?'▶ Em análise':a.status==='em_analise'?'🔧 Encaminhar p/ mecânico':a.status==='encaminhado'?'✓ Resolver':'🗄 Arquivar'}</button></td></tr>`}).join('')}</table></div>`;
   g.querySelectorAll('[data-av]').forEach(b=>b.onclick=async()=>{
     const r=await upd('avisos',b.dataset.av,{status:b.dataset.st});
     if(r){toast('Status atualizado');go('avisos')}
@@ -1641,6 +1671,32 @@ PAGES.multas=async el=>{
   });
 };
 /* ============ PÁGINAS — GERÊNCIA ============ */
+/* ============ HOJE NA EMPRESA (gerência) ============ */
+PAGES.hoje=async el=>{
+  el.innerHTML=`<h1 class="pg">☀️ Hoje na empresa</h1><div id="hj">${empty('Carregando…')}</div>`;
+  const data=hoje();
+  const [js,ml,ds,rc,avs]=await Promise.all([
+    empFilter(sb.from('jornadas').select('*, veiculos(placa), motoristas(nome)')).gte('inicio',data+'T00:00:00').order('inicio'),
+    empFilter(sb.from('multas').select('*, veiculos(placa), motoristas(nome)')).order('criado_em',{ascending:false}).limit(10),
+    empFilter(sb.from('despesas').select('valor,categoria,motoristas(nome)')).gte('data',data+'T00:00:00'),
+    empFilter(sb.from('recebimentos').select('valor,tipo,motoristas(nome)')).gte('data',data+'T00:00:00'),
+    empFilter(sb.from('avisos').select('*, veiculos(placa), motoristas(nome)')).gte('criado_em',data+'T00:00:00').order('criado_em',{ascending:false})
+  ]);
+  const J=(js.data||[]),M=(ml.data||[]).filter(x=>(x.criado_em||'').slice(0,10)===data),D=(ds.data||[]),R=(rc.data||[]),A=(avs.data||[]);
+  const naRua=J.filter(x=>x.status==='aberta');
+  const totalD=D.reduce((s,x)=>s+Number(x.valor),0), totalR=R.reduce((s,x)=>s+Number(x.valor),0);
+  const box=$('hj');
+  box.innerHTML=`<div class="kpis">
+    <div class="kpi"><div class="v">${naRua.length}</div><div class="l">Na rua agora</div></div>
+    <div class="kpi"><div class="v">${J.filter(x=>x.status==='conferencia').length}</div><div class="l">Aguardando conferência</div></div>
+    <div class="kpi"><div class="v">${fmtBRL(totalR)}</div><div class="l">Recebido hoje</div></div>
+    <div class="kpi"><div class="v">${fmtBRL(totalD)}</div><div class="l">Gasto hoje</div></div>
+  </div>
+  <div class="sec"><h3>🚚 Na rua agora (${naRua.length})</h3>${naRua.length?naRua.map(j=>`
+    <div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(j.motoristas?.nome||'')}</b> · ${esc(j.veiculos?.placa||'')} · ${rotTxt(j)}<div class="hint">saiu ${fmtDT(j.inicio)} · ${km(j.km_inicial)}</div></div>`).join(''):empty('Ninguém na rua agora')}</div>
+  ${A.length?`<div class="sec"><h3>📣 Avisos de hoje (${A.length})</h3>${A.map(a=>`<div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(a.motoristas?.nome||'')}</b> · ${esc(a.veiculos?.placa||'')} · ${esc(a.categoria||'')}<div class="hint">${esc(a.texto.slice(0,80))}</div></div>`).join('')}</div>`:''}
+  ${M.length?`<div class="sec"><h3>🚨 Multas de hoje (${M.length})</h3>${M.map(m=>`<div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(m.motoristas?.nome||'—')}</b> · ${esc(m.veiculos?.placa||'')} · ${fmtBRL(m.valor)}<div class="hint">${esc(m.orgao||'')} · ${tag(m.status)}</div></div>`).join('')}</div>`:''}`;
+};
 PAGES.dashboard=async el=>{
   el.innerHTML=`<h1 class="pg">Dashboard</h1><div id="db">${empty('Carregando…')}</div>`;
   const [js,vs,ms,ds,avs,osL,rcs]=await Promise.all([
