@@ -191,6 +191,7 @@ body[data-emp="DISTRIBUIDORA"]{--acc:#797f35}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'))}
 </script>
@@ -451,7 +452,7 @@ function menusPara(){
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
   if(e==='DISTRIBUIDORA'){
-    if(ME.perfil==='gerencia')m=['home','hoje','nfs','rotas','clientes','produtos','tipos','veiculos','motoristas','jornadas','abastecimentos','despesas','avisos','multas','manuais','usuarios','auditoria'];
+    if(ME.perfil==='gerencia')m=['home','pedidos-rota','hoje','clientes','produtos','tipos','veiculos','motoristas','jornadas','abastecimentos','despesas','avisos','multas','manuais','usuarios','auditoria'];
     else if(ME.perfil==='motorista')m=['home','minha-rota','carga','jornada','gastos','meu-historico','avisos','multas','manuais'];
     else m=m.filter(x=>!['promotoria','pro-roteiro','pro-avulsa','conferencia','recebimentos','recnovo','pro-cliente'].includes(x));
   }
@@ -468,7 +469,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento'};
+const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento','pedidos-rota':'Pedidos & Rota'};
 function buildNav(){
   const items=menusPara();
   NAV=items;
@@ -478,7 +479,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={hoje:'☀️',manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦'};
+const ICONS={hoje:'☀️',manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦','pedidos-rota':'📋'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -658,11 +659,26 @@ PAGES.jornada=async el=>{
       <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}" ${bloqueados.has(v.veiculo_id)?'disabled':''}>${bloqueados.has(v.veiculo_id)?'🔒 ':''}${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}${bloqueados.has(v.veiculo_id)?' (aguardando conferência)':''}</option>`).join('')}</select>
       ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
       <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500">
+      ${empAtiva()==='DISTRIBUIDORA'?`<label>Nº do roteiro</label><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 1"><p class="hint" style="margin:4px 0 0">O nº gerado em Pedidos & Rota aparece aqui — digite o mesmo.</p>`:''}
       ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;cursor:pointer"><input type="checkbox" id="j-carga" style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">📦 <b>Carregamento</b> — saiu vazio para carregar (sem roteiro)</span></label>`:''}
       <button class="btn" id="j-iniciar">▶ Iniciar jornada</button><div class="msg" id="j-msg"></div></div>
       ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
     window.__rots=[];
+    if(empAtiva()==='DISTRIBUIDORA'&&ME.motorista){
+      const {data:minhaRota}=await sb.from('rotas').select('roteiro,sequencia,entregas(status)').eq('motorista_id',ME.motorista.id).in('status',['planejada','distribuida']).order('data',{ascending:false}).limit(1);
+      if(minhaRota&&minhaRota.roteiro){
+        const input=$('j-rot');
+        if(input){input.value=minhaRota.roteiro;input.readOnly=true}
+        const pend=(minhaRota.entregas||[]).filter(e=>e.status==='pendente').length;
+        if($('j-rot')&&$('j-rot').parentElement){
+          const aviso=document.createElement('p');
+          aviso.className='hint';aviso.style.color='var(--acc)';
+          aviso.textContent='📋 Roteiro nº '+minhaRota.roteiro+' gerado pela gerência'+(pend?' · '+pend+' entregas pendentes':'');
+          $('j-rot').parentElement.appendChild(aviso);
+        }
+      }
+    }
     const renderRots=()=>{
       $('j-rots').innerHTML=(window.__rots||[]).map((r,i)=>`<span style="background:var(--field);border:1px solid #333;border-radius:16px;padding:4px 10px;font-size:12px">Roteiro nº ${r} <b style="cursor:pointer;color:#e88" data-rm="${i}">✕</b></span>`).join('');
       $('j-rots').querySelectorAll('[data-rm]').forEach(x=>x.onclick=()=>{window.__rots.splice(+x.dataset.rm,1);renderRots()});
@@ -2827,10 +2843,12 @@ PAGES['minha-rota']=async el=>{
     const st={pendente:['','Aguardando'],andamento:['info','Você chegou'],entregue:['ok','Entregue'],nao_realizada:['bad','Não realizada']}[e.status];
     const acao=e.status==='pendente'?`<button class="btn" data-chega="${e.id}">🚶 Cheguei no cliente</button> <button class="btn sec" data-nao="${e.id}">❌ Não realizada</button>`
       :e.status==='andamento'?`<button class="btn" data-ent="${e.id}">✅ Entregar (foto do comprovante)</button> <button class="btn sec" data-nao="${e.id}">❌ Não realizada</button>`:'';
+    const itensPed=(e.carga||[]).length?(e.carga||[]).map(it=>it.qtd+' '+(it.unid||'UN')+' '+it.descricao).join(' · '):'';
     return `<div class="sec" style="${prox&&prox.id===e.id?'border-left:3px solid var(--acc)':''}">
       <b>${e.ordem}. ${esc(c.nome||'—')}</b> <span class="tag ${st[0]}">${st[1]}</span>
       <p class="hint">${esc(c.endereco||'—')}${c.cidade?' · '+esc(c.cidade)+(c.uf?'/'+esc(c.uf):''):''}</p>
-      <p class="hint">NF ${esc(nf.numero||'—')}${(e.nfs_extra||[]).length?' +'+e.nfs_extra.length+' NF':''} · vendedor ${esc(nf.vendedor||'—')}${nf.comprador?' · comprador '+esc(nf.comprador):''}</p>
+      ${itensPed?`<p class="hint" style="color:var(--acc)">📦 ${esc(itensPed)}</p>`:''}
+      ${e.nf_id?`<p class="hint">NF ${esc(nf.numero||'—')}${(e.nfs_extra||[]).length?' +'+e.nfs_extra.length+' NF':''} · vendedor ${esc(nf.vendedor||'—')}${nf.comprador?' · comprador '+esc(nf.comprador):''}</p>`:''}
       ${c.telefone?`<p class="hint">📞 ${esc(c.telefone)}</p>`:''}
       ${mapa?`<p style="margin:6px 0">${mapa}</p>`:''}
       ${e.motivo?`<p class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo)}</p>`:''}
@@ -3243,7 +3261,11 @@ PAGES.carga=async el=>{
   const {data:itens}=nfIds.length?await sb.from('nf_itens').select('*, notas_fiscais(numero)').in('nf_id',nfIds):{data:[]};
   const agrup={};
   for(const e of (ents||[])){
-    const lista=(itens||[]).filter(i=>i.nf_id===e.nf_id);
+    let lista=e.nf_id?(itens||[]).filter(i=>i.nf_id===e.nf_id):[];
+    // sem NF (fluxo pedidos-rota): a carga vem do próprio pedido (jsonb)
+    if(!lista.length&&(e.carga||[]).length){
+      lista=(e.carga||[]).map((c,i)=>({id:e.id+'-'+i,descricao:c.descricao,unid:c.unid||'UN',qtd:c.qtd}));
+    }
     if(lista.length)agrup[e.id]={entrega:e,itens:lista,carga:e.carga||[],ok:e.carga_ok};
   }
   const render=()=>{
@@ -3278,6 +3300,222 @@ PAGES.carga=async el=>{
   };
   render();
 };
+
+PAGES['pedidos-rota']=async el=>{
+  el.innerHTML=`<h1 class="pg">Pedidos & Rota</h1><div id="pr-root">${empty('Carregando…')}</div>`;
+  const root=$('pr-root');
+  // estado
+  const ST={lote:[],roteiro:null};
+  // ---- 1. LANÇAR PEDIDOS ----
+  let html=`<div class="sec"><h3>1 · Lançar pedidos (PDF)</h3>
+  <p class="hint">Selecione os PDFs dos pedidos do dia — o app lê cada um (cliente, produtos, quantidades) e cadastra/atualiza o cliente sozinho.</p>
+  <div class="fotobtns"><label class="fotobtn" for="pr-arq">📄<span class="ic"></span><span class="tt">Escolher PDFs</span><span class="sub">vários de uma vez</span></label></div>
+  <input id="pr-arq" type="file" accept="application/pdf" multiple class="hide">
+  <div id="pr-prog" class="hint" style="margin-top:6px"></div></div>
+  <div id="pr-conf"></div>
+  <div id="pr-gere"></div>`;
+  root.innerHTML=html;
+  $('pr-arq').onchange=async ev=>{
+    const files=[...ev.target.files];
+    if(!files.length)return;
+    ST.lote=[];
+    const prog=$('pr-prog');
+    for(let i=0;i<files.length;i++){
+      prog.textContent=`Lendo ${i+1} de ${files.length}…`;
+      const f=files[i];
+      try{
+        const buf=await f.arrayBuffer();
+        const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+        let items=[];
+        for(let p=1;p<=pdf.numPages;p++){
+          const page=await pdf.getPage(p);
+          const tc=await page.getTextContent();
+          items=items.concat(tc.items);
+        }
+        const r=parsePedido(items);
+        if(!r.numero||!r.itens.length){toast('Não consegui ler '+f.name);continue}
+        r._arquivo=f;
+        ST.lote.push(r);
+      }catch(e){toast('Erro em '+f.name+': '+err(e))}
+    }
+    prog.textContent=ST.lote.length?('Lidos: '+ST.lote.map(x=>'Venda '+x.numero).join(' · ')):'Nada lido';
+    renderConf();
+    ev.target.value='';
+  };
+  // ---- 2. CONFERÊNCIA + CLIENTES ----
+  const renderConf=async()=>{
+    if(!ST.lote.length){$('pr-conf').innerHTML='';$('pr-gere').innerHTML='';return}
+    // clientes: casa/atualiza
+    let msgs=[];
+    for(const p of ST.lote){
+      const c=p.cliente||{};
+      let id=null,atual=null;
+      if(c.cnpj){
+        const {data:ex}=await sb.from('clientes_dist').select('*').eq('cpf_cnpj',c.cnpj).maybeSingle();
+        if(ex){id=ex.id;atual=ex}
+      }
+      if(!id&&c.nome){
+        const {data:ex}=await sb.from('clientes_dist').select('*').eq('nome',c.nome).maybeSingle();
+        if(ex){id=ex.id;atual=ex}
+      }
+      if(id&&atual){
+        // dados divergentes → atualiza
+        const updRow={};
+        if(c.nome&&c.nome!==atual.nome)updRow.nome=c.nome;
+        if(c.endereco&&c.endereco!==atual.endereco)updRow.endereco=c.endereco;
+        if(c.cidade&&c.cidade!==atual.cidade)updRow.cidade=c.cidade;
+        if(c.uf&&c.uf!==atual.uf)updRow.uf=c.uf;
+        if(Object.keys(updRow).length)await sb.from('clientes_dist').update(updRow).eq('id',id);
+        p._cliente={id,atualizado:Object.keys(updRow).length>0};
+      } else if(c.nome){
+        const {data:nv,error}=await sb.from('clientes_dist').insert({nome:c.nome,cpf_cnpj:c.cnpj||null,endereco:c.endereco||null,cidade:c.cidade||null,uf:c.uf||null}).select().single();
+        if(!error){p._cliente={id:nv.id,novo:true}}
+      }
+    }
+    $('pr-conf').innerHTML=`<div class="sec"><h3>2 · Conferência (${ST.lote.length} pedidos)</h3>`+ST.lote.map((p,i)=>{
+      const c=p.cliente||{};
+      const st=p._cliente?(p._cliente.novo?'<span class="tag ok">cliente novo</span>':p._cliente.atualizado?'<span class="tag info">dados atualizados</span>':'<span class="tag fechada">cliente ok</span>'):'';
+      return `<div style="padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;margin-bottom:8px">
+      <b>Venda ${esc(p.numero)}</b> · ${esc(p.data||'—')} ${st}<br>
+      <span class="hint">Cliente: <b style="color:var(--ink)">${esc(c.nome||'?')}</b> ${c.cnpj?'· '+esc(c.cnpj):''} ${c.endereco?'· '+esc(c.endereco):''}</span>
+      ${p.obs?`<p class="hint">Obs: ${esc(p.obs)}</p>`:''}
+      <div style="margin-top:6px">${p.itens.map((it,j)=>`<div style="display:flex;gap:6px;align-items:center;padding:3px 0;font-size:12px">
+        <span style="flex:1">${esc(it.descricao)}</span>
+        <input data-q="${i}-${j}" type="number" step="0.001" inputmode="decimal" value="${it.qtd}" style="width:80px;background:var(--card);color:var(--ink);border:1px solid #444;border-radius:6px;padding:4px">
+        <button class="btn mini" data-del="${i}-${j}">🗑</button></div>`).join('')}</div></div>`}).join('')+'</div>';
+    $('pr-conf').querySelectorAll('[data-q]').forEach(inp=>inp.oninput=()=>{const [i,j]=inp.dataset.q.split('-').map(Number);ST.lote[i].itens[j].qtd=numBR(inp.value)??0});
+    $('pr-conf').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const [i,j]=b.dataset.del.split('-').map(Number);ST.lote[i].itens.splice(j,1);if(!ST.lote[i].itens.length)ST.lote.splice(i,1);renderConf()});
+    renderGere();
+  };
+  // ---- 3. GERAR: roteiro + caminhão + motorista + 2 PDFs ----
+  const renderGere=async()=>{
+    if(!ST.lote.length){$('pr-gere').innerHTML='';return}
+    // próximo nº de roteiro
+    const {count:cnt}=await sb.from('rotas').select('*',{count:'exact',head:true});
+    const proximo=(cnt||0)+1;
+    // caminhões disponíveis (todos do grupo) e motoristas
+    const [{data:veics},{data:mots}]=await Promise.all([
+      sb.from('veiculos').select('id,placa,modelo').eq('ativo',true).order('placa'),
+      sb.from('motoristas').select('id,nome').eq('ativo',true).order('nome')]);
+    window.veicsCache=veics||[];window.motsCache=mots||[];
+    $('pr-gere').innerHTML=`<div class="sec"><h3>3 · Gerar roteiro</h3>
+    <label>Nº do roteiro</label><input id="pr-num" type="number" value="${proximo}" style="max-width:140px">
+    <label>Caminhão</label><select id="pr-veic">${opt((veics||[]).map(v=>[v.id,(v.placa||'')+' — '+(v.modelo||'')]),null)}</select>
+    <label>Motorista</label><select id="pr-mot">${opt((mots||[]).map(m=>[m.id,m.nome]),null)}</select>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn" id="pr-btn-carga">📄 Gerar conferência de carga</button>
+      <button class="btn" id="pr-btn-rota">🗺️ Gerar roteiro do motorista</button>
+    </div><div class="msg" id="pr-msg"></div></div>`;
+    const salvarRota=async()=>{
+      const num=parseInt($('pr-num').value),vid=$('pr-veic').value,mid=$('pr-mot').value;
+      if(!num||!vid||!mid){$('pr-msg').className='msg err';$('pr-msg').textContent='Preencha nº, caminhão e motorista';return null}
+      if(ST.roteiro&&ST.roteiro.numero===num)return ST.roteiro;
+      // salvar pedidos como notas_fiscais? NÃO — pedidos ficam em rotas/pedidos jsonb + entregas
+      // criar rota com sequência otimizada
+      const cls=[];for(const p of ST.lote){if(p._cliente&&p._cliente.id){const {data:c}=await sb.from('clientes_dist').select('*').eq('id',p._cliente.id).maybeSingle();if(c)cls.push(c)}}
+      const origem={lat:-22.9105,lng:-47.1738}; // DAS ACACIAS, 360 — Hortolândia
+      const comGps=cls.filter(c=>c.lat&&c.lng),sem=cls.filter(c=>!(c.lat&&c.lng));
+      const ord=[];let at=comGps.shift();
+      if(at)ord.push(at);
+      while(comGps.length){
+        let bi=0,bd=1e9;
+        comGps.forEach((c,i)=>{const d=haversine(origem.lat,origem.lng,c.lat,c.lng);if(d<bd){bd=d;bi=i}});
+        at=comGps.splice(bi,1)[0];ord.push(at);
+      }
+      const seq=ord.concat(sem).map((c,i)=>({ordem:i+1,cliente_id:c.id}));
+      let rota,error;
+      {
+        const r=await sb.from('rotas').insert({data:hoje(),motorista_id:mid,veiculo_id:vid,status:'distribuida',sequencia:seq,roteiro:num}).select().single();
+        rota=r.data;error=r.error;
+        if(error&&/roteiro|column/i.test(error.message||'')){
+          const r2=await sb.from('rotas').insert({data:hoje(),motorista_id:mid,veiculo_id:vid,status:'distribuida',sequencia:seq}).select().single();
+          rota=r2.data;error=r2.error;
+          if(rota)toast('⚠️ Rode o SQL do roteiro para gravar o nº');
+        }
+      }
+      if(error){$('pr-msg').className='msg err';$('pr-msg').textContent=err(error);return null}
+      const linhas=ord.concat(sem).map((c,i)=>{
+        const ped=ST.lote.find(p=>p._cliente&&p._cliente.id===c.id);
+        const itens=ped?ped.itens.map(it=>({codigo:it.codigo,descricao:it.descricao,qtd:it.qtd,unid:it.unid||'UN'})):[];
+        return {rota_id:rota.id,ordem:i+1,cliente_id:c.id,status:'pendente',carga:itens};
+      });
+      const {error:e2}=await sb.from('entregas').insert(linhas);
+      if(e2){toast('Entregas: '+err(e2))}
+      ST.roteiro={...rota,numero:num};
+      return ST.roteiro;
+    };
+    $('pr-btn-carga').onclick=async()=>{
+      const rota=await salvarRota();
+      if(!rota)return;
+      geraPdfCarga(rota,ST.lote);
+    };
+    $('pr-btn-rota').onclick=async()=>{
+      const rota=await salvarRota();
+      if(!rota)return;
+      geraPdfRoteiro(rota,ST.lote);
+    };
+  };
+};
+function geraPdfCarga(rota,lote){
+  // resumo: produto → total geral + por cliente
+  const tot={};
+  for(const p of lote)for(const it of p.itens){
+    const key=it.descricao.toUpperCase().trim();
+    if(!tot[key])tot[key]={desc:it.descricao,qtd:0,unid:it.unid||'UN'};
+    tot[key].qtd+=Number(it.qtd)||0;
+  }
+  const porCli=lote.map(p=>({cliente:p.cliente.nome,itens:p.itens}));
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  let y=18;
+  doc.setFontSize(14);doc.text('CONFERENCIA DE CARGA',105,y,{align:'center'});y+=6;
+  doc.setFontSize(10);
+  const mot=((window.motsCache||[]).find(m=>m.id===rota.motorista_id)||{}).nome||'—';
+  const vei=((window.veicsCache||[]).find(v=>v.id===rota.veiculo_id)||{}).placa||'—';
+  doc.text('Roteiro nº '+rota.numero+'  ·  '+fmtD(rota.data),105,y,{align:'center'});y+=6;
+  doc.text('Motorista: '+mot+'   Caminhão: '+vei,105,y,{align:'center'});y+=8;
+  doc.setFontSize(12);doc.text('TOTAL GERAL (todos os pedidos)',14,y);y+=7;
+  doc.setFontSize(9);
+  Object.values(tot).forEach(t=>{
+    doc.text(t.qtd+' '+t.unid+' - '+t.desc,14,y);y+=5;
+    if(y>280){doc.addPage();y=18}
+  });
+  y+=6;doc.setFontSize(12);doc.text('CLIENTES DA ROTA',14,y);y+=7;
+  doc.setFontSize(9);
+  porCli.forEach(c=>{doc.text('- '+c.cliente,14,y);y+=5;if(y>280){doc.addPage();y=18}});
+  doc.save('carga-roteiro-'+rota.numero+'.pdf');
+  toast('PDF de carga baixado');
+}
+async function geraPdfRoteiro(rota,lote){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  let y=18;
+  doc.setFontSize(14);doc.text('ROTEIRO DE ENTREGAS Nº '+rota.numero,105,y,{align:'center'});y+=6;
+  doc.setFontSize(9);
+  doc.text('Saida: DAS ACACIAS, 360 - Jardim Boa Vista, Hortolandia-SP - CEP 13187-042',105,y,{align:'center'});y+=8;
+  // sequência otimizada: mais longe primeiro
+  const seq=[...(rota.sequencia||[])].reverse(); // do mais longe para o mais perto (volta para casa)
+  for(let i=0;i<seq.length;i++){
+    const s=seq[i];
+    const ped=lote.find(p=>p._cliente&&p._cliente.id===s.cliente_id);
+    let nome='Cliente',endereco='',itens=ped?ped.itens:[];
+    if(ped){nome=ped.cliente.nome;endereco=ped.cliente.endereco||''}
+    else{
+      const {data:c}=await sb.from('clientes_dist').select('nome,endereco').eq('id',s.cliente_id).maybeSingle();
+      if(c){nome=c.nome;endereco=c.endereco||''}
+      const {data:ent}=await sb.from('entregas').select('carga').eq('rota_id',rota.id).eq('cliente_id',s.cliente_id).maybeSingle();
+      if(ent&&ent.carga)itens=ent.carga.map(x=>({qtd:x.qtd,unid:x.unid,descricao:x.descricao}));
+    }
+    doc.setFontSize(11);
+    doc.text((i+1)+'. '+nome,14,y);y+=5;
+    doc.setFontSize(9);
+    (itens||[]).forEach(it=>{doc.text('   '+(it.qtd||'')+' '+(it.unid||'UN')+' - '+(it.descricao||''),14,y);y+=4.5;if(y>280){doc.addPage();y=18}});
+    if(endereco){doc.text('   '+endereco,14,y);y+=4.5}
+    y+=3;
+  }
+  doc.save('roteiro-'+rota.numero+'.pdf');
+  toast('Roteiro baixado');
+}
 
 /* ============ notificações ============ */
 PAGES.notif=async el=>{
