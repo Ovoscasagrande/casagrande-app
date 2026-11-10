@@ -673,7 +673,7 @@ PAGES.gastos=async el=>{
   const render=async()=>{
     const t=$('g-tipo').value, f=$('g-form');
     if(t==='abastecimento'){
-      f.innerHTML=`<label>Posto</label><input id="a-posto" placeholder="nome do posto">
+      f.innerHTML=`<label>Posto</label><select id="a-posto"><option value="">Carregando postos…</option></select>
       <label>Quilometragem (mínimo ${fmtKm(aberta.km_inicial)})</label><input id="a-km" inputmode="numeric" placeholder="km atual do veículo">
       <label>Combustível</label><select id="a-comb">${opt([['S10','Diesel S10'],['S500','Diesel S500'],['Gasolina','Gasolina'],['Etanol','Etanol'],['ARLA','ARLA-32']],null)}</select>
       <label>Litros</label><input id="a-litros" inputmode="decimal" placeholder="0,00">
@@ -684,6 +684,35 @@ PAGES.gastos=async el=>{
       ${blocoFoto('a-foto','Foto do comprovante')}
       <button class="btn" id="a-btn">Lançar abastecimento</button><div class="msg" id="a-msg"></div>`;
       const getAFoto=bindFoto('a-foto');
+      (async()=>{
+        const {data:postos}=await sb.from('postos').select('id,nome').eq('ativo',true).order('nome');
+        const sp=$('a-posto');
+        sp.innerHTML=(postos||[]).map(p=>`<option value="${esc(p.nome)}">${esc(p.nome)}</option>`).join('')+`<option value="__OUTRO__">➕ Outro (cadastrar posto)</option>`;
+        sp.onchange=async()=>{
+          if(sp.value!=='__OUTRO__')return;
+          const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+          mm.innerHTML=`<h3>➕ Cadastrar posto novo</h3>
+            <label>Nome do posto *</label><input id="np-nome" placeholder="ex.: AUTO POSTO CENTRAL" style="width:100%">
+            <div class="msg err" id="np-msg" style="display:none"></div>
+            <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="np-ok">Cadastrar</button></div>`;
+          w.classList.add('open');
+          w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+          document.getElementById('m-cancel').onclick=()=>{w.classList.remove('open');sp.value=''};
+          document.getElementById('np-ok').onclick=async()=>{
+            const nome=(document.getElementById('np-nome').value||'').trim().replace(/\s+/g,' ').toUpperCase();
+            const m=document.getElementById('np-msg');
+            if(!nome){m.style.display='block';m.textContent='Digite o nome do posto';return}
+            const dup=(postos||[]).some(p=>p.nome.replace(/\s+/g,' ').toUpperCase()===nome);
+            if(dup){m.style.display='block';m.textContent='Esse posto já está na lista — selecione ele no campo Posto';return}
+            const {data:novo,error}=await sb.from('postos').insert({nome}).select().single();
+            if(error){m.style.display='block';m.textContent=err(error);return}
+            postos.push(novo);postos.sort((a,b)=>a.nome.localeCompare(b.nome));
+            sp.innerHTML=postos.map(x=>`<option value="${esc(x.nome)}">${esc(x.nome)}</option>`).join('')+`<option value="__OUTRO__">➕ Outro (cadastrar posto)</option>`;
+            sp.value=novo.nome;
+            w.classList.remove('open');toast('Posto cadastrado: '+novo.nome);
+          };
+        };
+      })();
       const calc=()=>{
         const l=parseBR($('a-litros').value),pr=parseBR($('a-preco').value);
         const tot=(l>0&&pr>0)?Math.round(l*pr*100)/100:0;
