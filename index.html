@@ -569,7 +569,7 @@ PAGES.jornada=async el=>{
       $('j-rots').innerHTML=(window.__rots||[]).map((r,i)=>`<span style="background:var(--field);border:1px solid #333;border-radius:16px;padding:4px 10px;font-size:12px">Roteiro nº ${r} <b style="cursor:pointer;color:#e88" data-rm="${i}">✕</b></span>`).join('');
       $('j-rots').querySelectorAll('[data-rm]').forEach(x=>x.onclick=()=>{window.__rots.splice(+x.dataset.rm,1);renderRots()});
     };
-    $('j-rot-add').onclick=()=>{
+    if($('j-rot-add'))$('j-rot-add').onclick=()=>{
       const n=parseInt($('j-rot').value);
       if(!n){toast('Digite o número do roteiro primeiro');return}
       if((window.__rots||[]).includes(n)){toast('Roteiro já incluído');return}
