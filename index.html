@@ -935,7 +935,7 @@ PAGES['pro-avulsa']=async el=>{
   <div class="sec"><p class="hint" style="margin:0 0 8px">Sem roteiro hoje? Escolha o cliente que você visitou — a visita vale igual (localização + 3 fotos + pedido).</p>
   <input id="pa-busca" placeholder="🔍 buscar cliente..." style="width:100%">
   <div id="pa-lista" style="margin-top:8px"></div>
-  ${ME.perfil==='promotor'?`<button class="btn sec" id="pa-novo" style="margin-top:10px;width:100%">➕ Cliente novo (estou na porta da loja)</button>`:''}</div>`;
+  ${['promotor','gerencia'].includes(ME.perfil)?`<button class="btn sec" id="pa-novo" style="margin-top:10px;width:100%">➕ Cliente novo (estou na porta da loja)</button>`:''}</div>`;
   const render=q=>{
     const t=(q||'').trim().toLowerCase();
     const l=(clis||[]).filter(c=>!t||c.nome.toLowerCase().includes(t));
