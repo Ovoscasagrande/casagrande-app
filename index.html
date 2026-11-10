@@ -849,7 +849,7 @@ async function pagConfDetalhe(el,jid){
   <div class="sec"><h3>Checklist de conferência</h3><div id="cf-itens"></div>
     <div style="margin-top:12px;font-size:12px;color:var(--mut)" id="cf-prog"></div>
     <button class="btn" id="cf-fechar" style="margin-top:10px">✓ Fechar jornada</button>
-    <button class="btn sec" id="cf-cancelar" style="margin-top:8px;width:100%;border-color:#8b3a3a;color:#ff9b9b">🗑 Cancelar jornada (exclui tudo)</button>
+    <button class="btn sec" id="cf-cancelar" style="margin-top:8px;width:100%;border-color:#8b3a3a;color:#ff9b9b">🗑 Cancelar jornada (com motivo)</button>
     <div class="msg" id="cf-msg"></div>
   </div>`;
   $('cf-voltar').onclick=()=>go('conferencia');
@@ -951,18 +951,19 @@ async function pagConfDetalhe(el,jid){
   $('cf-cancelar').onclick=()=>{
     const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
     mm.innerHTML=`<h3>🗑 Cancelar esta jornada?</h3>
-      <p style="font-size:13px;color:#dddddd">A jornada de <b>${esc(j.motoristas?.nome||'')}</b> no caminhão <b>${esc(j.veiculos?.placa||'')}</b> será <b>EXCLUÍDA do banco</b> — junto com checklist, carregamentos, abastecimentos e despesas dela. Não dá para desfazer.</p>
-      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Excluir jornada</button></div>`;
+      <p style="font-size:13px;color:#dddddd">A jornada de <b>${esc(j.motoristas?.nome||'')}</b> no caminhão <b>${esc(j.veiculos?.placa||'')}</b> será <b>cancelada e arquivada</b> em "jornadas canceladas". O caminhão e o motorista ficam livres na hora.</p>
+      <label style="margin-top:10px">Por que está cancelando? *</label>
+      <textarea id="cx-motivo" rows="3" placeholder="ex.: motorista saiu por engano / caminhão quebrou antes da rota / jornada duplicada" style="width:100%"></textarea>
+      <div class="msg err" id="cx-msg" style="display:none"></div>
+      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Cancelar jornada</button></div>`;
     w.classList.add('open');
     w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     document.getElementById('m-ok').onclick=async()=>{
-      const del=async(t)=>{const {data,error}=await sb.from(t).delete().eq('jornada_id',j.id).select();return (data||[]).length};
-      await del('jornada_conferencia');await del('jornada_carregamentos');
-      await del('abastecimentos');await del('despesas');
-      const {data:delJ,error:eJ}=await sb.from('jornadas').delete().eq('id',j.id).select();
-      if(eJ||( !delJ||!delJ.length)){toast('Não conseguiu excluir — rode o SQL de cancelamento que enviei');w.classList.remove('open');return}
-      w.classList.remove('open');toast('Jornada cancelada e excluída');go('conferencia');
+      const motivo=(document.getElementById('cx-motivo').value||'').trim();
+      if(!motivo){const m=document.getElementById('cx-msg');m.style.display='block';m.textContent='Escreva o motivo do cancelamento — é obrigatório';return}
+      const r=await upd('jornadas',j.id,{status:'cancelada',motivo_cancelamento:motivo,cancelada_por:ME.id,cancelada_em:new Date().toISOString()});
+      if(r){w.classList.remove('open');toast('Jornada cancelada — arquivada em canceladas');go('conferencia')}
     };
   };
   $('cf-fechar').onclick=async()=>{
@@ -1467,12 +1468,26 @@ PAGES.motoristas=async el=>{
   });
 };
 PAGES.jornadas=async el=>{
-  el.innerHTML=`<h1 class="pg">Jornadas</h1><div id="jn">${empty('Carregando…')}</div>`;
-  const {data:lista}=await empFilter(sb.from('jornadas').select('*, veiculos(placa), motoristas(nome)')).order('inicio',{ascending:false}).limit(200);
-  const l=$('jn');
-  if(!lista||!lista.length){l.innerHTML=empty('Nenhuma jornada');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Saída</th><th>Motorista</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Ocorrências</th><th>Status</th></tr>
-  ${lista.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.motoristas?.nome)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${esc(j.ocorrencias||'—')}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div>`;
+  el.innerHTML=`<h1 class="pg">Jornadas</h1>
+  <div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap" id="jn-filtros">
+    ${[['','Todas'],['aberta','Abertas'],['conferencia','Conferência'],['fechada','Fechadas'],['cancelada','🗑 Canceladas']].map(([v,t])=>`<button class="btn mini jnf" data-f="${v}">${t}</button>`).join('')}
+  </div>
+  <div id="jn">${empty('Carregando…')}</div>`;
+  const carregar=async(f)=>{
+    const l=$('jn');l.innerHTML=empty('Carregando…');
+    let q=empFilter(sb.from('jornadas').select('*, veiculos(placa), motoristas(nome), usuarios!jornadas_cancelada_por_fkey(nome)')).order('inicio',{ascending:false}).limit(300);
+    if(f)q=q.eq('status',f);
+    const {data:lista}=await q;
+    if(!lista||!lista.length){l.innerHTML=empty(f==='cancelada'?'Nenhuma jornada cancelada':'Nenhuma jornada');return}
+    l.innerHTML=`<div class="tblwrap"><table><tr><th>Saída</th><th>Motorista</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th>${f==='cancelada'?'<th>Motivo do cancelamento</th>':'<th>Ocorrências</th>'}</tr>
+    ${lista.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.motoristas?.nome)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td>${f==='cancelada'?`<td style="max-width:260px">${esc(j.motivo_cancelamento||'—')}${j.usuarios?.nome?`<div class="hint">por ${esc(j.usuarios.nome)} · ${fmtDT(j.cancelada_em)}</div>`:''}</td>`:`<td>${esc(j.ocorrencias||'—')}</td>`}</tr>`).join('')}</table></div>`;
+  };
+  document.querySelectorAll('#jn-filtros .jnf').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#jn-filtros .jnf').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');carregar(b.dataset.f);
+  });
+  document.querySelector('#jn-filtros .jnf')?.classList.add('on');
+  carregar('');
 };
 PAGES.os=async el=>{
   el.innerHTML=`<h1 class="pg">Ordens de serviço</h1>
