@@ -414,7 +414,8 @@ async function afterLogin(){
   ME=u;ME.email=user.email;
   window.__EMP=(ME.empresa==='AMBAS')?'OVOS':(ME.empresa||'OVOS');
   applyBranding();
-  if(ME.perfil==='motorista'||ME.perfil==='promotor'){
+  ME.extra=(u.perfis_extra||[]);
+  if(ME.perfil==='motorista'||ME.perfil==='promotor'||ME.perfil==='gerencia'){
     const {data:m}=await sb.from('motoristas').select('*').eq('usuario_id',user.id).order('criado_em',{ascending:true}).limit(1);
     ME.motorista=m&&m.length?m[0]:null;
     // jornada aberta trava a empresa: iniciou na OVOS, só sai da OVOS quando fechar (e vice-versa)
@@ -442,7 +443,12 @@ function menusPara(){
   };
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
-  if(e!=='OVOS')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria');
+  if(ME.perfil==='gerencia'&&ME.motorista){
+    const ex=ME.extra||[];
+    if(ex.includes('motorista')&&!m.includes('jornada'))m.push('jornada','gastos');
+    if(ex.includes('promotor')&&!m.includes('pro-roteiro'))m.push('pro-roteiro','pro-avulsa');
+  }
+  if(e!=='OVOS')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria'&&x!=='pro-avulsa');
   if(e==='TRANSPORTADORA')m=m.filter(x=>x!=='conferencia');
   if(e==='OVOS')m=m.filter(x=>x!=='recebimentos');
   if(ME.perfil==='motorista'&&e==='OVOS')m=m.filter(x=>x!=='recnovo');
@@ -2186,10 +2192,12 @@ PAGES.usuarios=async el=>{
     const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
     openModal('✏️ Editar — '+u.nome,[
       {id:'eu-perfil',label:'Perfil',tipo:'select',opcoes:[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],valor:(u.perfil||'motorista')},
-      {id:'eu-emp',label:'Empresa',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas']],valor:(u.empresa||'OVOS')}
+      {id:'eu-emp',label:'Empresa',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas']],valor:(u.empresa||'OVOS')},
+      {id:'eu-extra',label:'Também opera como (só para gerência)',tipo:'select',opcoes:[['','— nenhum —'],['motorista','Também motorista'],['promotor','Também promotor'],['motorista,promotor','Também motorista E promotor']],valor:((u.perfis_extra||[]).join(','))}
     ],async v=>{
       const np=v['eu-perfil'],ne=v['eu-emp'];
-      const r=await upd('usuarios',u.id,{perfil:np,empresa:ne});
+      const extras=(np==='gerencia')?(v['eu-extra']||'').split(',').filter(x=>x):[];
+      const r=await upd('usuarios',u.id,{perfil:np,empresa:ne,perfis_extra:extras});
       if(!r)return false;
       if(np==='motorista'||np==='promotor'){
         const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',u.id).maybeSingle();
