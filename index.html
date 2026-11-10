@@ -3302,6 +3302,7 @@ PAGES.carga=async el=>{
 };
 
 PAGES['pedidos-rota']=async el=>{
+  if(ME.perfil!=='gerencia'){el.innerHTML=empty('Só a gerência acessa esta página');return}
   el.innerHTML=`<h1 class="pg">Pedidos & Rota</h1><div id="pr-root">${empty('Carregando…')}</div>`;
   const root=$('pr-root');
   // estado
@@ -3390,16 +3391,17 @@ PAGES['pedidos-rota']=async el=>{
   // ---- 3. GERAR: roteiro + caminhão + motorista + 2 PDFs ----
   const renderGere=async()=>{
     if(!ST.lote.length){$('pr-gere').innerHTML='';return}
-    // próximo nº de roteiro
-    const {count:cnt}=await sb.from('rotas').select('*',{count:'exact',head:true});
-    const proximo=(cnt||0)+1;
+    // próximo nº de roteiro: fixo e contínuo (max+1), sem digitação
+    const {data:lastR}=await sb.from('rotas').select('roteiro').not('roteiro','is',null).order('roteiro',{ascending:false}).limit(1);
+    const proximo=((lastR&&lastR[0]&&lastR[0].roteiro)||0)+1;
     // caminhões disponíveis (todos do grupo) e motoristas
     const [{data:veics},{data:mots}]=await Promise.all([
       sb.from('veiculos').select('id,placa,modelo').eq('ativo',true).order('placa'),
       sb.from('motoristas').select('id,nome').eq('ativo',true).order('nome')]);
     window.veicsCache=veics||[];window.motsCache=mots||[];
     $('pr-gere').innerHTML=`<div class="sec"><h3>3 · Gerar roteiro</h3>
-    <label>Nº do roteiro</label><input id="pr-num" type="number" value="${proximo}" style="max-width:140px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:12px;color:var(--mut)">Nº do roteiro (automático):</span> <b style="font-size:16px;color:var(--acc)">R${String(proximo).padStart(5,'0')}</b></div>
+    <input id="pr-num" type="hidden" value="${proximo}">
     <label>Caminhão</label><select id="pr-veic">${opt((veics||[]).map(v=>[v.id,(v.placa||'')+' — '+(v.modelo||'')]),null)}</select>
     <label>Motorista</label><select id="pr-mot">${opt((mots||[]).map(m=>[m.id,m.nome]),null)}</select>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -3442,6 +3444,7 @@ PAGES['pedidos-rota']=async el=>{
       const {error:e2}=await sb.from('entregas').insert(linhas);
       if(e2){toast('Entregas: '+err(e2))}
       ST.roteiro={...rota,numero:num};
+      toast('✅ Roteiro '+String(num).padStart(5,'0')+' distribuído ao motorista — já pode iniciar a jornada');
       return ST.roteiro;
     };
     $('pr-btn-carga').onclick=async()=>{
@@ -3528,30 +3531,67 @@ async function geraPdfCarga(rota,lote){
 async function geraPdfRoteiro(rota,lote){
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF();
-  let y=18;
-  doc.setFontSize(14);doc.text('ROTEIRO DE ENTREGAS Nº '+rota.numero,105,y,{align:'center'});y+=6;
-  doc.setFontSize(9);
-  doc.text('Saida: DAS ACACIAS, 360 - Jardim Boa Vista, Hortolandia-SP - CEP 13187-042',105,y,{align:'center'});y+=8;
-  // sequência otimizada: mais longe primeiro
-  const seq=[...(rota.sequencia||[])].reverse(); // do mais longe para o mais perto (volta para casa)
+  const mot=((window.motsCache||[]).find(m=>m.id===rota.motorista_id)||{}).nome||'—';
+  const vei=((window.veicsCache||[]).find(v=>v.id===rota.veiculo_id)||{}).placa||'—';
+  const X0=12,W=186;
+  const cols=[{x:X0,w:10,t:'#'},{x:X0+12,w:52,t:'Cliente'},{x:X0+66,w:44,t:'Bairro / Cidade'},{x:X0+112,w:86,t:'Produtos (qtd x un)'}];
+  const seq=[...(rota.sequencia||[])].reverse(); // mais longe primeiro
+  const linhas=[];
   for(let i=0;i<seq.length;i++){
     const s=seq[i];
     const ped=lote.find(p=>p._cliente&&p._cliente.id===s.cliente_id);
-    let nome='Cliente',endereco='',itens=ped?ped.itens:[];
+    let nome='Cliente',endereco='',bairro='',itens=ped?ped.itens:[];
     if(ped){nome=ped.cliente.nome;endereco=ped.cliente.endereco||''}
     else{
-      const {data:c}=await sb.from('clientes_dist').select('nome,endereco').eq('id',s.cliente_id).maybeSingle();
+      const {data:c}=await sb.from('clientes_dist').select('nome,endereco,cidade,uf').eq('id',s.cliente_id).maybeSingle();
       if(c){nome=c.nome;endereco=c.endereco||''}
       const {data:ent}=await sb.from('entregas').select('carga').eq('rota_id',rota.id).eq('cliente_id',s.cliente_id).maybeSingle();
       if(ent&&ent.carga)itens=ent.carga.map(x=>({qtd:x.qtd,unid:x.unid,descricao:x.descricao}));
     }
-    doc.setFontSize(11);
-    doc.text((i+1)+'. '+nome,14,y);y+=5;
-    doc.setFontSize(9);
-    (itens||[]).forEach(it=>{doc.text('   '+(it.qtd||'')+' '+(it.unid||'UN')+' - '+(it.descricao||''),14,y);y+=4.5;if(y>280){doc.addPage();y=18}});
-    if(endereco){doc.text('   '+endereco,14,y);y+=4.5}
-    y+=3;
+    const pedC=ped?ped.cliente:{};
+    bairro=(endereco.split(',')[1]||'').trim().split('/')[0].trim()||pedC.cidade||'';
+    if(!bairro)bairro=(endereco||'').slice(0,22);
+    const prods=(itens||[]).map(it=>(it.qtd||'')+' '+(it.unid||'UN')+' '+(it.descricao||'').slice(0,38)).join('\n');
+    linhas.push({n:i+1,nome,bairro,prods,endereco});
   }
+  const header=()=>{
+    doc.setFontSize(13);doc.setFont(undefined,'bold');
+    doc.text('ROTEIRO DE ENTREGAS — '+String(rota.numero).padStart(5,'0'),105,16,{align:'center'});
+    doc.setFontSize(9);doc.setFont(undefined,'normal');
+    doc.text('Motorista: '+mot+'   |   Caminhão: '+vei+'   |   '+fmtD(rota.data),105,22,{align:'center'});
+    doc.setFontSize(8);
+    doc.text('Saída: DAS ACACIAS, 360 - Jardim Boa Vista, Hortolândia-SP - CEP 13187-042',105,27,{align:'center'});
+    return 33;
+  };
+  const thead=(y)=>{
+    doc.setFillColor(20,20,20);doc.setTextColor(255,255,255);
+    doc.rect(X0,y-4.5,W,6.5,'F');
+    doc.setFontSize(8.5);doc.setFont(undefined,'bold');
+    cols.forEach(c=>doc.text(c.t,c.x+1.5,y));
+    doc.setTextColor(0,0,0);doc.setFont(undefined,'normal');
+    return y+6.5;
+  };
+  let y=header();y=thead(y);
+  let zebra=false;
+  const boxH=(l)=>Math.max(5.5,l.split('\n').length*4+2.5);
+  linhas.forEach(L=>{
+    const h=boxH(L.prods||'—');
+    if(y+h>278){doc.addPage();y=thead(18)}
+    if(zebra){doc.setFillColor(243,243,243);doc.rect(X0,y-4,W,h,'F')}
+    zebra=!zebra;
+    const nome=L.nome.length>30?L.nome.slice(0,30)+'…':L.nome;
+    doc.setFont(undefined,'bold');doc.setFontSize(9);
+    doc.text(String(L.n),cols[0].x+1.5,y+2);
+    doc.text(nome,cols[1].x+1.5,y+2);
+    doc.setFont(undefined,'normal');doc.setFontSize(7.5);
+    doc.text((L.bairro||'—').slice(0,26),cols[2].x+1.5,y+2);
+    const ls=(L.prods||'—').split('\n');
+    ls.forEach((ln,k)=>doc.text(ln,cols[3].x+1.5,y+2+k*4));
+    doc.rect(X0,y-4,W,h);
+    y+=h;
+  });
+  doc.setFontSize(8);
+  doc.text('Ordem: do cliente mais longe para o mais perto (saída: DAS ACACIAS, 360 - Hortolândia)',X0,y+3);
   doc.save('roteiro-'+rota.numero+'.pdf');
   toast('Roteiro baixado');
 }
