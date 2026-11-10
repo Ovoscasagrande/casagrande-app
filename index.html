@@ -414,20 +414,22 @@ function logout(){sb.auth.signOut().then(()=>location.reload())}
 function menusPara(){
   const base={
     pendente:['home'],
-    gerencia:['home','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
+    gerencia:['home','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
     motorista:['home','jornada','gastos','recnovo','avisos','multas'],
+    promotor:['home','pro-roteiro','jornada','gastos','avisos','multas'],
     conferente:['home','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
     mecanico:['home','os']
   };
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
+  if(e!=='OVOS')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria');
   if(e==='TRANSPORTADORA')m=m.filter(x=>x!=='conferencia');
   if(e==='OVOS')m=m.filter(x=>x!=='recebimentos');
   if(ME.perfil==='motorista'&&e==='OVOS')m=m.filter(x=>x!=='recnovo');
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
+const TITLES={promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-cliente':'Visita ao cliente',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
 function buildNav(){
   const items=menusPara();
   NAV=items;
@@ -437,7 +439,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
+const ICONS={promotoria:'🏪','pro-roteiro':'📍','pro-cliente':'🏪',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -776,6 +778,260 @@ function parseBR(v){if(v==null)return 0;v=String(v).trim();if(!v)return 0;v=v.re
 function fmtBR2(n){return (Math.round(n*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:3})}
 function fmtKm(n){return n==null?'—':Number(n).toLocaleString('pt-BR')}
 async function jornadaAbertaId(){if(!ME.motorista)return null;const {data}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();return data?data.id:null}
+/* ============ PROMOTORIA — GERÊNCIA ============ */
+PAGES.promotoria=async el=>{
+  el.innerHTML=`<h1 class="pg">Promotoria</h1>
+  <div class="row" style="gap:8px;align-items:center;margin-bottom:10px">
+    <input type="date" id="pm-data" value="${hoje()}" style="flex:1">
+    <button class="btn mini" id="pm-ver">Ver</button>
+    <button class="btn mini" id="pm-novo">+ Criar roteiro</button>
+  </div>
+  <div id="pm">${empty('Carregando…')}</div>`;
+  const carregar=async()=>{
+    const data=$('pm-data').value||hoje();
+    $('pm').innerHTML=empty('Carregando…');
+    await limparFotosVelhas();
+    const {data:rots}=await sb.from('roteiros_promotoria').select('*, motoristas(nome), roteiro_clientes(ordem, cliente_id, clientes_promotoria(id,nome,endereco)), visitas(cliente_id,fotos,gps_ok,distancia_m,pedido,visitado_em)').eq('data',data).order('criado_em');
+    const box=$('pm');
+    if(!rots||!rots.length){box.innerHTML=empty('Nenhum roteiro nesta data — toque em "+ Criar roteiro"');return}
+    box.innerHTML=rots.map(r=>{
+      const cli=(r.roteiro_clientes||[]).slice().sort((a,b)=>a.ordem-b.ordem);
+      const vmap={};(r.visitas||[]).forEach(v=>vmap[v.cliente_id]=v);
+      const feitos=cli.filter(c=>vmap[c.cliente_id]).length;
+      return `<div class="sec">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <b style="font-size:15px">📍 ${esc(r.motoristas?.nome||'')}</b>
+          <span class="tag ${feitos===cli.length&&cli.length?'aprovada':(r.status==='planejado'?'conferencia':'conferencia')}">${feitos}/${cli.length}</span></div>
+        <div style="background:#262626;border-radius:8px;height:6px;margin-top:8px;overflow:hidden"><div style="width:${cli.length?Math.round(feitos/cli.length*100):0}%;height:100%;background:var(--acc)"></div></div>
+        <div style="margin-top:10px">${cli.map((c,i)=>{
+          const v=vmap[c.cliente_id];
+          const semGps=v&&v.gps_ok===false;
+          return `<div data-cli="${c.id}" data-cid="${c.cliente_id}" data-rot="${r.id}" style="display:flex;justify-content:space-between;gap:8px;padding:9px 4px;border-bottom:1px solid #242424;align-items:center;cursor:pointer">
+            <div><span style="font-size:13px">${i+1}. <b>${esc(c.clientes_promotoria?.nome||'')}</b></span>
+            <div class="hint">${esc(c.clientes_promotoria?.endereco||'')}${v&&v.pedido?' · 📝 '+esc(v.pedido.slice(0,40)):''}</div></div>
+            ${v?`<span style="font-size:18px">${semGps?'⚠️':'✅'}</span>`:'<span class="hint">pendente</span>'}
+          </div>`}).join('')}</div>
+        <button class="btn sec mini" data-excluir="${r.id}" style="margin-top:8px;color:#ff9b9b;border-color:#8b3a3a">🗑 Excluir roteiro</button>
+      </div>`}).join('');
+    box.querySelectorAll('[data-cli]').forEach(d=>d.onclick=async()=>{
+      const cid=d.dataset.cid,rid=d.dataset.rot;
+      const r=rots.find(x=>x.id===rid);
+      const c=(r.roteiro_clientes||[]).find(x=>x.cliente_id===cid)?.clientes_promotoria;
+      const v=(r.visitas||[]).find(x=>x.cliente_id===cid);
+      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+      let fotosHtml='<p class="hint">Sem fotos ainda.</p>';
+      if(v&&v.fotos&&v.fotos.length){
+        const urls=[];
+        for(const f of v.fotos){const u=await assinar(f,'fotos');if(u)urls.push(u)}
+        fotosHtml=urls.length?`<div style="display:flex;gap:6px;flex-wrap:wrap">${urls.map(u=>`<img src="${u}" style="width:96px;height:96px;object-fit:cover;border-radius:10px">`).join('')}</div>`:'<p class="hint">Fotos expiradas (apagadas após 60 dias).</p>';
+      }
+      mm.innerHTML=`<h3>🏪 ${esc(c?.nome||'')}</h3>
+        <p class="hint" style="margin:0">${esc(c?.endereco||'')}${c?.cnpj?' · CNPJ '+esc(c.cnpj):''}</p>
+        ${v?`
+        <div style="margin-top:10px;font-size:13px">
+          <div>${v.gps_ok===true?'✅ Localização confirmada':v.gps_ok===false?'⚠️ Confirmado longe do ponto'+(v.distancia_m?` (${v.distancia_m} m)`:''):'⚠️ Sem GPS'}${v.justificativa?`<div class="hint">Justificativa: ${esc(v.justificativa)}</div>`:''}</div>
+          <div style="margin-top:6px">🕒 ${fmtDT(v.visitado_em)}</div>
+          ${v.pedido?`<div style="margin-top:8px"><b>Pedido/observação:</b><br>${esc(v.pedido)}</div>`:'<div class="hint" style="margin-top:8px">Sem pedido/observação</div>'}
+        </div>
+        <div style="margin-top:10px">${fotosHtml}</div>`
+        :'<p class="hint" style="margin-top:10px">Visita ainda não feita.</p>'}
+        <div class="mrow"><button class="btn sec" id="m-cancel">Fechar</button></div>`;
+      w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+      document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    });
+    box.querySelectorAll('[data-excluir]').forEach(b=>b.onclick=async()=>{
+      const rid=b.dataset.excluir;
+      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+      mm.innerHTML=`<h3>🗑 Excluir roteiro?</h3><p style="font-size:13px;color:#dddddd">O roteiro e a lista de clientes do dia serão apagados. As visitas já feitas também saem. Não dá para desfazer.</p>
+      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
+      w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+      document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+      document.getElementById('m-ok').onclick=async()=>{
+        await sb.from('roteiros_promotoria').delete().eq('id',rid);
+        w.classList.remove('open');toast('Roteiro excluído');carregar();
+      };
+    });
+  };
+  $('pm-ver').onclick=carregar;
+  $('pm-data').onchange=carregar;
+  $('pm-novo').onclick=()=>criarRoteiroUI(carregar);
+  carregar();
+};
+async function limparFotosVelhas(){
+  try{await sb.rpc('limpa_fotos_promotoria')}catch(e){}
+}
+function criarRoteiroUI(recarregar){
+  const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+  mm.innerHTML=`<h3>➕ Criar roteiro(s)</h3>
+    <label>Datas (pode escolher vários dias)</label>
+    <input id="nr-data" type="date" style="width:100%;margin-bottom:6px">
+    <div id="nr-datas" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+    <label>Promotor *</label><select id="nr-prom" style="width:100%"><option value="">Carregando…</option></select>
+    <label style="margin-top:10px">Clientes do roteiro *</label>
+    <div id="nr-clis" style="max-height:220px;overflow-y:auto;border:1px solid #333;border-radius:10px;padding:6px"></div>
+    <div class="hint" id="nr-cont" style="margin:6px 0 0"></div>
+    <div class="msg err" id="nr-msg" style="display:none"></div>
+    <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="nr-ok">Criar</button></div>`;
+  w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+  document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+  const datas=[];
+  const renderDatas=()=>{
+    document.getElementById('nr-datas').innerHTML=datas.map((d,i)=>`<span style="background:var(--field);border:1px solid #333;border-radius:16px;padding:4px 10px;font-size:12px">${d.slice(8,10)}/${d.slice(5,7)} <b style="cursor:pointer;color:#e88" data-rd="${i}">✕</b></span>`).join('');
+    document.getElementById('nr-datas').querySelectorAll('[data-rd]').forEach(x=>x.onclick=()=>{datas.splice(+x.dataset.rd,1);renderDatas()});
+  };
+  document.getElementById('nr-data').onchange=e=>{
+    const d=e.target.value;if(!d)return;
+    if(!datas.includes(d))datas.push(d);
+    datas.sort();renderDatas();e.target.value='';
+  };
+  (async()=>{
+    const {data:pro}=await sb.from('motoristas').select('id,nome,ativo').order('nome');
+    document.getElementById('nr-prom').innerHTML='<option value="">— escolha o promotor —</option>'+(pro||[]).filter(x=>x.ativo).map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('');
+    const {data:clis}=await sb.from('clientes_promotoria').select('id,nome,endereco').eq('ativo',true).order('nome');
+    const sel=new Set();
+    const renderClis=()=>{
+      document.getElementById('nr-clis').innerHTML=(clis||[]).map(c=>`
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #242424;cursor:pointer">
+          <input type="checkbox" data-c="${c.id}" style="width:18px;height:18px;accent-color:var(--acc)">
+          <span style="font-size:13px"><b>${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}</div></span></label>`).join('')||'<p class="hint">Nenhum cliente cadastrado ainda.</p>';
+      document.getElementById('nr-clis').querySelectorAll('input[data-c]').forEach(cb=>cb.onchange=()=>{
+        if(cb.checked)sel.add(cb.dataset.c);else sel.delete(cb.dataset.c);
+        document.getElementById('nr-cont').textContent=sel.size+' cliente(s) selecionado(s)';
+      });
+    };
+    renderClis();
+    document.getElementById('nr-ok').onclick=async()=>{
+      const m=document.getElementById('nr-msg');
+      const prom=document.getElementById('nr-prom').value;
+      if(!datas.length){m.style.display='block';m.textContent='Escolha pelo menos uma data';return}
+      if(!prom){m.style.display='block';m.textContent='Escolha o promotor';return}
+      if(!sel.size){m.style.display='block';m.textContent='Selecione os clientes';return}
+      let criados=0;
+      for(const d of datas){
+        const {data:r}=await sb.from('roteiros_promotoria').insert({data:d,promotor_id:prom,criado_por:ME.id}).select().single();
+        if(!r)continue;
+        let ordem=1;
+        for(const cid of sel){
+          await sb.from('roteiro_clientes').insert({roteiro_id:r.id,cliente_id:cid,ordem:ordem++});
+        }
+        criados++;
+      }
+      w.classList.remove('open');
+      toast(criados?criados+' roteiro(s) criado(s)':'Não consegui criar — já existe roteiro desse promotor nesse dia?');
+      recarregar&&recarregar();
+    };
+  })();
+}
+/* ============ PROMOTORIA (só OVOS) ============ */
+PAGES['pro-roteiro']=async el=>{
+  el.innerHTML=`<h1 class="pg">Meu roteiro</h1><div id="pr">${empty('Carregando…')}</div>`;
+  const hoje=new Date().toISOString().slice(0,10);
+  const {data:rot}=await sb.from('roteiros_promotoria').select('*, roteiro_clientes(id, cliente_id, ordem, clientes_promotoria(id,nome,endereco))').eq('promotor_id',ME.motorista.id).gte('data',hoje).order('data').limit(10);
+  const box=$('pr');
+  if(!rot||!rot.length){box.innerHTML=empty('Nenhum roteiro para os próximos dias — aguarde a gerência');return}
+  const deHoje=rot.find(r=>r.data===hoje)||rot[0];
+  const visitas=await sb.from('visitas').select('*').eq('roteiro_id',deHoje.id);
+  const vmap={};(visitas.data||[]).forEach(v=>vmap[v.cliente_id]=v);
+  const cli=(deHoje.roteiro_clientes||[]).slice().sort((a,b)=>a.ordem-b.ordem);
+  const feitos=cli.filter(c=>vmap[c.cliente_id]).length;
+  box.innerHTML=`
+  <div class="row" style="gap:6px;overflow-x:auto;padding-bottom:6px">${rot.map(r=>`<button class="btn mini prd ${r.id===deHoje.id?'on':''}" data-d="${r.id}">${r.data===hoje?'HOJE':r.data.slice(8,10)+'/'+r.data.slice(5,7)} · ${(r.roteiro_clientes||[]).length}</button>`).join('')}</div>
+  <div class="sec"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:15px">${deHoje.data===hoje?'Hoje':deHoje.data.slice(8,10)+'/'+deHoje.data.slice(5,7)} — ${cli.length} clientes</b><span class="tag ${feitos===cli.length?'aprovada':'conferencia'}">${feitos}/${cli.length}</span></div>
+  <div style="background:#262626;border-radius:8px;height:6px;margin-top:8px;overflow:hidden"><div style="width:${cli.length?Math.round(feitos/cli.length*100):0}%;height:100%;background:var(--acc)"></div></div></div>
+  <div id="pr-lista">${cli.map((c,i)=>{
+    const v=vmap[c.cliente_id];
+    return `<div class="sec" style="padding:12px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+        <div><b style="font-size:14px">${i+1}. ${esc(c.clientes_promotoria?.nome||'')}</b>
+        <div class="hint">${esc(c.clientes_promotoria?.endereco||'')}</div></div>
+        ${v?'<span style="font-size:22px">✅</span>':`<button class="btn mini" data-vis="${c.cliente_id}">Visitar</button>`}
+      </div></div>`}).join('')}</div>`;
+  box.querySelectorAll('.prd').forEach(b=>b.onclick=()=>{go('pro-roteiro');window.__roteiroSel=b.dataset.d});
+  box.querySelectorAll('[data-vis]').forEach(b=>b.onclick=()=>{window.__clienteVis=b.dataset.vis;window.__roteiroVis=deHoje.id;go('pro-cliente')});
+};
+PAGES['pro-cliente']=async el=>{
+  const cid=window.__clienteVis,rid=window.__roteiroVis;
+  el.innerHTML=`<h1 class="pg">Visita ao cliente</h1><div id="pc">${empty('Carregando…')}</div>`;
+  const {data:c}=await sb.from('clientes_promotoria').select('*').eq('id',cid).maybeSingle();
+  if(!c){$('pc').innerHTML=empty('Cliente não encontrado');return}
+  $('pc').innerHTML=`
+  <div class="sec"><b style="font-size:16px">${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}${c.cnpj?' · CNPJ '+esc(c.cnpj):''}</div>
+    <div id="pc-gps" style="margin-top:10px"><button class="btn" id="pc-gpsbtn">📍 Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
+  <div class="sec" id="pc-fotos-sec" style="display:none"><h3>Fotos da loja (mínimo 3)</h3>
+    <div id="pc-fotos" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <div class="fotobtns" style="margin-top:8px">
+      <label class="fotobtn" for="pc-cam">📷<span class="ic"></span><span class="tt">Tirar foto</span><span class="sub">usar a câmera</span></label>
+      <label class="fotobtn" for="pc-gal">🖼️<span class="ic"></span><span class="tt">Enviar foto</span><span class="sub">da galeria</span></label>
+    </div>
+    <input type="file" id="pc-cam" accept="image/*" capture="environment" hidden><input type="file" id="pc-gal" accept="image/*" hidden>
+    <div class="hint" id="pc-fcount" style="margin-top:6px"></div></div>
+  <div class="sec" id="pc-ped-sec" style="display:none"><h3>Pedido ou observação</h3>
+    <textarea id="pc-ped" rows="3" placeholder="ex.: pediu 10 caixas de extra para sexta"></textarea></div>
+  <div class="sec" id="pc-fin-sec" style="display:none"><button class="btn" id="pc-fin">✓ Concluir visita</button><div class="msg" id="pc-msg"></div></div>`;
+  const estado={gps:null,fotos:[]};
+  $('pc-gpsbtn').onclick=()=>{
+    $('pc-gpsmsg').className='msg';$('pc-gpsmsg').textContent='Pegando GPS…';
+    if(!navigator.geolocation){$('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Este aparelho não tem GPS';return}
+    navigator.geolocation.getCurrentPosition(async pos=>{
+      const lat=pos.coords.latitude,lon=pos.coords.longitude;
+      let dist=null;
+      if(c.latitude!=null&&c.longitude!=null){
+        const R=6371000,dLat=(lat-c.latitude)*Math.PI/180,dLon=(lon-c.longitude)*Math.PI/180;
+        const a=Math.sin(dLat/2)**2+Math.cos(c.latitude*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2;
+        dist=Math.round(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+      }
+      if(dist==null){
+        estado.gps={ok:true,dist:null};gpsOk();
+      }else if(dist<=200){
+        estado.gps={ok:true,dist};gpsOk('Localização confirmada ✓ ('+dist+' m do ponto cadastrado)');
+      }else{
+        estado.gps={ok:false,dist};
+        $('pc-gpsmsg').className='msg err';
+        $('pc-gpsmsg').textContent='Você está a '+dist+' m do ponto cadastrado';
+        const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+        mm.innerHTML=`<h3>📍 Longe do ponto cadastrado</h3><p style="font-size:13px;color:#dddddd">Está a <b>${dist} m</b> do ponto salvo para este cliente. Confirma a visita mesmo assim? Escreva o motivo (ex.: loja mudou de endereço).</p>
+        <label>Motivo *</label><textarea id="gj-just" rows="2" style="width:100%"></textarea><div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="gj-ok">Confirmar visita</button></div>`;
+        w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+        document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+        document.getElementById('gj-ok').onclick=()=>{
+          const j=(document.getElementById('gj-just').value||'').trim();
+          if(!j){toast('Escreva o motivo');return}
+          estado.gps={ok:false,dist,just:j};w.classList.remove('open');gpsOk('Visita confirmada com justificativa (registrada para a gerência)');
+        };
+      }
+    },()=>{
+      $('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Não consegui pegar o GPS';
+      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+      mm.innerHTML=`<h3>📍 GPS não disponível</h3><p style="font-size:13px;color:#dddddd">Confirma a visita sem GPS? A visita fica marcada como "sem GPS" para a gerência.</p><div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="gj-ok">Confirmar sem GPS</button></div>`;
+      w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+      document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+      document.getElementById('gj-ok').onclick=()=>{estado.gps={ok:null,dist:null,just:'sem GPS'};w.classList.remove('open');gpsOk('Visita confirmada (sem GPS — gerência avisada)')};
+    },{enableHighAccuracy:true,timeout:15000});
+  };
+  const gpsOk=(msg)=>{ $('pc-gpsmsg').className='msg ok';$('pc-gpsmsg').textContent=msg||'Localização confirmada ✓';
+    $('pc-fotos-sec').style.display='';$('pc-ped-sec').style.display='';$('pc-fin-sec').style.display='';renderFotos();};
+  const renderFotos=()=>{
+    $('pc-fotos').innerHTML=estado.fotos.map((f,i)=>`<div style="position:relative;width:86px;height:86px"><img src="${f.url}" style="width:86px;height:86px;object-fit:cover;border-radius:10px"><button data-rm="${i}" style="position:absolute;top:-6px;right:-6px;background:#8b3a3a;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px">✕</button></div>`).join('');
+    $('pc-fcount').textContent=estado.fotos.length+' foto(s)'+(estado.fotos.length<3?` — faltam ${3-estado.fotos.length}`:' ✓');
+    $('pc-fotos').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{estado.fotos.splice(+b.dataset.rm,1);renderFotos()});
+  };
+  const addFoto=async file=>{
+    if(!file)return;
+    if(estado.fotos.length>=10){toast('Máximo de 10 fotos');return}
+    const path=`promotoria/${ME.id}/${Date.now()}-${estado.fotos.length}.jpg`;
+    const p=await uploadFoto(file,path);if(!p)return;
+    const url=await assinar(p,'fotos');
+    estado.fotos.push({path,url});renderFotos();
+  };
+  $('pc-cam').onchange=e=>addFoto(e.target.files[0]);
+  $('pc-gal').onchange=e=>addFoto(e.target.files[0]);
+  $('pc-fin').onclick=async()=>{
+    if(estado.fotos.length<3){$('pc-msg').className='msg err';$('pc-msg').textContent='São necessárias pelo menos 3 fotos';return}
+    const {error}=await sb.from('visitas').upsert({roteiro_id:rid,cliente_id:cid,promotor_id:ME.motorista.id,gps_ok:estado.gps.ok,distancia_m:estado.gps.dist,justificativa:estado.gps.just||null,fotos:estado.fotos.map(f=>f.path),pedido:$('pc-ped').value||null,visitado_em:new Date().toISOString()},{onConflict:'roteiro_id,cliente_id'});
+    if(error){$('pc-msg').className='msg err';$('pc-msg').textContent=err(error);return}
+    toast('Visita concluída ✓');go('pro-roteiro');
+  };
+};
 PAGES.avisos=async el=>{
   if(ME.perfil==='motorista')return pagAvisosMotorista(el);
   return pagAvisosGestao(el);
@@ -1590,7 +1846,7 @@ PAGES.usuarios=async el=>{
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
-          <select data-perfil="${u.id}" class="mini-sel">${opt([['motorista','Motorista'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],u.perfil!=='pendente'?u.perfil:'motorista')}</select>
+          <select data-perfil="${u.id}" class="mini-sel">${opt([['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],u.perfil!=='pendente'?u.perfil:'motorista')}</select>
           <select data-emp="${u.id}" class="mini-sel">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas']],u.empresa&&u.empresa!=='OVOS'?u.empresa:'OVOS')}</select>
           <span data-veic-wrap="${u.id}" style="display:none"><select data-veic="${u.id}" class="mini-sel"><option value="">— sem veículo —</option></select></span>
           <button class="btn mini" data-apr="${u.id}">✓ Aprovar</button>
@@ -1630,7 +1886,7 @@ PAGES.usuarios=async el=>{
     const sit=(dados.cpf&&dados.cnh&&dados.cnh_validade)?'completo':'incompleto';
     const r=await upd('usuarios',id,{perfil:p,empresa:e,...dados});
     if(!r)return;
-    if(p==='motorista'){
+    if(p==='motorista'||p==='promotor'){
       const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',id).maybeSingle();
       let mid=mex?.id;
       if(!mid){const u=lista.find(x=>x.id===id);const {data:mn}=await sb.from('motoristas').insert({nome:u?u.nome:'Motorista',usuario_id:id,situacao:sit,empresa:e==='AMBAS'?'OVOS':e,...dados}).select('id');mid=mn?.[0]?.id}
@@ -1661,13 +1917,13 @@ PAGES.usuarios=async el=>{
   l.querySelectorAll('[data-ued]').forEach(b=>b.onclick=()=>{
     const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
     openModal('✏️ Editar — '+u.nome,[
-      {id:'eu-perfil',label:'Perfil',tipo:'select',opcoes:[['motorista','Motorista'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],valor:(u.perfil||'motorista')},
+      {id:'eu-perfil',label:'Perfil',tipo:'select',opcoes:[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],valor:(u.perfil||'motorista')},
       {id:'eu-emp',label:'Empresa',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas']],valor:(u.empresa||'OVOS')}
     ],async v=>{
       const np=v['eu-perfil'],ne=v['eu-emp'];
       const r=await upd('usuarios',u.id,{perfil:np,empresa:ne});
       if(!r)return false;
-      if(np==='motorista'){
+      if(np==='motorista'||np==='promotor'){
         const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',u.id).maybeSingle();
         if(!mex){await sb.from('motoristas').insert({nome:u.nome,usuario_id:u.id,situacao:'incompleto',empresa:ne==='AMBAS'?'OVOS':ne})}
         else{await sb.from('motoristas').update({empresa:ne==='AMBAS'?'OVOS':ne}).eq('usuario_id',u.id)}
