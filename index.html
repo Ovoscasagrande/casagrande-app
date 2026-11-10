@@ -2287,9 +2287,11 @@ PAGES.os=async el=>{
     const oleo=(vs||[]).map(v=>{
       const falta=(v.km_atual!=null&&v.intervalo_oleo_km&&v.ultima_troca_oleo_km!=null)?Number(v.km_atual)-(Number(v.ultima_troca_oleo_km)+Number(v.intervalo_oleo_km)):null;
       return {...v, falta};
-    }).filter(v=>v.falta!=null).sort((a,b)=>b.falta-a.falta);
-    const vencidos=oleo.filter(v=>v.falta>=0);
-    const proximos=oleo.filter(v=>v.falta<0).slice(0,5);
+    });
+    const primeira=oleo.filter(v=>v.intervalo_oleo_km&&v.falta==null); // tem intervalo, nunca trocou no app
+    const oleoAtivos=oleo.filter(v=>v.falta!=null).sort((a,b)=>b.falta-a.falta);
+    const vencidos=oleoAtivos.filter(v=>v.falta>=0);
+    const proximos=oleoAtivos.filter(v=>v.falta<0).slice(0,5);
     // avisos encaminhados (fila do mecânico)
     const {data:avs}=await empFilter(sb.from('avisos').select('*, veiculos(placa), motoristas(nome)')).in('status',['encaminhado','em_analise']).order('criado_em',{ascending:false}).limit(20);
     // OS por veículo (top 5 com OS abertas)
@@ -2304,6 +2306,9 @@ PAGES.os=async el=>{
       <div class="kpi"><div class="v">${fmtBRL(custoMes)}</div><div class="l">Custo do mês</div></div>
     </div>
     <div style="margin:4px 0 12px"><button class="btn" id="to-btn">🛢️ Registrar troca de óleo</button></div>
+    ${primeira.length?`<div class="sec"><h3>🛢️ 1ª troca não registrada (${primeira.length})</h3>
+      <p class="hint" style="margin:0 0 6px">Estes caminhões têm intervalo configurado, mas nenhuma troca registrada no app. Registre a última troca feita para o alerta começar a contar.</p>
+      ${primeira.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span>${v.km_atual!=null?km(v.km_atual):'—'} · intervalo ${km(v.intervalo_oleo_km)}</span></div>`).join('')}</div>`:''}
     ${vencidos.length?`<div class="sec" style="border:1px solid #8b3a3a"><h3 style="color:var(--bad)">🛢️ Troca de óleo VENCIDA (${vencidos.length})</h3>
       ${vencidos.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span style="color:var(--bad);font-weight:700">VENCIDA há ${km(v.falta)}</span></div>`).join('')}</div>`:''}
     ${proximos.length?`<div class="sec"><h3>🛢️ Óleo — próximas trocas</h3>
