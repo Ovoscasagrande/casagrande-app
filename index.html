@@ -847,12 +847,9 @@ async function pagConfDetalhe(el,jid){
   </div>
   <div class="sec"><h3>Comprovantes da jornada (${comps.length})</h3><div id="cf-comps">${comps.length?'':empty('Nenhum comprovante anexado a esta jornada')}</div></div>
   <div class="sec"><h3>Checklist de conferência</h3><div id="cf-itens"></div>
-    <div style="margin-top:12px">
-      <label style="font-size:11px;color:var(--mut)">📄 NF que voltou (opcional — se alguma nota retornou, digite o número aqui)</label>
-      <input id="cf-nf" placeholder="ex.: 12345, 12346" style="width:100%;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:9px 10px;font-size:13px;margin-top:4px">
-    </div>
     <div style="margin-top:12px;font-size:12px;color:var(--mut)" id="cf-prog"></div>
     <button class="btn" id="cf-fechar" style="margin-top:10px">✓ Fechar jornada</button>
+    <button class="btn sec" id="cf-cancelar" style="margin-top:8px;width:100%;border-color:#8b3a3a;color:#ff9b9b">🗑 Cancelar jornada (exclui tudo)</button>
     <div class="msg" id="cf-msg"></div>
   </div>`;
   $('cf-voltar').onclick=()=>go('conferencia');
@@ -918,6 +915,7 @@ async function pagConfDetalhe(el,jid){
           </div>
         </div>
         ${st.ok===false?`<textarea data-obs="${i}" placeholder="O que está pendente? (salva automático)" style="margin-top:8px">${esc(st.obs||'')}</textarea>`:''}
+        ${i===2&&st.ok===false?`<label style="font-size:11px;color:var(--mut);margin-top:8px;display:block">📄 NF que voltou — digite o número da(s) nota(s) devolvida(s)</label><input id="cf-nf" placeholder="ex.: 12345, 12346" value="${esc(window.__nfVal||'')}" style="width:100%;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:9px 10px;font-size:13px">`:''}
       </div>`}).join('');
     iw.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{
       const it=CONF_ITENS[b.dataset.ok];
@@ -937,7 +935,10 @@ async function pagConfDetalhe(el,jid){
       const {error}=await sb.from('jornada_conferencia').upsert({jornada_id:jid,item:it,ok:false,obs:t.value,conferido_por:ME.id,conferido_em:new Date().toISOString()},{onConflict:'jornada_id,item'});
       if(error)toast(err(error));
     }));
+    const nf=document.getElementById('cf-nf');
+    if(nf){nf.addEventListener('input',()=>{window.__nfVal=nf.value;atualizaProg()});}
   };
+  window.__nfVal=window.__nfVal||'';
   const atualizaProg=()=>{
     const ok=CONF_ITENS.filter(it=>estado[it]&&estado[it].ok===true).length;
     const no=CONF_ITENS.filter(it=>estado[it]&&estado[it].ok===false).length;
@@ -946,10 +947,26 @@ async function pagConfDetalhe(el,jid){
     $('cf-fechar').disabled=ok<5&&!nfLivre;
     $('cf-fechar').textContent=ok<5?(nfLivre?'✓ Fechar jornada (com NF devolvida)':`Faltam ${5-ok} item(ns)`):'✓ Fechar jornada';
   };
-  $('cf-nf').addEventListener('input',atualizaProg);
   renderItens();atualizaProg();
+  $('cf-cancelar').onclick=()=>{
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<h3>🗑 Cancelar esta jornada?</h3>
+      <p style="font-size:13px;color:#dddddd">A jornada de <b>${esc(j.motoristas?.nome||'')}</b> no caminhão <b>${esc(j.veiculos?.placa||'')}</b> será <b>EXCLUÍDA do banco</b> — junto com checklist, carregamentos, abastecimentos e despesas dela. Não dá para desfazer.</p>
+      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Excluir jornada</button></div>`;
+    w.classList.add('open');
+    w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    document.getElementById('m-ok').onclick=async()=>{
+      const del=async(t)=>{const {data,error}=await sb.from(t).delete().eq('jornada_id',j.id).select();return (data||[]).length};
+      await del('jornada_conferencia');await del('jornada_carregamentos');
+      await del('abastecimentos');await del('despesas');
+      const {data:delJ,error:eJ}=await sb.from('jornadas').delete().eq('id',j.id).select();
+      if(eJ||( !delJ||!delJ.length)){toast('Não conseguiu excluir — rode o SQL de cancelamento que enviei');w.classList.remove('open');return}
+      w.classList.remove('open');toast('Jornada cancelada e excluída');go('conferencia');
+    };
+  };
   $('cf-fechar').onclick=async()=>{
-    const nf=($('cf-nf')?.value||'').trim();
+    const nf=(window.__nfVal||'').trim();
     const patch={status:'fechada',conferida_por:ME.id,conferida_em:new Date().toISOString()};
     if(nf)patch.ocorrencias=(j.ocorrencias?j.ocorrencias+' | ':'')+'NF devolvida: '+nf;
     const r=await upd('jornadas',jid,patch);
