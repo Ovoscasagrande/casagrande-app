@@ -621,10 +621,10 @@ PAGES.jornada=async el=>{
     w.innerHTML=`<div class="sec"><h3>Jornada aberta — ${esc(aberta.veiculos?.placa||'')} · ${rotTxt(aberta)}</h3>
       <p class="hint">Início: ${fmtDT(aberta.inicio)} · Km inicial: ${km(aberta.km_inicial)}</p>
       <div id="j-crlv" style="margin:8px 0">${empty('Carregando documento…')}</div>
-      <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
+      ${empAtiva()==='OVOS'?`<div style="display:flex;gap:8px;align-items:center;margin:10px 0">
         <button class="btn mini" id="j-carga" type="button">📦 Registrar carregamento</button>
         <span class="hint" id="j-carga-n" style="margin:0"></span>
-      </div>
+      </div>`:''}
       <div id="j-cargas" style="margin-bottom:8px"></div>
       <label>Quilometragem final</label><input id="j-kmf" type="number" inputmode="numeric" placeholder="km na chegada">
       <label>Ocorrências (opcional)</label><textarea id="j-oc" placeholder="algo aconteceu no trajeto?"></textarea>
@@ -637,7 +637,7 @@ PAGES.jornada=async el=>{
         $('j-carga-n').textContent=(cgs||[]).length?`${cgs.length} carregamento(s) nesta jornada`:'';
       };
       render();
-      $('j-carga').onclick=()=>{
+      if($('j-carga'))$('j-carga').onclick=()=>{
         openModal('📦 Registrar carregamento',[
           {id:'cg-obs',label:'Observação (opcional)',tipo:'textarea',placeholder:'ex.: voltou na granja e carregou de novo',valor:''}
         ],async v=>{
