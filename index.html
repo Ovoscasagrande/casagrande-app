@@ -190,6 +190,7 @@ body[data-emp="DISTRIBUIDORA"]{--acc:#797f35}
 <div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script>
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'))}
 </script>
@@ -449,8 +450,8 @@ function menusPara(){
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
   if(e==='DISTRIBUIDORA'){
-    if(ME.perfil==='gerencia')m=['home','hoje','rotas','clientes','produtos','tipos','veiculos','motoristas','jornadas','abastecimentos','despesas','avisos','multas','manuais','usuarios','auditoria'];
-    else if(ME.perfil==='motorista')m=['home','minha-rota','jornada','gastos','meu-historico','avisos','multas','manuais'];
+    if(ME.perfil==='gerencia')m=['home','hoje','nfs','rotas','clientes','produtos','tipos','veiculos','motoristas','jornadas','abastecimentos','despesas','avisos','multas','manuais','usuarios','auditoria'];
+    else if(ME.perfil==='motorista')m=['home','minha-rota','carga','jornada','gastos','meu-historico','avisos','multas','manuais'];
     else m=m.filter(x=>!['promotoria','pro-roteiro','pro-avulsa','conferencia','recebimentos','recnovo','pro-cliente'].includes(x));
   }
   if(ME.perfil==='gerencia'&&ME.motorista){
@@ -466,7 +467,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota'};
+const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento'};
 function buildNav(){
   const items=menusPara();
   NAV=items;
@@ -476,7 +477,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={hoje:'☀️',manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍'};
+const ICONS={hoje:'☀️',manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -2748,15 +2749,23 @@ async function pagRotaDetalhe(id){
   const {data:r}=await sb.from('rotas').select('*, motoristas(nome), veiculos(placa,modelo)').eq('id',id).maybeSingle();
   if(!r){toast('Rota não encontrada');return}
   const {data:ents}=await sb.from('entregas').select('*, clientes_dist(nome,endereco,cidade,uf,lat,lng), notas_fiscais(numero,vendedor,comprador)').eq('rota_id',id).order('ordem');
+  const nfIds=[...new Set((ents||[]).map(e=>e.nf_id).filter(Boolean))];
+  const {data:itens}=nfIds.length?await sb.from('nf_itens').select('*, notas_fiscais(numero)').in('nf_id',nfIds):{data:[]};
+  const cargaHtml=(ents||[]).filter(e=>e.nf_id&&((itens||[]).some(i=>i.nf_id===e.nf_id))).map(e=>{
+    const lista=(itens||[]).filter(i=>i.nf_id===e.nf_id);
+    return `<div class="sec"><b>📦 Carga — NF ${esc(e.notas_fiscais?.numero||'')} · ${esc(e.clientes_dist?.nome||'')}</b> ${e.carga_ok?'<span class="tag ok">conferida pelo motorista</span>':'<span class="tag">pendente</span>'}
+    ${lista.map((it,ix)=>{const m=(e.carga||[])[ix];return `<p class="hint" style="font-size:12px">${m&&m.ok?'✅':'⬜'} ${esc(it.descricao)} — <b style="color:var(--ink)">${fmtKm(it.qtd)} ${esc(it.unid)}</b></p>`}).join('')}</div>`}).join('');
   let html=`<button class="btn sec" id="rd-volt">← Voltar</button><h1 class="pg">Rota ${fmtD(r.data)}</h1>
   <div class="sec"><b>${esc(r.motoristas?.nome||'—')}</b> · ${esc(r.veiculos?.placa||'—')} <span class="tag">${r.status}</span>
   ${r.km_inicial!=null?`<p class="hint">Km ${fmtKm(r.km_inicial)}${r.km_final!=null?' → '+fmtKm(r.km_final)+' · percorrido '+fmtKm(Number(r.km_final)-Number(r.km_inicial)):''}</p>`:''}</div>
+  ${cargaHtml}
   <div class="sec"><h3>Entregas (${(ents||[]).length})</h3>`+((ents||[]).map(e=>{
     const st={pendente:'',andamento:'info',entregue:'ok',nao_realizada:'bad'}[e.status]||'';
     const nfx=(e.nfs_extra||[]).length;
     return `<div style="padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;margin-bottom:6px"><b>${e.ordem}. ${esc(e.clientes_dist?.nome||'—')}</b> <span class="tag ${st}">${e.status.replace('_',' ')}</span>
     <p class="hint">NF ${esc(e.notas_fiscais?.numero||'—')}${nfx?' +'+nfx+' NF':''} · vendedor ${esc(e.notas_fiscais?.vendedor||'—')}${e.notas_fiscais?.comprador?' · comprador '+esc(e.notas_fiscais.comprador):''}</p>
     ${e.motivo?`<p class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo)}</p>`:''}
+    ${e.carga_ok?'<span class="tag ok">carga conferida</span>':''}
     ${e.foto_path?`<div id="rd-foto-${e.id}">${empty('comprovante…')}</div>`:''}</div>`}).join('')||empty(''))+`</div>`;
   if(ME.perfil==='gerencia'&&r.status!=='encerrada')html+=`<div class="sec"><button class="btn" id="rd-enc">✅ Encerrar rota</button></div>`;
   $('main').innerHTML=html;
@@ -2787,7 +2796,9 @@ PAGES['minha-rota']=async el=>{
   const rota=rotas.find(r=>r.data<=hoje())||rotas[0];
   const {data:ents}=await sb.from('entregas').select('*, clientes_dist(nome,endereco,cidade,uf,lat,lng,telefone), notas_fiscais(numero,vendedor,comprador)').eq('rota_id',rota.id).order('ordem');
   const feitas=(ents||[]).filter(e=>e.status==='entregue'||e.status==='nao_realizada').length;
-  let html=`<div class="sec"><b>${fmtD(rota.data)}</b> · ${esc(rota.veiculos?.placa||'—')} <span class="tag">${rota.status}</span><p class="hint">${feitas} de ${(ents||[]).length} atendimentos concluídos</p></div>`;
+  const pendCarga=(ents||[]).filter(e=>e.nf_id&&!e.carga_ok).length;
+  let html=`<div class="sec"><b>${fmtD(rota.data)}</b> · ${esc(rota.veiculos?.placa||'—')} <span class="tag">${rota.status}</span><p class="hint">${feitas} de ${(ents||[]).length} atendimentos concluídos</p>
+  ${pendCarga?`<p class="hint" style="color:#e0a052">📦 ${pendCarga} carga(s) sem conferir — passe em <b>Meu carregamento</b> antes de sair</p>`:''}</div>`;
   const prox=(ents||[]).find(e=>e.status==='pendente'||e.status==='andamento');
   const card=e=>{
     const c=e.clientes_dist||{},nf=e.notas_fiscais||{};
@@ -2840,6 +2851,263 @@ PAGES['minha-rota']=async el=>{
     };
   });
   for(const e of (ents||[]).filter(x=>x.status==='entregue'&&x.foto_path)){const d=$('mr-foto-'+e.id);if(d)d.innerHTML=await fotoHtml(e.foto_path)}
+};
+
+/* ============ NF por PDF + carga (Distribuidora) ============ */
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+function numBR(s){if(!s)return null;const t=String(s).replace(/\s/g,'');if(!/^[0-9.,-]+$/.test(t))return null;const n=t.replace(/\./g,'').replace(',','.');const v=parseFloat(n);return isNaN(v)?null:v}
+function parseDanfe(items){
+  const lines=[];
+  for(const it of items){
+    if(!it.str||!it.str.trim())continue;
+    const x=Math.round(it.transform[4]),y=Math.round(it.transform[5]);
+    let L=lines.find(l=>Math.abs(l.y-y)<=2);
+    if(!L){L={y,cells:[]};lines.push(L)}
+    L.cells.push({x,s:it.str.trim()});
+  }
+  lines.sort((a,b)=>b.y-a.y);
+  for(const L of lines)L.cells.sort((a,b)=>a.x-b.x);
+  const J=i=>lines[i]?lines[i].cells.map(c=>c.s).join(' '):'';
+  const out={numero:null,emissao:null,dest:{},itens:[],obs:null};
+  for(const L of lines){
+    for(let k=0;k<L.cells.length;k++){
+      const c=L.cells[k].s;
+      if(/^N[ºo°]$/.test(c)){
+        const nx=L.cells[k+1]&&L.cells[k+1].s.match(/^\d{4,9}$/);
+        if(nx)out.numero=nx[0];
+      } else {
+        const m=c.match(/N[ºo°]\s*(\d{4,9})/);
+        if(m)out.numero=m[1];
+      }
+    }
+    if(out.numero)break;
+  }
+  let di=-1;
+  for(let i=0;i<lines.length;i++){if(/DESTINATÁRIO\s*\/\s*REMETENTE/.test(J(i))){di=i;break}}
+  if(di>=0){
+    let fim=lines.length;
+    for(let i=di+1;i<lines.length;i++){if(/FATURA\s*\/\s*DUPLICATA|CALCULO DO IMPOSTO/.test(J(i))){fim=i;break}}
+    for(let i=di+1;i<fim;i++){
+      if(/NOME\s*\/\s*RAZÃO\s*SOCIAL/.test(J(i))){
+        const L=lines[i+1];
+        if(L){
+          const cells=L.cells;
+          out.dest.nome=cells[0].s;
+          for(const c of cells){
+            const m=c.s.match(/(\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2})/);
+            if(m)out.dest.cnpj=m[1];
+            const d=c.s.match(/^(\d{2}\/\d{2}\/\d{4})$/);
+            if(d)out.emissao=d[1];
+          }
+        }
+        break;
+      }
+    }
+    for(let i=di+1;i<fim;i++){
+      const t=J(i);
+      if(/^ENDEREÇO/.test(t)&&lines[i+1])out.dest.endereco=lines[i+1].cells[0].s;
+      if(/^MUNICÍPIO/.test(t)&&lines[i+1]){
+        const L=lines[i+1];
+        out.dest.cidade=L.cells[0].s;
+        for(const c of L.cells){const m=c.s.match(/^(SP|RJ|MG|ES|PR|SC|RS|BA|GO|MT|MS|DF)$/);if(m)out.dest.uf=m[1]}
+      }
+    }
+  }
+  let ini=-1,fim=-1;
+  lines.forEach((L,i)=>{const t=J(i);
+    if(/DADOS DOS PRODUTOS/.test(t))ini=i;
+    if(/CALCULO DO ISSQN/.test(t)&&fim<0)fim=i;
+  });
+  if(ini>=0){
+    const end=fim<0?lines.length:fim;
+    for(let i=ini+1;i<end;i++){
+      const L=lines[i];
+      const c0=L.cells[0];
+      if(!c0||!/^\d{2,6}$/.test(c0.s))continue;
+      const iu=L.cells.findIndex(c=>/^(UN|KG|LT|MT|PC|CX|FD|SC|GL)$/.test(c.s));
+      if(iu<0)continue;
+      const desc=L.cells.slice(1,iu).filter(c=>!/^(\d{3}|\d{7,8}|\d{4})$/.test(c.s)).map(c=>c.s).join(' ').replace(/\s+/g,' ').trim();
+      const un=L.cells[iu].s;
+      let qtd=null;
+      for(let k=iu+1;k<L.cells.length;k++){const v=numBR(L.cells[k].s);if(v!=null){qtd=v;break}}
+      if(desc&&qtd!=null)out.itens.push({codigo:c0.s,descricao:desc,unid:un,qtd});
+    }
+  }
+  for(let i=0;i<lines.length;i++){
+    if(/INFORMAÇÕES\s*COMPLEMENTARES/.test(J(i))){
+      const seg=[];
+      for(let j=i-1;j>=0;j--){
+        const t2=J(j);
+        if(/RESERVADO AO FISCO|CALCULO DO ISSQN|INSCRIÇÃO MUNICIPAL/.test(t2))break;
+        if(/^[\d.,\s|]+$/.test(t2))continue;
+        seg.unshift(t2);
+      }
+      for(let j=i+1;j<lines.length;j++){
+        const t2=J(j);
+        if(/RESERVADO AO FISCO/.test(t2))continue;
+        if(/^[\d.,\s|]+$/.test(t2))continue;
+        seg.push(t2);
+      }
+      if(seg.length)out.obs=seg.join(' | ');
+      break;
+    }
+  }
+  return out;
+}
+async function lerPdfDanfe(file){
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let items=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const tc=await page.getTextContent();
+    items=items.concat(tc.items);
+  }
+  return parseDanfe(items);
+}
+PAGES.nfs=async el=>{
+  el.innerHTML=`<h1 class="pg">NFs (PDF)</h1>
+  <div class="sec"><h3>📥 Lançar NFs</h3>
+  <p class="hint">Selecione 1 ou vários PDFs de NF — o app lê cada um (nº, cliente, itens) e você confirma.</p>
+  <div class="fotobtns"><label class="fotobtn" for="nf-arq">📄<span class="ic"></span><span class="tt">Escolher PDFs</span><span class="sub">vários de uma vez</span></label></div>
+  <input id="nf-arq" type="file" accept="application/pdf,image/*" multiple class="hide">
+  <div id="nf-prog" class="hint" style="margin-top:6px"></div></div>
+  <div id="nf-conf"></div>
+  <div class="sec"><h3>📋 NFs lançadas</h3><div id="nf-list">${empty('Carregando…')}</div></div>`;
+  let lote=[];
+  $('nf-arq').onchange=async ev=>{
+    const files=[...ev.target.files];
+    if(!files.length)return;
+    lote=[];
+    const prog=$('nf-prog');
+    for(let i=0;i<files.length;i++){
+      prog.textContent=`Lendo ${i+1} de ${files.length}…`;
+      const f=files[i];
+      try{
+        let r;
+        if(/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name))r=await lerPdfDanfe(f);
+        else{toast('Só PDF por aqui — foto de NF entra depois');continue}
+        if(!r.numero||!r.itens.length){toast('Não consegui ler '+f.name+' — confira se é DANFE');continue}
+        r._arquivo=f;
+        lote.push(r);
+      }catch(e){toast('Erro em '+f.name+': '+err(e))}
+    }
+    prog.textContent=lote.length?('Lidos: '+lote.map(x=>'NF '+x.numero).join(' · ')):'Nada lido';
+    renderConf();
+    ev.target.value='';
+  };
+  const renderConf=()=>{
+    if(!lote.length){$('nf-conf').innerHTML='';return}
+    $('nf-conf').innerHTML=`<div class="sec"><h3>✅ Conferir antes de salvar (${lote.length})</h3>`+lote.map((r,i)=>`
+      <div style="padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;margin-bottom:8px">
+      <b>NF ${esc(r.numero)}</b> · ${esc(r.emissao||'—')}<br>
+      <span class="hint">Cliente: <b style="color:var(--ink)">${esc(r.dest.nome||'?')}</b> ${r.dest.cnpj?'· '+esc(r.dest.cnpj):''} ${r.dest.cidade?'· '+esc(r.dest.cidade)+'/'+esc(r.dest.uf||''):''}</span>
+      ${r.obs?`<p class="hint">Obs: ${esc(r.obs)}</p>`:''}
+      <div style="margin-top:6px">${r.itens.map((it,j)=>`<div style="display:flex;gap:6px;align-items:center;padding:3px 0;font-size:12px">
+        <span style="flex:1">${esc(it.descricao)}</span>
+        <input data-q="${i}-${j}" type="number" step="0.001" inputmode="decimal" value="${it.qtd}" style="width:80px;background:var(--card);color:var(--ink);border:1px solid #444;border-radius:6px;padding:4px">
+        <select data-u="${i}-${j}" style="background:var(--card);color:var(--ink);border:1px solid #444;border-radius:6px;padding:4px">${opt([['UN','UN'],['KG','KG']],it.unid)}</select>
+        <button class="btn mini" data-del="${i}-${j}">🗑</button></div>`).join('')}</div></div>`).join('')+
+      `<button class="btn" id="nf-salvar">💾 Salvar ${lote.length} NF(s) no sistema</button></div>`;
+    $('nf-conf').querySelectorAll('[data-q]').forEach(inp=>inp.oninput=()=>{const [i,j]=inp.dataset.q.split('-').map(Number);lote[i].itens[j].qtd=numBR(inp.value)??0});
+    $('nf-conf').querySelectorAll('[data-u]').forEach(sel=>sel.onchange=()=>{const [i,j]=sel.dataset.u.split('-').map(Number);lote[i].itens[j].unid=sel.value});
+    $('nf-conf').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const [i,j]=b.dataset.del.split('-').map(Number);lote[i].itens.splice(j,1);if(!lote[i].itens.length)lote.splice(i,1);renderConf()});
+    $('nf-salvar').onclick=async()=>{
+      const btn=$('nf-salvar');btn.disabled=true;btn.textContent='Salvando…';
+      let ok=0;
+      for(const r of lote){
+        // cliente: casa por CNPJ, senão cria
+        let cid=null;
+        if(r.dest.cnpj){
+          const {data:c}=await sb.from('clientes_dist').select('id').eq('cpf_cnpj',r.dest.cnpj).maybeSingle();
+          if(c)cid=c.id;
+        }
+        if(!cid&&r.dest.nome){
+          const {data:c}=await sb.from('clientes_dist').select('id').eq('nome',r.dest.nome).maybeSingle();
+          if(c)cid=c.id;
+        }
+        if(!cid){
+          const {data:nv,error}=await sb.from('clientes_dist').insert({nome:r.dest.nome||('Cliente NF '+r.numero),cpf_cnpj:r.dest.cnpj||null,endereco:r.dest.endereco||null,cidade:r.dest.cidade||null,uf:r.dest.uf||null}).select().single();
+          if(error){toast('Cliente: '+err(error));continue}
+          cid=nv.id;
+        }
+        // PDF no bucket
+        let path=null;
+        try{
+          path=ME.id+'/nf-'+r.numero+'.pdf';
+          const up=await sb.storage.from('nfs').upload(path,r._arquivo,{upsert:true,contentType:'application/pdf'});
+          if(up.error)path=null;
+        }catch(e){path=null}
+        const {data:nf,error}=await sb.from('notas_fiscais').insert({numero:r.numero,cliente_id:cid,vendedor:r.obs||null,comprador:null,pdf_path:path,lida:true}).select().single();
+        if(error){toast('NF '+r.numero+': '+err(error));continue}
+        const {error:ei}=await sb.from('nf_itens').insert(r.itens.map(it=>({nf_id:nf.id,codigo:it.codigo,descricao:it.descricao,unid:it.unid,qtd:it.qtd})));
+        if(ei){toast('Itens da NF '+r.numero+': '+err(ei));continue}
+        ok++;
+      }
+      toast(ok+' NF(s) salvas');lote=[];renderConf();$('nf-prog').textContent='';carregar();
+    };
+  };
+  const carregar=async()=>{
+    const {data:l}=await sb.from('notas_fiscais').select('*, clientes_dist(nome,cidade), nf_itens(descricao,unid,qtd)').order('criado_em',{ascending:false}).limit(100);
+    $('nf-list').innerHTML=(l&&l.length)?l.map(n=>{
+      const tot=(n.nf_itens||[]).length;
+      return `<div class="sec"><b>NF ${esc(n.numero)}</b> — ${esc(n.clientes_dist?.nome||'—')}<p class="hint">${esc(n.clientes_dist?.cidade||'')} · ${tot} itens${n.pdf_path?' · <a href="#" data-pdf="'+esc(n.pdf_path)+'" style="color:var(--acc)">📄 PDF</a>':''}${n.vendedor?' · '+esc(n.vendedor):''}</p>
+      <p class="hint">${(n.nf_itens||[]).slice(0,4).map(i=>esc(i.descricao.slice(0,28))+' '+fmtKm(i.qtd)+' '+i.unid).join(' · ')}${tot>4?' · …':''}</p></div>`}).join(''):empty('Nenhuma NF — lance os PDFs acima');
+    $('nf-list').querySelectorAll('[data-pdf]').forEach(a=>a.onclick=async ev=>{
+      ev.preventDefault();
+      const {data:u}=await sb.storage.from('nfs').createSignedUrl(a.dataset.pdf,300,{download:true});
+      if(u)window.open(u.signedUrl);
+    });
+  };
+  carregar();
+};
+PAGES.carga=async el=>{
+  el.innerHTML=`<h1 class="pg">Meu carregamento</h1><div id="cg">${empty('Carregando…')}</div>`;
+  const w=$('cg');
+  if(!ME.motorista){w.innerHTML=empty('Seu usuário não está vinculado a um cadastro de motorista.');return}
+  const {data:rotas}=await sb.from('rotas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).in('status',['planejada','distribuida']).order('data').limit(5);
+  if(!rotas||!rotas.length){w.innerHTML=`<div class="sec" style="text-align:center;padding:28px 16px"><div style="font-size:42px">📦</div><h3 style="margin:10px 0 6px">Nenhuma rota para carregar</h3><p class="hint">Quando a gerência distribuir sua rota, a carga aparece aqui.</p></div>`;return}
+  const rota=rotas.find(r=>r.data<=hoje())||rotas[0];
+  const {data:ents}=await sb.from('entregas').select('*, clientes_dist(nome), notas_fiscais(numero)').eq('rota_id',rota.id).order('ordem');
+  // itens por entrega: nf_id -> nf_itens
+  const nfIds=[...new Set((ents||[]).map(e=>e.nf_id).filter(Boolean))];
+  const {data:itens}=nfIds.length?await sb.from('nf_itens').select('*, notas_fiscais(numero)').in('nf_id',nfIds):{data:[]};
+  const agrup={};
+  for(const e of (ents||[])){
+    const lista=(itens||[]).filter(i=>i.nf_id===e.nf_id);
+    if(lista.length)agrup[e.id]={entrega:e,itens:lista,carga:e.carga||[],ok:e.carga_ok};
+  }
+  const render=()=>{
+    let html=`<div class="sec"><b>${fmtD(rota.data)}</b> · ${esc(rota.veiculos?.placa||'—')} <span class="tag">${rota.status}</span><p class="hint">${Object.keys(agrup).length} NF(s) para carregar — confira item a item e toque em ✅</p></div>`;
+    for(const k of Object.keys(agrup)){
+      const g=agrup[k];
+      html+=`<div class="sec"><b>NF ${esc(g.entrega.notas_fiscais?.numero||'—')}</b> — ${esc(g.entrega.clientes_dist?.nome||'')} ${g.ok?'<span class="tag ok">conferida</span>':''}
+      <div style="margin-top:6px">${g.itens.map((it,ix)=>{
+        const marcado=(g.carga[ix]&&g.carga[ix].ok)||false;
+        return `<label style="display:flex;align-items:center;gap:10px;padding:7px;background:var(--field);border:1px solid #333;border-radius:10px;margin-bottom:5px;cursor:pointer">
+        <input type="checkbox" data-ck="${k}-${ix}" ${marcado?'checked':''} style="width:18px;height:18px;accent-color:var(--acc)">
+        <span style="flex:1;font-size:13px">${esc(it.descricao)}</span>
+        <b style="color:var(--acc)">${fmtKm(it.qtd)} ${esc(it.unid)}</b></label>`}).join('')}</div>
+      <button class="btn ${g.ok?'sec':''}" data-ok="${k}" style="margin-top:6px">${g.ok?'↺ Reabrir':'✅ Conferi tudo'}</button></div>`;
+    }
+    w.innerHTML=html;
+    w.querySelectorAll('[data-ck]').forEach(ch=>ch.onchange=()=>{
+      const [k,ix]=ch.dataset.ck.split('-').map(Number);
+      const g=agrup[k];
+      g.carga[ix]={ok:ch.checked};
+      g.ok=false;
+      render();
+    });
+    w.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{
+      const k=b.dataset.ok;
+      const g=agrup[k];
+      const novo=!g.ok;
+      if(!navigator.onLine){filaAdd({tipo:'upd',table:'entregas',id:g.entrega.id,row:{carga:g.carga,carga_ok:novo}});g.ok=novo;render();return}
+      await upd('entregas',g.entrega.id,{carga:g.carga,carga_ok:novo});
+      g.ok=novo;render();
+    });
+  };
+  render();
 };
 
 /* ============ notificações ============ */
