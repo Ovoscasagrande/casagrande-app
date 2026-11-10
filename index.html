@@ -3418,8 +3418,9 @@ PAGES['pedidos-rota']=async el=>{
     <label>Caminhão</label><select id="pr-veic">${opt((veics||[]).map(v=>[v.id,(v.placa||'')+' — '+(v.modelo||'')]),null)}</select>
     <label>Motorista</label><select id="pr-mot">${opt((mots||[]).map(m=>[m.id,m.nome]),null)}</select>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn" id="pr-btn-carga">📄 Gerar conferência de carga</button>
-      <button class="btn" id="pr-btn-rota">🗺️ Gerar roteiro do motorista</button>
+      <button class="btn" id="pr-btn-carga">📄 Relatório de carga</button>
+      <button class="btn" id="pr-btn-cargac">📋 Carga por cliente</button>
+      <button class="btn" id="pr-btn-rota">🗺️ Roteiro do motorista</button>
     </div><div class="msg" id="pr-msg"></div></div>`;
     const salvarRota=async()=>{
       const num=parseInt($('pr-num').value),vid=$('pr-veic').value,mid=$('pr-mot').value;
@@ -3466,6 +3467,12 @@ PAGES['pedidos-rota']=async el=>{
       geraPdfCarga(rota,ST.lote);
       $('pr-msg').className='msg ok';$('pr-msg').textContent='Roteiro '+String(rota.numero).padStart(5,'0')+' salvo e distribuído — veja em "Roteiros".';
     };
+    $('pr-btn-cargac').onclick=async()=>{
+      const rota=await salvarRota();
+      if(!rota)return;
+      geraPdfCargaCliente(rota,ST.lote);
+      $('pr-msg').className='msg ok';$('pr-msg').textContent='Roteiro '+String(rota.numero).padStart(5,'0')+' salvo e distribuído — veja em "Roteiros".';
+    };
     $('pr-btn-rota').onclick=async()=>{
       const rota=await salvarRota();
       if(!rota)return;
@@ -3477,163 +3484,126 @@ PAGES['pedidos-rota']=async el=>{
   };
 };
 async function geraPdfCarga(rota,lote){
+  // RELATÓRIO DE CARGA (modelo ERP): Cód | PRODUTO | EMB | UN | C | M
   const {jsPDF}=window.jspdf;
-  const doc=new jsPDF();
+  const doc=new jsPDF({orientation:'landscape'});
   const mot=((window.motsCache||[]).find(m=>m.id===rota.motorista_id)||{}).nome||'—';
   const vei=((window.veicsCache||[]).find(v=>v.id===rota.veiculo_id)||{}).placa||'—';
-  const W=190, X0=14;
-  const cols=[{x:X0,w:56,t:'Cliente'},{x:X0+58,w:78,t:'Produto'},{x:X0+138,w:22,t:'Qtd'},{x:X0+162,w:14,t:'Un'}];
-  const header=(titulo)=>{
-    doc.setFontSize(13);doc.setFont(undefined,'bold');
-    doc.text('CONFERENCIA DE CARGA — Roteiro '+rota.numero,105,16,{align:'center'});
-    doc.setFontSize(9);doc.setFont(undefined,'normal');
-    doc.text('Motorista: '+mot+'   |   Caminhão: '+vei+'   |   '+fmtD(rota.data),105,22,{align:'center'});
-    return 30;
+  const X0=12,W=273;
+  const cols=[{x:X0,w:16,t:'Cód'},{x:X0+18,w:150,t:'PRODUTO'},{x:X0+170,w:20,t:'EMB'},{x:X0+192,w:22,t:'UN'},{x:X0+216,w:26,t:'C'},{x:X0+244,w:26,t:'M'}];
+  const titulo=(y)=>{
+    doc.setFontSize(10);doc.setFont(undefined,'bold');
+    doc.text('LMER_CG.QRP  CARREGAMENTO',X0,y);
+    doc.setFont(undefined,'normal');
+    doc.text('Página: '+fmtD(rota.data)+'   Roteiro: '+String(rota.numero).padStart(5,'0')+'   Veículo: '+vei,X0+120,y);
+    doc.text('Motorista: '+mot,X0+120,y+4.5);
+    return y+10;
   };
   const thead=(y)=>{
     doc.setFillColor(20,20,20);doc.setTextColor(255,255,255);
-    doc.rect(X0,y-4.5,W,6.5,'F');
+    doc.rect(X0,y-4.5,W,6,'F');
     doc.setFontSize(8.5);doc.setFont(undefined,'bold');
     cols.forEach(c=>doc.text(c.t,c.x+1.5,y));
     doc.setTextColor(0,0,0);doc.setFont(undefined,'normal');
     return y+6.5;
   };
-  let y=header();
-  // linhas: cliente x produto
-  doc.setFontSize(8.5);
-  let zebra=false;
-  lote.forEach(p=>{
-    p.itens.forEach((it,j)=>{
-      if(y>275){doc.addPage();y=thead(18)}
-      if(zebra){doc.setFillColor(244,244,244);doc.rect(X0,y-4,W,5.5,'F')}
-      zebra=!zebra;
-      const nome=p.cliente.nome.length>34?p.cliente.nome.slice(0,34)+'…':p.cliente.nome;
-      const desc=it.descricao.length>44?it.descricao.slice(0,44)+'…':it.descricao;
-      doc.text(nome,cols[0].x+1.5,y);
-      doc.text(desc,cols[1].x+1.5,y);
-      doc.text(String(it.qtd),cols[2].x+1.5,y,{align:'right'});
-      doc.text(it.unid||'UN',cols[3].x+1.5,y);
-      y+=5.5;
-    });
-  });
-  // total geral por produto
-  y+=2;
-  if(y>262){doc.addPage();y=thead(18)}
-  doc.setFillColor(255,212,0);doc.rect(X0,y-4,W,6.5,'F');
-  doc.setFont(undefined,'bold');doc.setFontSize(9);
-  doc.text('TOTAL GERAL (soma de todos os pedidos)',X0+1.5,y);
-  y+=7;
+  let y=titulo(16);y=thead(y);
+  // somar por produto (código)
   const tot={};
   for(const p of lote)for(const it of p.itens){
-    const key=(it.descricao||'').toUpperCase().trim();
-    if(!tot[key])tot[key]={desc:it.descricao,qtd:0,unid:it.unid||'UN'};
+    const key=it.codigo||it.descricao.toUpperCase();
+    if(!tot[key])tot[key]={codigo:it.codigo||'',desc:(it.descricao||'').toUpperCase(),qtd:0,emb:'1,00',un:(it.unid||'UN')};
     tot[key].qtd+=Number(it.qtd)||0;
   }
-  doc.setFont(undefined,'normal');doc.setFontSize(8.5);
-  zebra=false;
-  Object.values(tot).forEach(t=>{
-    if(y>278){doc.addPage();y=thead(18)}
-    if(zebra){doc.setFillColor(244,244,244);doc.rect(X0,y-4,W,5.5,'F')}
+  const linhas=Object.values(tot).sort((a,b)=>a.codigo.localeCompare(b.codigo));
+  doc.setFontSize(8);
+  let zebra=false;
+  linhas.forEach(t=>{
+    if(y>186){doc.addPage('landscape');y=thead(16)}
+    if(zebra){doc.setFillColor(243,243,243);doc.rect(X0,y-4,W,5.5,'F')}
     zebra=!zebra;
-    const desc=t.desc.length>110?t.desc.slice(0,110)+'…':t.desc;
-    doc.text(desc,X0+1.5,y);
-    doc.setFont(undefined,'bold');
-    doc.text(t.qtd+' '+t.unid,X0+W-2,y,{align:'right'});
-    doc.setFont(undefined,'normal');
+    const desc=t.desc.length>92?t.desc.slice(0,92)+'…':t.desc;
+    doc.text(String(t.codigo||'—'),cols[0].x+1.5,y);
+    doc.text(desc,cols[1].x+1.5,y);
+    doc.text('1,00',cols[2].x+1.5,y);
+    doc.text(t.qtd.toLocaleString('pt-BR'),cols[3].x+1.5,y,{align:'right'});
     y+=5.5;
   });
-  doc.save('carga-roteiro-'+rota.numero+'.pdf');
-  toast('PDF de carga baixado');
+  y+=3;
+  doc.setFont(undefined,'bold');doc.setFontSize(9);
+  doc.text('Totais  Qtde. Pedidos: '+lote.length+'   Produtos: '+linhas.length,X0,y);
+  doc.setFont(undefined,'normal');
+  y+=6;doc.setFontSize(7.5);
+  doc.text('LEGENDA   C = CONFERENTE     M = MOTORISTA',X0,y);
+  doc.save('carga-roteiro-'+String(rota.numero).padStart(5,'0')+'.pdf');
+  toast('Relatório de carga baixado');
 }
-async function geraPdfRoteiro(rota,lote){
+async function geraPdfCargaCliente(rota,lote){
+  // RELATÓRIO DE CARGA POR CLIENTE (modelo ERP): bloco por cliente + tabela de itens + Peso
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF();
-  const mot=((window.motsCache||[]).find(m=>m.id===rota.motorista_id)||{}).nome||'—';
-  const vei=((window.veicsCache||[]).find(v=>v.id===rota.veiculo_id)||{}).placa||'—';
   const X0=12,W=186;
-  const cols=[{x:X0,w:10,t:'#'},{x:X0+12,w:52,t:'Cliente'},{x:X0+66,w:44,t:'Bairro / Cidade'},{x:X0+112,w:86,t:'Produtos (qtd x un)'}];
-  const seq=[...(rota.sequencia||[])].reverse(); // mais longe primeiro
-  const linhas=[];
-  for(let i=0;i<seq.length;i++){
-    const s=seq[i];
-    const ped=lote.find(p=>p._cliente&&p._cliente.id===s.cliente_id);
-    let nome='Cliente',endereco='',bairro='',itens=ped?ped.itens:[];
-    if(ped){nome=ped.cliente.nome;endereco=ped.cliente.endereco||''}
-    else{
-      const {data:c}=await sb.from('clientes_dist').select('nome,endereco,cidade,uf').eq('id',s.cliente_id).maybeSingle();
-      if(c){nome=c.nome;endereco=c.endereco||''}
-      const {data:ent}=await sb.from('entregas').select('carga').eq('rota_id',rota.id).eq('cliente_id',s.cliente_id).maybeSingle();
-      if(ent&&ent.carga)itens=ent.carga.map(x=>({qtd:x.qtd,unid:x.unid,descricao:x.descricao}));
-    }
-    const pedC=ped?ped.cliente:{};
-    bairro=(endereco.split(',')[1]||'').trim().split('/')[0].trim()||pedC.cidade||'';
-    if(!bairro)bairro=(endereco||'').slice(0,22);
-    const prods=(itens||[]).map(it=>(it.qtd||'')+' '+(it.unid||'UN')+' '+(it.descricao||'').slice(0,38)).join('\n');
-    linhas.push({n:i+1,nome,bairro,prods,endereco});
-  }
-  const header=()=>{
-    doc.setFontSize(13);doc.setFont(undefined,'bold');
-    doc.text('ROTEIRO DE ENTREGAS — '+String(rota.numero).padStart(5,'0'),105,16,{align:'center'});
+  const vei=((window.veicsCache||[]).find(v=>v.id===rota.veiculo_id)||{}).placa||'—';
+  const titulo=()=>{
+    doc.setFontSize(12);doc.setFont(undefined,'bold');
+    doc.text('RELATÓRIO DE CARGA',105,14,{align:'center'});
     doc.setFontSize(9);doc.setFont(undefined,'normal');
-    doc.text('Motorista: '+mot+'   |   Caminhão: '+vei+'   |   '+fmtD(rota.data),105,22,{align:'center'});
-    doc.setFontSize(8);
-    doc.text('Saída: DAS ACACIAS, 360 - Jardim Boa Vista, Hortolândia-SP - CEP 13187-042',105,27,{align:'center'});
-    return 33;
+    doc.text('Roteiro: '+String(rota.numero).padStart(5,'0')+'   Motorista: '+(((window.motsCache||[]).find(m=>m.id===rota.motorista_id)||{}).nome||'—')+'   Veículo: '+vei,105,20,{align:'center'});
+    return 27;
   };
-  const thead=(y)=>{
-    doc.setFillColor(20,20,20);doc.setTextColor(255,255,255);
-    doc.rect(X0,y-4.5,W,6.5,'F');
+  const linha=y=>{doc.setDrawColor(120);doc.line(X0,y,X0+W,y)};
+  let y=titulo();
+  let totNotas=lote.length,totPeso=0;
+  lote.forEach(p=>{
+    // cabeçalho do cliente
+    if(y>240){doc.addPage();y=titulo()}
+    const c=p.cliente||{};
     doc.setFontSize(8.5);doc.setFont(undefined,'bold');
-    cols.forEach(c=>doc.text(c.t,c.x+1.5,y));
+    const par=(k,v)=>doc.text(k+': '+(v||'—'),X0,y);
+    par('Pedido',p.numero);par('Cliente',(c.nome||'—').slice(0,42));
+    y+=4.5;
+    doc.setFont(undefined,'normal');
+    doc.text('Fone: '+(c.telefone||'—'),X0,y);
+    doc.text('Endereço: '+((c.endereco||'—').slice(0,60)),X0+80,y);
+    y+=4.5;
+    doc.text('Bairro: '+((c.endereco||'—').split(',')[1]||'—').trim().slice(0,24),X0,y);
+    doc.text('Cidade: '+(c.cidade||'—'),X0+60,y);
+    doc.text('UF: '+(c.uf||'—'),X0+120,y);
+    y+=5.5;linha(y);y+=4;
+    // tabela de itens
+    doc.setFillColor(20,20,20);doc.setTextColor(255,255,255);
+    doc.rect(X0,y-4,W,5.5,'F');
+    doc.setFontSize(7.5);doc.setFont(undefined,'bold');
+    doc.text('Sistema',X0+1.5,y);doc.text('Descrição',X0+16,y);doc.text('Un',X0+110,y);doc.text('Qtde',X0+128,y,{align:'right'});doc.text('Un Qtde Emb.',X0+150,y);
     doc.setTextColor(0,0,0);doc.setFont(undefined,'normal');
-    return y+6.5;
-  };
-  let y=header();y=thead(y);
-  let zebra=false;
-  const boxH=(l)=>Math.max(5.5,l.split('\n').length*4+2.5);
-  linhas.forEach(L=>{
-    const h=boxH(L.prods||'—');
-    if(y+h>278){doc.addPage();y=thead(18)}
-    if(zebra){doc.setFillColor(243,243,243);doc.rect(X0,y-4,W,h,'F')}
-    zebra=!zebra;
-    const nome=L.nome.length>30?L.nome.slice(0,30)+'…':L.nome;
-    doc.setFont(undefined,'bold');doc.setFontSize(9);
-    doc.text(String(L.n),cols[0].x+1.5,y+2);
-    doc.text(nome,cols[1].x+1.5,y+2);
-    doc.setFont(undefined,'normal');doc.setFontSize(7.5);
-    doc.text((L.bairro||'—').slice(0,26),cols[2].x+1.5,y+2);
-    const ls=(L.prods||'—').split('\n');
-    ls.forEach((ln,k)=>doc.text(ln,cols[3].x+1.5,y+2+k*4));
-    doc.rect(X0,y-4,W,h);
-    y+=h;
+    y+=6;
+    doc.setFontSize(7.5);
+    let peso=0;
+    p.itens.forEach(it=>{
+      if(y>278){doc.addPage();y=titulo()}
+      const desc=(it.descricao||'').toUpperCase().slice(0,52);
+      doc.text(String(it.codigo||'—'),X0+1.5,y);
+      doc.text(desc,X0+16,y);
+      doc.text(it.unid||'UN',X0+110,y);
+      doc.text(String(it.qtd),X0+128,y,{align:'right'});
+      doc.text('1.0000',X0+150,y);
+      y+=4.6;
+      peso+=(Number(it.qtd)||0);
+    });
+    y+=2;doc.setFont(undefined,'bold');
+    doc.text('Peso: '+peso.toLocaleString('pt-BR',{minimumFractionDigits:2}),X0,y);
+    doc.setFont(undefined,'normal');
+    totPeso+=peso;
+    y+=5;linha(y);y+=6;
   });
-  doc.setFontSize(8);
-  doc.text('Ordem: do cliente mais longe para o mais perto (saída: DAS ACACIAS, 360 - Hortolândia)',X0,y+3);
-  doc.save('roteiro-'+rota.numero+'.pdf');
-  toast('Roteiro baixado');
+  if(y>250){doc.addPage();y=titulo()}
+  doc.setFont(undefined,'bold');doc.setFontSize(9);
+  doc.text('Totais  Pedidos: '+totNotas+'   Peso: '+totPeso.toLocaleString('pt-BR',{minimumFractionDigits:2}),X0,y);
+  doc.save('carga-por-cliente-'+String(rota.numero).padStart(5,'0')+'.pdf');
+  toast('Relatório de carga por cliente baixado');
 }
 
-PAGES.roteiros=async el=>{
-  if(ME.perfil!=='gerencia'){el.innerHTML=empty('Só a gerência acessa esta página');return}
-  el.innerHTML=`<h1 class="pg">Roteiros</h1><div id="rt-root">${empty('Carregando…')}</div>`;
-  const {data:lista}=await sb.from('rotas').select('*, motoristas(nome), veiculos(placa,modelo), entregas(status,cliente_id,carga,clientes_dist(nome))').not('roteiro','is',null).order('roteiro',{ascending:false}).limit(60);
-  const root=$('rt-root');
-  if(!lista||!lista.length){root.innerHTML=empty('Nenhum roteiro gerado — crie em Pedidos & Rota');return}
-  const LBL={aberto:['ABERTO','aguardando o motorista abrir a jornada'],em_rota:['EM ROTA','motorista em jornada'],finalizado:['FINALIZADO','entregue e conferido']};
-  root.innerHTML=lista.map(r=>{
-    const ents=r.entregas||[];
-    const ok=ents.filter(e=>e.status==='entregue').length,nr=ents.filter(e=>e.status==='nao_realizada').length;
-    const st=LBL[r.status]||[r.status,''];
-    const cor={aberto:'info',em_rota:'warning',finalizado:'ok'}[r.status]||'';
-    return `<div class="sec" data-rt="${r.id}" style="cursor:pointer">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <b style="font-size:15px;color:var(--acc)">R${String(r.roteiro).padStart(5,'0')}</b>
-      <span class="tag ${cor}">${st[0]}</span></div>
-    <p class="hint">${fmtD(r.data)} · ${esc(r.motoristas?.nome||'—')} · ${esc(r.veiculos?.placa||'—')} · ${ents.length} entregas${ents.length?` · ✅ ${ok} · ❌ ${nr}`:''}</p>
-    <p class="hint" style="color:var(--mut)">${st[1]}</p></div>`}).join('');
-  root.querySelectorAll('[data-rt]').forEach(d=>d.onclick=()=>pagRotaDetalhe(d.dataset.rt));
-};
-/* ============ notificações ============ */
+/* ============ notificações ============ *//* ============ notificações ============ */
 PAGES.notif=async el=>{
   el.innerHTML=`<h1 class="pg">Notificações</h1><div id="nt">${empty('Carregando…')}</div>`;
   const {data:lista}=await sb.from('notificacoes').select('*').eq('usuario_id',ME.id).order('criado_em',{ascending:false}).limit(50);
