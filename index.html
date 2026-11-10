@@ -1464,8 +1464,8 @@ async function pagConfDetalhe(el,jid){
     sb.from('despesas').select('categoria,valor,foto_path').eq('jornada_id',jid)
   ]);
   const comps=[
-    ...(abs.data||[]).map(a=>({t:'⛽ Abastecimento — '+(a.posto||'posto'),s:`${a.litros} L · ${fmtBRL(a.valor_total)}`,p:a.foto_path})),
-    ...(dsp.data||[]).map(x=>({t:'💰 '+x.categoria,s:fmtBRL(x.valor),p:x.foto_path}))
+    ...(abs.data||[]).map(a=>({tabela:'abastecimentos',id:a.id,t:'⛽ Abastecimento — '+(a.posto||'posto'),s:`${a.litros} L · ${fmtBRL(a.valor_total)}`,p:a.foto_path,raw:a})),
+    ...(dsp.data||[]).map(x=>({tabela:'despesas',id:x.id,t:'💰 '+x.categoria,s:fmtBRL(x.valor)+(x.descricao?' — '+x.descricao:''),p:x.foto_path,raw:x}))
   ];
   const kmP=j.km_final!=null?Math.round(Number(j.km_final)-Number(j.km_inicial)):null;
   d.innerHTML=`
@@ -1533,11 +1533,62 @@ async function pagConfDetalhe(el,jid){
   const cw=$('cf-comps');
   for(const cpt of comps){
     const div=document.createElement('div');
-    div.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #242424;font-size:13px';
-    div.innerHTML=`<div>${esc(cpt.t)}<div class="hint">${esc(cpt.s)}</div></div>`;
-    const btn=document.createElement('button');btn.className='btn mini';btn.textContent='👁 foto';
+    div.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #242424;font-size:13px;gap:8px';
+    div.innerHTML=`<div style="flex:1">${esc(cpt.t)}<div class="hint">${esc(cpt.s)}</div></div>`;
+    const btn=document.createElement('button');btn.className='btn mini';btn.textContent='👁';
     btn.onclick=async()=>{const url=await assinar(cpt.p);if(url)window.open(url,'_blank');else toast('Foto não encontrada')};
-    div.appendChild(btn);cw.appendChild(div);
+    div.appendChild(btn);
+    const bed=document.createElement('button');bed.className='btn mini';bed.textContent='✏️';bed.title='Editar';
+    bed.onclick=()=>editarComp(cpt,()=>pagConfDetalhe(el,jid));
+    div.appendChild(bed);
+    const bdel=document.createElement('button');bdel.className='btn mini';bdel.textContent='🗑';bdel.title='Excluir';bdel.style.borderColor='#8b3a3a';bdel.style.color='#ff9b9b';
+    bdel.onclick=()=>{
+      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+      mm.innerHTML=`<h3>🗑 Excluir lançamento?</h3>
+        <p style="font-size:13px;color:#dddddd">${esc(cpt.t)} · ${esc(cpt.s)}</p>
+        <p class="hint" style="margin-top:6px">Ex: motorista lançou duas vezes o mesmo custo. O lançamento sai da jornada. Não dá para desfazer.</p>
+        <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
+      w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+      document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+      document.getElementById('m-ok').onclick=async()=>{
+        const {error}=await sb.from(cpt.tabela).delete().eq('id',cpt.id);
+        if(error){toast(err(error));return}
+        w.classList.remove('open');toast('Lançamento excluído');pagConfDetalhe(el,jid);
+      };
+    };
+    div.appendChild(bdel);cw.appendChild(div);
+  }
+  function editarComp(cpt,refresh){
+    const a=cpt.raw, w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    let campos='';
+    if(cpt.tabela==='abastecimentos'){
+      campos=`<label>Posto</label><input id="ec-posto" value="${esc(a.posto||'')}" style="width:100%">
+      <label>Litros</label><input id="ec-litros" inputmode="decimal" value="${a.litros??''}" style="width:100%">
+      <label>Preço por litro</label><input id="ec-preco" inputmode="decimal" value="${a.preco_litro??''}" style="width:100%">
+      <label>Valor total</label><input id="ec-total" inputmode="decimal" value="${a.valor_total??''}" style="width:100%">
+      <label>Km</label><input id="ec-km" inputmode="numeric" value="${a.km??''}" style="width:100%">`;
+    }else{
+      campos=`<label>Categoria</label><input id="ec-cat" value="${esc(a.categoria||'')}" style="width:100%">
+      <label>Descrição</label><input id="ec-desc" value="${esc(a.descricao||'')}" style="width:100%">
+      <label>Valor</label><input id="ec-valor" inputmode="decimal" value="${a.valor??''}" style="width:100%">`;
+    }
+    mm.innerHTML=`<h3>✏️ Editar lançamento</h3>${campos}
+      <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="ec-ok">Salvar</button></div>`;
+    w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    document.getElementById('ec-ok').onclick=async()=>{
+      const g=id=>document.getElementById(id).value;
+      let patch;
+      if(cpt.tabela==='abastecimentos'){
+        const litros=parseBR(g('ec-litros')),preco=parseBR(g('ec-preco')),total=parseBR(g('ec-total'));
+        patch={posto:g('ec-posto').trim()||null,litros,preco_litro:preco,valor_total:total||Math.round(litros*preco*100)/100,km:parseBR(g('ec-km'))};
+      }else{
+        patch={categoria:g('ec-cat').trim()||null,descricao:g('ec-desc').trim()||null,valor:parseBR(g('ec-valor'))};
+      }
+      const {error}=await sb.from(cpt.tabela).update(patch).eq('id',cpt.id);
+      if(error){toast(err(error));return}
+      w.classList.remove('open');toast('Lançamento atualizado ✓');refresh();
+    };
   }
   const iw=$('cf-itens');
   const renderItens=()=>{
