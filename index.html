@@ -943,7 +943,7 @@ PAGES['pro-avulsa-visita']=async el=>{
   const addFoto=async file=>{
     if(!file)return;
     if(estado.fotos.length>=10){toast('Máximo de 10 fotos');return}
-    const path=`promotoria/${ME.id}/${Date.now()}-${estado.fotos.length}.jpg`;
+    const path=`${ME.id}/promotoria-${Date.now()}-${estado.fotos.length}.jpg`;
     const p=await uploadFoto(file,path);if(!p)return;
     const url=await assinar(p,'fotos');
     estado.fotos.push({path,url});renderFotos();
@@ -1255,7 +1255,7 @@ PAGES['pro-cliente']=async el=>{
   const addFoto=async file=>{
     if(!file)return;
     if(estado.fotos.length>=10){toast('Máximo de 10 fotos');return}
-    const path=`promotoria/${ME.id}/${Date.now()}-${estado.fotos.length}.jpg`;
+    const path=`${ME.id}/promotoria-${Date.now()}-${estado.fotos.length}.jpg`;
     const p=await uploadFoto(file,path);if(!p)return;
     const url=await assinar(p,'fotos');
     estado.fotos.push({path,url});renderFotos();
