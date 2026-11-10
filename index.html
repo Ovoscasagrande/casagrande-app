@@ -401,8 +401,8 @@ async function afterLogin(){
   window.__EMP=(ME.empresa==='AMBAS')?'OVOS':(ME.empresa||'OVOS');
   applyBranding();
   if(ME.perfil==='motorista'||ME.perfil==='promotor'){
-    const {data:m}=await sb.from('motoristas').select('*').eq('usuario_id',user.id).maybeSingle();
-    ME.motorista=m;
+    const {data:m}=await sb.from('motoristas').select('*').eq('usuario_id',user.id).order('criado_em',{ascending:true}).limit(1);
+    ME.motorista=m&&m.length?m[0]:null;
   }
   buildNav();applyEmpBtn();bindEmpMenu();$('login').classList.add('hide');$('app').classList.remove('hide');
   go('home');
