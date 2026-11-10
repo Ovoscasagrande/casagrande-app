@@ -416,7 +416,7 @@ function menusPara(){
     pendente:['home'],
     gerencia:['home','manuais','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
     motorista:['home','manuais','jornada','gastos','recnovo','avisos','multas'],
-    promotor:['home','manuais','pro-roteiro','jornada','gastos','avisos','multas'],
+    promotor:['home','manuais','pro-roteiro','pro-avulsa','jornada','gastos','avisos','multas'],
     conferente:['home','manuais','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
     mecanico:['home','manuais','os']
   };
@@ -429,7 +429,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-cliente':'Visita ao cliente',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
+const TITLES={manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto'};
 function buildNav(){
   const items=menusPara();
   NAV=items;
@@ -439,7 +439,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-cliente':'🏪',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
+const ICONS={manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -825,6 +825,138 @@ PAGES.manuais=async el=>{
   }
   carregar();
 };
+/* ============ VISITA AVULSA (promotor, sem roteiro) ============ */
+PAGES['pro-avulsa']=async el=>{
+  el.innerHTML=`<h1 class="pg">Visita avulsa</h1><div id="pa">${empty('Carregando…')}</div>`;
+  const box=$('pa');
+  const {data:clis}=await sb.from('clientes_promotoria').select('id,nome,endereco').eq('ativo',true).order('nome');
+  box.innerHTML=`
+  <div class="sec"><p class="hint" style="margin:0 0 8px">Sem roteiro hoje? Escolha o cliente que você visitou — a visita vale igual (localização + 3 fotos + pedido).</p>
+  <input id="pa-busca" placeholder="🔍 buscar cliente..." style="width:100%">
+  <div id="pa-lista" style="margin-top:8px"></div>
+  ${ME.perfil==='promotor'?`<button class="btn sec" id="pa-novo" style="margin-top:10px;width:100%">➕ Cliente novo (estou na porta da loja)</button>`:''}</div>`;
+  const render=q=>{
+    const t=(q||'').trim().toLowerCase();
+    const l=(clis||[]).filter(c=>!t||c.nome.toLowerCase().includes(t));
+    document.getElementById('pa-lista').innerHTML=l.map(c=>`
+      <div data-c="${c.id}" style="display:flex;justify-content:space-between;align-items:center;padding:11px 4px;border-bottom:1px solid #242424;cursor:pointer">
+        <span style="font-size:13px"><b>${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}</div></span>
+        <span style="color:var(--acc)">›</span></div>`).join('')||'<p class="hint">Nenhum cliente encontrado.</p>';
+    document.getElementById('pa-lista').querySelectorAll('[data-c]').forEach(d=>d.onclick=()=>{
+      window.__avulsaCliente=d.dataset.c; go('pro-avulsa-visita');
+    });
+  };
+  document.getElementById('pa-busca').oninput=e=>render(e.target.value);
+  render('');
+  document.getElementById('pa-novo').onclick=()=>{
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<h3>➕ Cliente novo</h3>
+      <p class="hint" style="margin:0 0 8px">Você está na porta da loja — o app vai usar o GPS do seu celular como localização oficial.</p>
+      <label>Nome do cliente *</label><input id="nv-nome" placeholder="ex.: SUPERMERCADO CENTRAL" style="width:100%">
+      <label>Endereço</label><input id="nv-end" placeholder="rua, número, bairro, cidade" style="width:100%">
+      <label>CNPJ</label><input id="nv-cnpj" placeholder="00.000.000/0000-00" style="width:100%">
+      <div class="msg" id="nv-msg"></div>
+      <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="nv-ok">Pegar GPS e cadastrar</button></div>`;
+    w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    document.getElementById('nv-ok').onclick=async()=>{
+      const m=document.getElementById('nv-msg');
+      const nome=(document.getElementById('nv-nome').value||'').trim().toUpperCase();
+      if(!nome){m.className='msg err';m.textContent='Digite o nome do cliente';return}
+      m.className='msg';m.textContent='Pegando GPS...';
+      navigator.geolocation.getCurrentPosition(async pos=>{
+        const {data:novo,error}=await sb.from('clientes_promotoria').insert({
+          nome,endereco:document.getElementById('nv-end').value||null,
+          cnpj:document.getElementById('nv-cnpj').value||null,
+          latitude:pos.coords.latitude,longitude:pos.coords.longitude
+        }).select().single();
+        if(error){m.className='msg err';m.textContent=err(error);return}
+        w.classList.remove('open');toast('Cliente cadastrado: '+nome);
+        window.__avulsaCliente=novo.id; go('pro-avulsa-visita');
+      },()=>{
+        m.className='msg err';m.textContent='GPS não disponível — ligue o GPS e tente de novo';
+      },{enableHighAccuracy:true,timeout:15000});
+    };
+  };
+};
+PAGES['pro-avulsa-visita']=async el=>{
+  const cid=window.__avulsaCliente;
+  el.innerHTML=`<h1 class="pg">Visita avulsa</h1><div id="pc">${empty('Carregando…')}</div>`;
+  const {data:c}=await sb.from('clientes_promotoria').select('*').eq('id',cid).maybeSingle();
+  if(!c){$('pc').innerHTML=empty('Cliente não encontrado');return}
+  $('pc').innerHTML=`
+  <div class="sec"><span class="tag conferencia">🚶 visita avulsa — sem roteiro</span>
+    <b style="font-size:16px;display:block;margin-top:8px">${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}</div>
+    <div id="pc-gps" style="margin-top:10px"><button class="btn" id="pc-gpsbtn">📍 Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
+  <div class="sec" id="pc-fotos-sec" style="display:none"><h3>Fotos da loja (mínimo 3)</h3>
+    <div id="pc-fotos" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <div class="fotobtns" style="margin-top:8px">
+      <label class="fotobtn" for="pc-cam">📷<span class="ic"></span><span class="tt">Tirar foto</span><span class="sub">usar a câmera</span></label>
+      <label class="fotobtn" for="pc-gal">🖼️<span class="ic"></span><span class="tt">Enviar foto</span><span class="sub">da galeria</span></label>
+    </div>
+    <input type="file" id="pc-cam" accept="image/*" capture="environment" hidden><input type="file" id="pc-gal" accept="image/*" hidden>
+    <div class="hint" id="pc-fcount" style="margin-top:6px"></div></div>
+  <div class="sec" id="pc-ped-sec" style="display:none"><h3>Pedido ou observação</h3>
+    <textarea id="pc-ped" rows="3" placeholder="ex.: pediu 10 caixas de extra para sexta"></textarea></div>
+  <div class="sec" id="pc-fin-sec" style="display:none"><button class="btn" id="pc-fin">✓ Concluir visita avulsa</button><div class="msg" id="pc-msg"></div></div>`;
+  const estado={gps:null,fotos:[]};
+  $('pc-gpsbtn').onclick=()=>{
+    $('pc-gpsmsg').className='msg';$('pc-gpsmsg').textContent='Pegando GPS…';
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=pos.coords.latitude,lon=pos.coords.longitude;
+      let dist=null;
+      if(c.latitude!=null&&c.longitude!=null){
+        const R=6371000,dLat=(lat-c.latitude)*Math.PI/180,dLon=(lon-c.longitude)*Math.PI/180;
+        const a=Math.sin(dLat/2)**2+Math.cos(c.latitude*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2;
+        dist=Math.round(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+      }
+      if(dist==null||(dist<=200)){estado.gps={ok:true,dist};gpsOk(dist!=null?('Localização confirmada ✓ ('+dist+' m)'):null)}
+      else{
+        estado.gps={ok:false,dist};
+        $('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Você está a '+dist+' m do ponto cadastrado';
+        const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+        mm.innerHTML=`<h3>📍 Longe do ponto cadastrado</h3><p style="font-size:13px;color:#dddddd">Confirma a visita mesmo assim? Escreva o motivo.</p><label>Motivo *</label><textarea id="gj-just" rows="2" style="width:100%"></textarea><div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="gj-ok">Confirmar visita</button></div>`;
+        w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+        document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+        document.getElementById('gj-ok').onclick=()=>{
+          const j=(document.getElementById('gj-just').value||'').trim();
+          if(!j){toast('Escreva o motivo');return}
+          estado.gps={ok:false,dist,just:j};w.classList.remove('open');gpsOk('Visita confirmada com justificativa');
+        };
+      }
+    },()=>{
+      $('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Não consegui pegar o GPS';
+      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+      mm.innerHTML=`<h3>📍 GPS não disponível</h3><p style="font-size:13px;color:#dddddd">Confirma a visita sem GPS? A gerência fica sabendo.</p><div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="gj-ok">Confirmar sem GPS</button></div>`;
+      w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+      document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+      document.getElementById('gj-ok').onclick=()=>{estado.gps={ok:null,dist:null,just:'sem GPS'};w.classList.remove('open');gpsOk('Visita confirmada (sem GPS)')};
+    },{enableHighAccuracy:true,timeout:15000});
+  };
+  const gpsOk=(msg)=>{$('pc-gpsmsg').className='msg ok';$('pc-gpsmsg').textContent=msg||'Localização confirmada ✓';
+    $('pc-fotos-sec').style.display='';$('pc-ped-sec').style.display='';$('pc-fin-sec').style.display='';renderFotos()};
+  const renderFotos=()=>{
+    $('pc-fotos').innerHTML=estado.fotos.map((f,i)=>`<div style="position:relative;width:86px;height:86px"><img src="${f.url}" style="width:86px;height:86px;object-fit:cover;border-radius:10px"><button data-rm="${i}" style="position:absolute;top:-6px;right:-6px;background:#8b3a3a;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px">✕</button></div>`).join('');
+    $('pc-fcount').textContent=estado.fotos.length+' foto(s)'+(estado.fotos.length<3?` — faltam ${3-estado.fotos.length}`:' ✓');
+    $('pc-fotos').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{estado.fotos.splice(+b.dataset.rm,1);renderFotos()});
+  };
+  const addFoto=async file=>{
+    if(!file)return;
+    if(estado.fotos.length>=10){toast('Máximo de 10 fotos');return}
+    const path=`promotoria/${ME.id}/${Date.now()}-${estado.fotos.length}.jpg`;
+    const p=await uploadFoto(file,path);if(!p)return;
+    const url=await assinar(p,'fotos');
+    estado.fotos.push({path,url});renderFotos();
+  };
+  $('pc-cam').onchange=e=>addFoto(e.target.files[0]);
+  $('pc-gal').onchange=e=>addFoto(e.target.files[0]);
+  $('pc-fin').onclick=async()=>{
+    if(estado.fotos.length<3){$('pc-msg').className='msg err';$('pc-msg').textContent='São necessárias pelo menos 3 fotos';return}
+    const {error}=await sb.from('visitas').insert({roteiro_id:null,cliente_id:cid,promotor_id:ME.motorista.id,gps_ok:estado.gps.ok,distancia_m:estado.gps.dist,justificativa:estado.gps.just||null,fotos:estado.fotos.map(f=>f.path),pedido:$('pc-ped').value||null,visitado_em:new Date().toISOString()});
+    if(error){$('pc-msg').className='msg err';$('pc-msg').textContent=err(error);return}
+    toast('Visita avulsa registrada ✓');go('pro-avulsa');
+  };
+};
 /* ============ PROMOTORIA — GERÊNCIA ============ */
 PAGES.promotoria=async el=>{
   el.innerHTML=`<h1 class="pg">Promotoria</h1>
@@ -834,8 +966,9 @@ PAGES.promotoria=async el=>{
     <button class="btn mini" id="pm-novo">+ Criar roteiro</button>
     <button class="btn mini" id="pm-ncli">+ Cliente</button>
   </div>
-  <div id="pm">${empty('Carregando…')}</div>`;
-  const carregar=async()=>{
+  <div id="pm">${empty('Carregando…')}</div>
+  <div id="pm-avulsas"></div>`;
+  let carregar=async()=>{
     const data=$('pm-data').value||hoje();
     $('pm').innerHTML=empty('Carregando…');
     await limparFotosVelhas();
@@ -900,6 +1033,18 @@ PAGES.promotoria=async el=>{
       };
     });
   };
+  const carregarAvulsas=async()=>{
+    const data=$('pm-data').value||hoje();
+    const {data:av}=await sb.from('visitas').select('*, clientes_promotoria(nome), motoristas(nome)').is('roteiro_id',null).gte('visitado_em',data+'T00:00:00').lte('visitado_em',data+'T23:59:59').order('visitado_em');
+    const old=document.getElementById('pm-avulsas');if(!old)return;
+    if(!av||!av.length){old.innerHTML='';return}
+    old.innerHTML=`<div class="sec"><h3>🚶 Visitas avulsas (${av.length})</h3>${av.map(v=>`
+      <div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px">
+        <b>${esc(v.clientes_promotoria?.nome||'')}</b> — ${esc(v.motoristas?.nome||'')}
+        <div class="hint">${fmtDT(v.visitado_em)}${v.pedido?' · 📝 '+esc(v.pedido.slice(0,50)):''}${v.gps_ok===false?' · ⚠️ longe/sem GPS':''}</div></div>`).join('')}</div>`;
+  };
+  const oldCarregar=carregar;
+  carregar=async()=>{await oldCarregar();await carregarAvulsas()};
   $('pm-ver').onclick=carregar;
   $('pm-data').onchange=carregar;
   $('pm-novo').onclick=()=>criarRoteiroUI(carregar);
