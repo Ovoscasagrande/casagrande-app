@@ -711,6 +711,28 @@ PAGES.jornada=async el=>{
     }
     const {data:bloq} = ME.empresa!=='AMBAS' ? await sb.rpc('veiculos_bloqueados') : {data:null};
     const bloqueados=new Set(bloq||[]);
+    // ROTEIRO DA DISTRIBUIDORA: o motorista aceita o roteiro criado pela gerência
+    let rotaPendente=null;
+    if(empAtiva()==='DISTRIBUIDORA'){
+      const {data:rp}=await sb.from('rotas').select('id,roteiro,data,entregas(status,cliente_id)').eq('motorista_id',ME.motorista.id).eq('status','aberto').order('data').limit(1);
+      rotaPendente=rp&&rp.length?rp[0]:null;
+      if(rotaPendente){
+        const R=rotaPendente.roteiro?('R'+String(rotaPendente.roteiro).padStart(5,'0')):'sem nº';
+        w.innerHTML=`<div class="sec" style="text-align:center;padding:24px 16px">
+          <div style="font-size:42px">📋</div>
+          <h3 style="margin:10px 0 6px">Roteiro ${R} aguardando você</h3>
+          <p class="hint" style="margin:0 0 4px">${fmtD(rotaPendente.data)} · ${(rotaPendente.entregas||[]).length} clientes na rota</p>
+          <p class="hint" style="margin:0 0 16px">Ao aceitar, a jornada abre com o caminhão e o roteiro que a gerência definiu — você só digita o km.</p>
+          <button class="btn" id="j-aceitar">✅ ACEITAR ROTEIRO</button>
+          <div class="msg" id="j-msg"></div></div>`;
+        document.getElementById('j-aceitar').onclick=async()=>{
+          const {error}=await sb.from('rotas').update({status:'aceito'}).eq('id',rotaPendente.id);
+          if(error){toast(err(error));return}
+          toast('Roteiro aceito ✓');go('jornada');
+        };
+        return;
+      }
+    }
     w.innerHTML=`<div class="sec"><h3>Iniciar jornada</h3>
       <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}" ${bloqueados.has(v.veiculo_id)?'disabled':''}>${bloqueados.has(v.veiculo_id)?'🔒 ':''}${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}${bloqueados.has(v.veiculo_id)?' (aguardando conferência)':''}</option>`).join('')}</select>
       ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
@@ -1706,6 +1728,26 @@ async function pagConfDetalhe(el,jid){
     if(el2)el2.innerHTML=(cgs||[]).length?`📦 Carregamentos: ${(cgs||[]).map(c=>fmtDT(c.criado_em)).join(' · ')}`:'';
   })();
 
+  // entregas da rota (Distribuidora): canhotos e recusas da jornada
+  (async()=>{
+    const {data:rota}=await sb.from('rotas').select('id,roteiro').eq('roteiro',j.roteiro).eq('motorista_id',j.motorista_id).maybeSingle();
+    if(!rota)return;
+    const {data:ents}=await sb.from('entregas').select('*, clientes_dist(nome,endereco)').eq('rota_id',rota.id).order('ordem');
+    if(!ents||!ents.length)return;
+    const box=document.createElement('div');box.className='sec';
+    box.innerHTML=`<h3>📦 Entregas da rota ${rota.roteiro?('R'+String(rota.roteiro).padStart(5,'0')):''}</h3>`+
+      ents.map(e=>{
+        const st={pendente:['info','pendente'],andamento:['warning','em andamento'],entregue:['ok','entregue'],nao_realizada:['bad','recusada'],cancelada:['bad','cancelada']}[e.status]||[e.status,''];
+        const foto=e.foto_canhoto||e.foto_path;
+        return `<div style="padding:8px 0;border-bottom:1px solid #242424;font-size:13px">
+          <b>${esc(e.clientes_dist?.nome||'—')}</b> <span class="tag ${st[0]}">${st[1]}</span>
+          ${e.motivo_recusa?`<div class="hint" style="color:var(--bad)">Motivo da recusa: ${esc(e.motivo_recusa)}</div>`:''}
+          ${e.motivo?`<div class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo)}</div>`:''}
+          ${foto?`<button class="btn mini" data-can="${foto}">👁 canhoto</button>`:'<span class="hint">sem canhoto anexado</span>'}
+        </div>`}).join('');
+    $('cf-comps').appendChild(box);
+    box.querySelectorAll('[data-can]').forEach(b=>b.onclick=async()=>{const url=await assinar(b.dataset.can,'fotos');if(url)window.open(url,'_blank')});
+  })();
   const cw=$('cf-comps');
   for(const cpt of comps){
     const div=document.createElement('div');
@@ -3028,7 +3070,58 @@ PAGES['minha-rota']=async el=>{
   };
   html+=prox?card(prox):'';
   html+=`<div class="sec"><h3>Demais paradas</h3>`+((ents||[]).filter(e=>!prox||e.id!==prox.id).map(card).join('')||empty(''))+`</div>`;
+  // Cliente fora do roteiro (visita extra)
+  html+=`<div class="sec"><button class="btn sec" id="mr-extra" style="width:100%">➕ Cliente fora do roteiro</button></div>`;
+  // Roteiro finalizado → botão finalizar jornada
+  const todasFeitas=(ents||[]).length>0&&(ents||[]).every(e=>e.status==='entregue'||e.status==='nao_realizada');
+  if(rota.status==='em_rota'&&todasFeitas){
+    html+=`<div class="sec" style="text-align:center;border:2px solid var(--acc)"><div style="font-size:38px">🎉</div><h3 style="margin:8px 0">ROTEIRO FINALIZADO</h3><p class="hint">Todas as ${ents.length} paradas concluídas. Toque para encerrar o dia:</p><button class="btn" id="mr-finalizar">🏁 FINALIZAR JORNADA</button><div class="msg" id="mr-msg"></div></div>`;
+  }
   w.innerHTML=html;
+  // handler do cliente extra
+  const btnExtra=document.getElementById('mr-extra');
+  if(btnExtra)btnExtra.onclick=()=>{
+    sb.from('clientes_dist').select('id,nome,endereco,cidade').eq('ativo',true).order('nome').then(({data:clis})=>{
+      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+      mm.innerHTML=`<h3>➕ Cliente fora do roteiro</h3>
+        <p class="hint" style="margin:0 0 8px">Adiciona o cliente como parada extra nesta rota (fica no fim da lista).</p>
+        <input id="ex-busca" placeholder="🔍 buscar cliente..." style="width:100%">
+        <div id="ex-lista" style="max-height:260px;overflow-y:auto;margin-top:8px"></div>
+        <div class="mrow"><button class="btn sec" id="m-cancel">Fechar</button></div>`;
+      w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+      document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+      const render=q=>{
+        const t=(q||'').trim().toLowerCase();
+        const l=(clis||[]).filter(c=>!t||c.nome.toLowerCase().includes(t));
+        document.getElementById('ex-lista').innerHTML=l.map(c=>`
+          <div data-c="${c.id}" style="padding:10px 4px;border-bottom:1px solid #242424;cursor:pointer;font-size:13px"><b>${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}${c.cidade?' · '+esc(c.cidade):''}</div></div>`).join('')||'<p class="hint">Nenhum cliente.</p>';
+        document.getElementById('ex-lista').querySelectorAll('[data-c]').forEach(d=>d.onclick=async()=>{
+          const maxOrdem=Math.max(0,...(ents||[]).map(e=>e.ordem||0));
+          const {error}=await sb.from('entregas').insert({rota_id:rota.id,cliente_id:d.dataset.c,ordem:maxOrdem+1,status:'pendente',extra:true});
+          if(error){toast(err(error));return}
+          w.classList.remove('open');toast('Cliente adicionado à rota ✓');re();
+        });
+      };
+      render('');
+      document.getElementById('ex-busca').oninput=e=>render(e.target.value);
+    });
+  };
+  // handler do finalizar jornada
+  const btnFin=document.getElementById('mr-finalizar');
+  if(btnFin)btnFin.onclick=async()=>{
+    const {data:ab}=await sb.from('jornadas').select('id,km_inicial').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
+    if(!ab){toast('Nenhuma jornada aberta');return}
+    openModal('🏁 Finalizar jornada',[
+      {id:'fj-km',label:'KM final do veículo *',inputmode:'numeric'}
+    ],async v=>{
+      const kmf=parseFloat(v['fj-km']);
+      if(!kmf&&kmf!==0){toast('Informe o km final');return false}
+      if(kmf<ab.km_inicial){toast('Km final não pode ser menor que o inicial');return false}
+      const r=await upd('jornadas',ab.id,{km_final:kmf,fim:new Date().toISOString(),status:'conferencia'});
+      if(r){toast('Jornada enviada para conferência ✓');go('jornada')}
+      return !!r;
+    });
+  };
   const re=()=>PAGES['minha-rota'](el);
   w.querySelectorAll('[data-chega]').forEach(b=>b.onclick=async()=>{
     if(!navigator.onLine){filaAdd({tipo:'upd',table:'entregas',id:b.dataset.chega,row:{status:'andamento',chegada_em:new Date().toISOString()}});re();return}
@@ -3851,12 +3944,12 @@ PAGES.roteiros=async el=>{
   const {data:lista}=await sb.from('rotas').select('*, motoristas(nome), veiculos(placa,modelo), entregas(status,cliente_id,carga,clientes_dist(nome))').order('roteiro',{ascending:false,nullsFirst:false}).order('criado_em',{ascending:false}).limit(60);
   const root=$('rt-root');
   if(!lista||!lista.length){root.innerHTML=empty('Nenhum roteiro gerado — crie em Pedidos & Rota');return}
-  const LBL={aberto:['ABERTO','aguardando o motorista abrir a jornada'],em_rota:['EM ROTA','motorista em jornada'],finalizado:['FINALIZADO','entregue e conferido'],cancelado:['CANCELADO','cancelado pela gerência']};
+  const LBL={aberto:['ABERTO','aguardando o motorista aceitar'],aceito:['ACEITO','motorista aceitou — aguardando iniciar'],em_rota:['EM ROTA','motorista em jornada'],finalizado:['FINALIZADO','entregue e conferido'],cancelado:['CANCELADO','cancelado pela gerência']};
   root.innerHTML=lista.map(r=>{
     const ents=r.entregas||[];
     const ok=ents.filter(e=>e.status==='entregue').length,nr=ents.filter(e=>e.status==='nao_realizada').length;
     const st=LBL[r.status]||[r.status||'ABERTO',''];
-    const cor={aberto:'info',em_rota:'warning',finalizado:'ok',cancelado:'bad'}[r.status]||'info';
+    const cor={aberto:'info',aceito:'ok',em_rota:'warning',finalizado:'ok',cancelado:'bad'}[r.status]||'info';
     return `<div class="sec" data-rt="${r.id}" style="cursor:pointer">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
       <b style="font-size:15px;color:var(--acc)">${r.roteiro?('R'+String(r.roteiro).padStart(5,'0')):'<span style="color:var(--mut)">sem nº (teste antigo)</span>'}</b>
