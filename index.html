@@ -2337,7 +2337,18 @@ PAGES.motoristas=async el=>{
   ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';const empsTxt=(m.empresas&&m.empresas.length?m.empresas.map(x=>EMPNICK[x]||x).join(', '):EMPNICK[m.empresa]||m.empresa||'—');return `<tr><td><b>${esc(m.nome)}</b></td><td><span class="tag" style="font-size:10px">${esc(empsTxt)}</span></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
   <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-vv="${m.id}">🚚 veículo</button> <button class="btn mini" data-ed="${m.id}">✏️</button> <button class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
-    if(await upd('motoristas',b.dataset.tg,{ativo:b.dataset.a==='1'}))go('motoristas');
+    if(b.dataset.a==='0'){
+      const ml=lista.find(x=>x.id===b.dataset.tg);
+      const emps=((ml&&ml.empresas)||[]).filter(x=>x!==ea);
+      const leg=emps.length===3?'TODAS':(emps.length===2&&emps.includes('OVOS')&&emps.includes('TRANSPORTADORA')?'AMBAS':(emps[0]||'OVOS'));
+      if(await upd('motoristas',b.dataset.tg,{empresas:emps,empresa:leg,ativo:false}))go('motoristas');
+    }else{
+      const ml=lista.find(x=>x.id===b.dataset.tg);
+      let emps=((ml&&ml.empresas)||[]);
+      if(!emps.includes(ea))emps=[...emps,ea];
+      const leg=emps.length===3?'TODAS':(emps.length===2&&emps.includes('OVOS')&&emps.includes('TRANSPORTADORA')?'AMBAS':(emps[0]||'OVOS'));
+      if(await upd('motoristas',b.dataset.tg,{empresas:emps,empresa:leg,ativo:true}))go('motoristas');
+    }
   });
   l.querySelectorAll('[data-vv]').forEach(b=>b.onclick=async()=>{
     const mid=b.dataset.vv;
