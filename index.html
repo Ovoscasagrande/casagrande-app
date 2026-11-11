@@ -2407,7 +2407,7 @@ PAGES.os=async el=>{
   const LBL={recebida:'▶ Iniciar análise',em_analise:'⏳ Aguardando peça',aguardando_peca:'🔨 Em execução',em_execucao:'✓ Concluir'};
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Aberta</th><th>Veículo</th><th>Descrição</th><th>Diagnóstico</th><th>Custos</th><th>Status</th><th></th></tr>
   ${lista.map(o=>`<tr><td>${fmtDT(o.aberta_em)}</td><td>${esc(o.veiculos?.placa)}</td><td>${esc(o.descricao)}</td><td>${esc(o.diagnostico||'—')}</td><td>${o.mao_obra||o.custos?fmtBRL(Number(o.mao_obra||0)+Number(o.custos||0)):'—'}</td><td>${tag(o.status)}</td>
-  <td>${ME.perfil==='mecanico'&&o.status!=='concluida'?`<button class="btn mini" data-osd="${o.id}">✏️ Atualizar</button>`:''}</td></tr>`).join('')}</table></div>`;
+  <td>${['mecanico','gerencia'].includes(ME.perfil)&&o.status!=='concluida'?`<button class="btn mini" data-osd="${o.id}">✏️ Atualizar</button>`:''}</td></tr>`).join('')}</table></div>`;
   l.querySelectorAll('[data-osd]').forEach(b=>b.onclick=async()=>{
     const o=lista.find(x=>x.id===b.dataset.osd);
     openModal('Atualizar OS — '+(o.veiculos?.placa||''),[
@@ -2463,7 +2463,7 @@ PAGES.usuarios=async el=>{
   // ---- aprovados ----
   l.innerHTML=ativos.length?`<div class="sec"><h3>👥 Cadastrados (${ativos.length})</h3><div class="tblwrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresa</th><th></th></tr>
   ${ativos.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td>
-  <td><button class="btn mini" data-ued="${u.id}">✏️</button></td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
+  <td>${ME.master?`<button class="btn mini" data-ued="${u.id}">✏️</button>`:''}</td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
   // ---- veículos para vínculo na aprovação ----
   (async()=>{
     const {data:vlist}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
