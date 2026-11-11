@@ -498,7 +498,7 @@ function menusPara(){
   const e=empAtiva();
   if(e==='DISTRIBUIDORA'){
     if(ME.perfil==='gerencia')m=['home','pedidos-rota','roteiros','hoje','clientes','produtos','tipos','veiculos','motoristas','jornadas','abastecimentos','despesas','avisos','multas','manuais','usuarios','auditoria'];
-    else if(ME.perfil==='motorista')m=['home','minha-rota','carga','jornada','gastos','meu-historico','avisos','multas','manuais'];
+    else if(ME.perfil==='motorista')m=['home','minha-rota','jornada','gastos','meu-historico','avisos','multas','manuais'];
     else m=m.filter(x=>!['promotoria','pro-roteiro','pro-avulsa','conferencia','recebimentos','recnovo','pro-cliente'].includes(x));
   }
   if(ME.perfil==='gerencia'&&ME.motorista){
@@ -697,8 +697,9 @@ PAGES.jornada=async el=>{
   const {data:aberta}=await sb.from('jornadas').select('*, veiculos(placa,modelo)').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
   const {data:ultimas}=await sb.from('jornadas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).neq('status','aberta').order('inicio',{ascending:false}).limit(5);
   if(!aberta){
-    const {data:veics}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa,modelo)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
-    if(!veics||!veics.length){w.innerHTML=`<div class="sec">Nenhum veículo vinculado a você. Peça à gerência.</div>`;return}
+    const {data:veicsRaw}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa,modelo)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
+    const veics=(veicsRaw||[]).filter(v=>v.veiculos);
+    if(!veics.length){w.innerHTML=`<div class="sec">Nenhum veículo vinculado a você. Peça à gerência.</div>`;return}
     const {data:bloq} = ME.empresa!=='AMBAS' ? await sb.rpc('veiculos_bloqueados') : {data:null};
     const bloqueados=new Set(bloq||[]);
     w.innerHTML=`<div class="sec"><h3>Iniciar jornada</h3>
@@ -712,7 +713,8 @@ PAGES.jornada=async el=>{
       ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
     window.__rots=[];
     if(empAtiva()==='DISTRIBUIDORA'&&ME.motorista){
-      const {data:minhaRota}=await sb.from('rotas').select('roteiro,sequencia,entregas(status)').eq('motorista_id',ME.motorista.id).in('status',['aberto','em_rota','planejada','distribuida']).order('data',{ascending:false}).limit(1);
+      const {data:minhaRotaArr}=await sb.from('rotas').select('roteiro,sequencia,entregas(status)').eq('motorista_id',ME.motorista.id).in('status',['aberto','em_rota','planejada','distribuida']).order('data',{ascending:false}).limit(1);
+      const minhaRota=minhaRotaArr&&minhaRotaArr.length?minhaRotaArr[0]:null;
       if(!minhaRota||!minhaRota.roteiro){
         const av=document.createElement('p');av.className='hint';av.style.color='#e0a052';
         av.textContent='⚠️ Nenhum roteiro aberto para você — a gerência gera em Pedidos & Rota.';
@@ -2973,10 +2975,8 @@ PAGES['minha-rota']=async el=>{
   const rota=rotas.find(r=>r.data<=hoje())||rotas[0];
   const {data:ents}=await sb.from('entregas').select('*, clientes_dist(nome,endereco,cidade,uf,lat,lng,telefone), notas_fiscais(numero,vendedor,comprador)').eq('rota_id',rota.id).order('ordem');
   const feitas=(ents||[]).filter(e=>e.status==='entregue'||e.status==='nao_realizada').length;
-  const pendCarga=(ents||[]).filter(e=>e.nf_id&&!e.carga_ok).length;
   const stLbl={aberto:'ABERTO',em_rota:'EM ROTA',finalizado:'FINALIZADO',distribuida:'ABERTO',planejada:'ABERTO'}[rota.status]||rota.status;
-  let html=`<div class="sec"><b>${fmtD(rota.data)}</b> · ${esc(rota.veiculos?.placa||'—')} <span class="tag">${stLbl}</span><p class="hint">${feitas} de ${(ents||[]).length} atendimentos concluídos</p>
-  ${pendCarga?`<p class="hint" style="color:#e0a052">📦 ${pendCarga} carga(s) sem conferir — passe em <b>Meu carregamento</b> antes de sair</p>`:''}</div>`;
+  let html=`<div class="sec"><b>${fmtD(rota.data)}</b> · ${esc(rota.veiculos?.placa||'—')} <span class="tag">${stLbl}</span><p class="hint">${feitas} de ${(ents||[]).length} atendimentos concluídos</p></div>`;
   const prox=(ents||[]).find(e=>e.status==='pendente'||e.status==='andamento');
   const card=e=>{
     const c=e.clientes_dist||{},nf=e.notas_fiscais||{};
