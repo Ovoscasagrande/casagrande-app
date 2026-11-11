@@ -3137,10 +3137,10 @@ PAGES['minha-rota']=async el=>{
     await upd('entregas',b.dataset.chega,{status:'andamento',chegada_em:new Date().toISOString()});re();
   });
   w.querySelectorAll('[data-nao]').forEach(b=>b.onclick=async()=>{
-    pedirTexto('Não realizada','Qual o motivo?',async v=>{
-      if(!navigator.onLine){filaAdd({tipo:'upd',table:'entregas',id:b.dataset.nao,row:{status:'nao_realizada',motivo:v['pt-val']}});re();return}
-      await upd('entregas',b.dataset.nao,{status:'nao_realizada',motivo:v['pt-val']});re();
-    });
+    const motivo=await pedirTexto('❌ Recusar entrega','Qual o motivo da recusa? (obrigatório)');
+    if(motivo===null)return;
+    if(!navigator.onLine){filaAdd({tipo:'upd',table:'entregas',id:b.dataset.nao,row:{status:'nao_realizada',motivo_recusa:motivo,concluida_em:new Date().toISOString()}});re();return}
+    await upd('entregas',b.dataset.nao,{status:'nao_realizada',motivo_recusa:motivo,concluida_em:new Date().toISOString()});re();
   });
   w.querySelectorAll('[data-ent]').forEach(b=>b.onclick=()=>{
     const e=(ents||[]).find(x=>x.id===b.dataset.ent);
