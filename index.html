@@ -2368,13 +2368,22 @@ PAGES.motoristas=async el=>{
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-ok').onclick=async()=>{
-      let n=0;
+      let n=0,erro='';
       for(const v of vs||[]){
         const marcado=document.getElementById('vv-'+v.id).checked;
-        if(marcado&&!ativos.has(v.id)){const {error}=await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:v.id,ativo:true});if(!error)n++}
-        if(!marcado&&ativos.has(v.id)){await sb.from('motorista_veiculo').update({ativo:false}).eq('motorista_id',mid).eq('veiculo_id',v.id);n++}
+        if(marcado&&!ativos.has(v.id)){
+          // reativa o vínculo existente (unique motorista_id+veiculo_id) ou cria novo
+          const {error}=await sb.from('motorista_veiculo').upsert({motorista_id:mid,veiculo_id:v.id,ativo:true},{onConflict:'motorista_id,veiculo_id'});
+          if(error){erro=err(error);console.warn('vinculo',error)}else n++;
+        }
+        if(!marcado&&ativos.has(v.id)){
+          const {error}=await sb.from('motorista_veiculo').update({ativo:false}).eq('motorista_id',mid).eq('veiculo_id',v.id);
+          if(!error)n++;
+        }
       }
-      w.classList.remove('open');toast(n?'Vínculos atualizados':'Nada mudou');go('motoristas');
+      w.classList.remove('open');
+      if(erro)toast('Erro: '+erro);else toast(n?'Vínculos atualizados':'Nada mudou');
+      go('motoristas');
     };
   });
   l.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{
