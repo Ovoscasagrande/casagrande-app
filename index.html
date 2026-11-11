@@ -3024,14 +3024,57 @@ async function pagRotaDetalhe(id){
     ${e.motivo?`<p class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo)}</p>`:''}
     ${e.carga_ok?'<span class="tag ok">carga conferida</span>':''}
     ${e.foto_path?`<div id="rd-foto-${e.id}">${empty('comprovante…')}</div>`:''}</div>`}).join('')||empty(''))+`</div>`;
-  if(ME.perfil==='gerencia'&&['aberto','finalizado','planejada','distribuida'].includes(r.status)){
-    html+=`<div class="sec"><button class="btn sec" id="rd-cancel" style="border-color:#5c3a2e;color:#e88">❌ Cancelar roteiro</button></div>`;
+  if(ME.perfil==='gerencia'&&['aberto','aceito','finalizado','planejada','distribuida'].includes(r.status)){
+    const pendentes=(ents||[]).filter(e=>e.status==='pendente'||e.status==='andamento');
+    html+=`<div class="sec"><h3>Ações da gerência</h3>
+      <div style="display:grid;gap:8px">
+        ${pendentes.length?`<button class="btn sec" id="rd-baixa" style="border-color:var(--acc);color:var(--acc)">📝 Dar baixa manual (${pendentes.length} pendente(s))</button>`:''}
+        <button class="btn sec" id="rd-cancel" style="border-color:#5c3a2e;color:#e88">❌ Cancelar roteiro</button>
+      </div>
+      <p class="hint" style="margin:8px 0 0">Em rota, só o motorista mexe — a gerência fica de olho.</p></div>`;
   }
   $('main').innerHTML=html;
   $('rd-volt').onclick=()=>go(PAGE==='roteiros'?'roteiros':'rotas');
   for(const e of (ents||[]).filter(x=>x.foto_path)){const d=$('rd-foto-'+e.id);if(d)d.innerHTML=await fotoHtml(e.foto_path)}
   const enc=$('rd-enc');if(enc)enc.onclick=async()=>{await upd('rotas',id,{status:'finalizado',fim:new Date().toISOString()});toast('Rota encerrada');pagRotaDetalhe(id)};
   const cnc=$('rd-cancel');if(cnc)cnc.onclick=()=>cancelarRoteiro(id);
+  const bx=$('rd-baixa');if(bx)bx.onclick=()=>{
+    const pendentes=(ents||[]).filter(e=>e.status==='pendente'||e.status==='andamento');
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<h3>📝 Dar baixa manual</h3>
+      <p class="hint" style="margin:0 0 8px">Marque cada cliente como entregue ou recusado. O que você marcar fica registrado com a gerência como responsável.</p>
+      <div style="max-height:320px;overflow-y:auto">${pendentes.map(e=>`
+        <div style="padding:10px 4px;border-bottom:1px solid #242424">
+          <b style="font-size:13px">${e.ordem}. ${esc(e.clientes_dist?.nome||'—')}</b>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="bx-${e.id}" value="entregue" style="accent-color:var(--acc)"> ✅ Entregue</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="radio" name="bx-${e.id}" value="nao_realizada"> ❌ Recusado</label>
+          </div>
+          <input class="bx-motivo" data-e="${e.id}" placeholder="Motivo (obrigatório se recusado)" style="width:100%;margin-top:6px;display:none;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px 10px;font-size:13px">
+        </div>`).join('')}</div>
+      <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="bx-ok">Dar baixa</button></div>`;
+    w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    mm.querySelectorAll(`input[type=radio]`).forEach(r=>r.onchange=()=>{
+      const mot=mm.querySelector(`.bx-motivo[data-e="${r.name.replace('bx-','')}"]`);
+      if(mot)mot.style.display=(r.value==='nao_realizada'&&r.checked)?'block':'none';
+    });
+    document.getElementById('bx-ok').onclick=async()=>{
+      let n=0,erro='';
+      for(const e of pendentes){
+        const sel=mm.querySelector(`input[name="bx-${e.id}"]:checked`);
+        if(!sel)continue;
+        const motivo=(mm.querySelector(`.bx-motivo[data-e="${e.id}"]`)||{value:''}).value.trim();
+        if(sel.value==='nao_realizada'&&!motivo){erro='Escreva o motivo do recusado';break}
+        const {error}=await sb.from('entregas').update({status:sel.value,motivo_recusa:sel.value==='nao_realizada'?motivo:null,concluida_em:new Date().toISOString()}).eq('id',e.id);
+        if(error){erro=err(error);break}
+        n++;
+      }
+      if(erro){toast(erro);return}
+      w.classList.remove('open');toast(n?n+' baixa(s) registrada(s) ✓':'Nada marcado');
+      pagRotaDetalhe(id);
+    };
+  };
 }
 async function pagHojeDist(el){
   el.innerHTML=`<h1 class="pg">Hoje — Distribuidora</h1><div id="hd">${empty('Carregando…')}</div>`;
@@ -3971,7 +4014,7 @@ async function cancelarRoteiro(id){
   const {data:r}=await sb.from('rotas').select('*, entregas(status)').eq('id',id).maybeSingle();
   if(!r){toast('Roteiro não encontrado');return}
   if(r.status==='em_rota'){toast('Roteiro EM ROTA não pode ser cancelado — motorista em jornada');return}
-  if(!['aberto','finalizado','planejada','distribuida'].includes(r.status)){toast('Este roteiro não pode ser cancelado');return}
+  if(!['aberto','aceito','finalizado','planejada','distribuida'].includes(r.status)){toast('Este roteiro não pode ser cancelado');return}
   const ents=r.entregas||[];
   const feitas=ents.filter(e=>e.status==='entregue'||e.status==='nao_realizada').length;
   openModal('❌ Cancelar R'+String(r.roteiro||0).padStart(5,'0'),[
