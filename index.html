@@ -2446,7 +2446,7 @@ PAGES.usuarios=async el=>{
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
-          <select data-perfil="${u.id}" class="mini-sel">${opt([['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],u.perfil!=='pendente'?u.perfil:'motorista')}</select>
+          <select data-perfil="${u.id}" class="mini-sel">${opt(ME.master?[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']]:[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico']],u.perfil!=='pendente'?u.perfil:'motorista')}</select>
           <select data-emp="${u.id}" class="mini-sel">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','Ambas'],['TODAS','Todas (3)']],u.empresa&&u.empresa!=='OVOS'?u.empresa:'OVOS')}</select>
           <span data-veic-wrap="${u.id}" style="display:none"><select data-veic="${u.id}" class="mini-sel"><option value="">— sem veículo —</option></select></span>
           <button class="btn mini" data-apr="${u.id}">✓ Aprovar</button>
