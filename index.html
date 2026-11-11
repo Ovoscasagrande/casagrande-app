@@ -3111,14 +3111,23 @@ PAGES['minha-rota']=async el=>{
   el.innerHTML=`<h1 class="pg">Minha rota</h1><div id="mr">${empty('Carregando…')}</div>`;
   const w=$('mr');
   if(!ME.motorista){w.innerHTML=empty('Seu usuário não está vinculado a um cadastro de motorista. Peça à gerência.');return}
-  const {data:rotas}=await sb.from('rotas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).in('status',['aberto','em_rota','planejada','distribuida']).order('data').limit(5);
+  // a rota só abre depois da jornada iniciada
+  const {data:aberta}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
+  if(!aberta){
+    w.innerHTML=`<div class="sec" style="text-align:center;padding:28px 16px"><div style="font-size:42px">🛣️</div><h3 style="margin:10px 0 6px">Inicie a jornada primeiro</h3><p class="hint" style="margin:0 0 14px">Sua rota aparece aqui depois que você inicia a jornada (com o roteiro e o km inicial).</p><button class="btn" id="mr-irj">🛣️ Ir para minha jornada</button></div>`;
+    const b=document.getElementById('mr-irj');if(b)b.onclick=()=>go('jornada');
+    return;
+  }
+  const {data:rotas}=await sb.from('rotas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).in('status',['aberto','aceito','em_rota','planejada','distribuida']).order('data').limit(5);
   if(!rotas||!rotas.length){w.innerHTML=`<div class="sec" style="text-align:center;padding:28px 16px"><div style="font-size:42px">🗺️</div><h3 style="margin:10px 0 6px">Nenhuma rota distribuída</h3><p class="hint" style="margin:0">A gerência monta sua rota e ela aparece aqui.</p></div>`;return}
   const rota=rotas.find(r=>r.data<=hoje())||rotas[0];
   const {data:ents}=await sb.from('entregas').select('*, clientes_dist(nome,endereco,cidade,uf,lat,lng,telefone), notas_fiscais(numero,vendedor,comprador)').eq('rota_id',rota.id).order('ordem');
   const feitas=(ents||[]).filter(e=>e.status==='entregue'||e.status==='nao_realizada').length;
   const stLbl={aberto:'ABERTO',em_rota:'EM ROTA',finalizado:'FINALIZADO',distribuida:'ABERTO',planejada:'ABERTO'}[rota.status]||rota.status;
   let html=`<div class="sec"><b>${fmtD(rota.data)}</b> · ${esc(rota.veiculos?.placa||'—')} <span class="tag">${stLbl}</span><p class="hint">${feitas} de ${(ents||[]).length} atendimentos concluídos</p></div>`;
-  const prox=(ents||[]).find(e=>e.status==='pendente'||e.status==='andamento');
+  const concluidos=(ents||[]).filter(e=>e.status==='entregue'||e.status==='nao_realizada');
+  const pendentes=(ents||[]).filter(e=>e.status==='pendente'||e.status==='andamento');
+  const prox=pendentes.find(e=>e.status==='andamento')||pendentes[0];
   const card=e=>{
     const c=e.clientes_dist||{},nf=e.notas_fiscais||{};
     const mapa=(c.lat&&c.lng)?`<a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" style="color:var(--acc)">🗺️ Abrir no mapa</a>`:'';
@@ -3138,7 +3147,17 @@ PAGES['minha-rota']=async el=>{
       ${acao?`<div style="margin-top:8px">${acao}</div>`:''}</div>`;
   };
   html+=prox?card(prox):'';
-  html+=`<div class="sec"><h3>Demais paradas</h3>`+((ents||[]).filter(e=>!prox||e.id!==prox.id).map(card).join('')||empty(''))+`</div>`;
+  html+=`<div class="sec"><h3>Próximas paradas (${pendentes.length})</h3>`+((pendentes||[]).filter(e=>!prox||e.id!==prox.id).map(card).join('')||empty('Nenhuma — você está no fim da rota'))+`</div>`;
+  html+=`<div class="sec"><h3>✅ Clientes já entregues (${concluidos.length})</h3>`+((concluidos||[]).map(e=>{
+    const c=e.clientes_dist||{};
+    const st=e.status==='entregue'?'<span class="tag ok">entregue</span>':'<span class="tag bad">recusado</span>';
+    return `<div style="padding:10px 4px;border-bottom:1px solid #242424;font-size:13px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span><b>${esc(c.nome||'—')}</b> ${st}</span>
+        <button class="btn mini" data-edit="${e.id}">✏️ Editar</button></div>
+      ${e.motivo_recusa?`<div class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo_recusa)}</div>`:''}
+      ${e.foto_path?`<div id="mr-foto-${e.id}">${empty('comprovante…')}</div>`:''}
+    </div>`}).join('')||empty('Nenhum cliente concluído ainda'))+`</div>`;
   // Cliente fora do roteiro (visita extra)
   html+=`<div class="sec"><button class="btn sec" id="mr-extra" style="width:100%">➕ Cliente fora do roteiro</button></div>`;
   // Roteiro finalizado → botão finalizar jornada
@@ -3192,6 +3211,56 @@ PAGES['minha-rota']=async el=>{
     });
   };
   const re=()=>PAGES['minha-rota'](el);
+  w.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
+    const e=(ents||[]).find(x=>x.id===b.dataset.edit);
+    if(!e)return;
+    if(e.status==='entregue'){
+      // editar entrega: nova foto do comprovante
+      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+      mm.innerHTML=`<h3>✏️ Editar entrega — ${esc(e.clientes_dist?.nome||'')}</h3>
+        <p class="hint" style="margin:0 0 8px">Tire a foto certa do comprovante — ela substitui a anterior.</p>`
+        +blocoFoto('en-foto','Comprovante')
+        +`<div class="mrow"><button class="btn sec" id="en-cancel">Cancelar</button><button class="btn" id="en-ok">✅ Salvar</button></div>`;
+      w.classList.add('open');w.onclick=ev=>{if(ev.target===w)w.classList.remove('open')};
+      $('en-cancel').onclick=()=>w.classList.remove('open');
+      const getF=bindFoto('en-foto');
+      $('en-ok').onclick=async()=>{
+        const f=getF();
+        if(!f){toast('A foto do comprovante é obrigatória');return}
+        const path=ME.id+'/entrega-'+e.id+'.jpg';
+        const saved=await uploadFoto(f,path);
+        if(!saved)return;
+        await upd('entregas',e.id,{foto_path:saved,status:'entregue',motivo_recusa:null,concluida_em:new Date().toISOString()});
+        w.classList.remove('open');toast('Entrega atualizada ✓');re();
+      };
+    }else{
+      // editar recusa: novo motivo (ou virar entrega)
+      const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+      mm.innerHTML=`<h3>✏️ Editar recusa — ${esc(e.clientes_dist?.nome||'')}</h3>
+        <label>Novo motivo (obrigatório)</label><textarea id="er-mot" rows="3" style="width:100%">${esc(e.motivo_recusa||'')}</textarea>
+        <p class="hint" style="margin:6px 0">Ou marque que a entrega foi feita (pede a foto):</p>`
+        +blocoFoto('en-foto','Comprovante')
+        +`<div class="mrow"><button class="btn sec" id="en-cancel">Cancelar</button><button class="btn" id="er-ok">❌ Salvar recusa</button><button class="btn" id="er-ent">✅ Foi entregue</button></div>`;
+      w.classList.add('open');w.onclick=ev=>{if(ev.target===w)w.classList.remove('open')};
+      $('en-cancel').onclick=()=>w.classList.remove('open');
+      const getF=bindFoto('en-foto');
+      $('er-ok').onclick=async()=>{
+        const m=(document.getElementById('er-mot').value||'').trim();
+        if(!m){toast('Informe o motivo');return}
+        await upd('entregas',e.id,{status:'nao_realizada',motivo_recusa:m,concluida_em:new Date().toISOString()});
+        w.classList.remove('open');toast('Recusa atualizada ✓');re();
+      };
+      $('er-ent').onclick=async()=>{
+        const f=getF();
+        if(!f){toast('A foto do comprovante é obrigatória para virar entrega');return}
+        const path=ME.id+'/entrega-'+e.id+'.jpg';
+        const saved=await uploadFoto(f,path);
+        if(!saved)return;
+        await upd('entregas',e.id,{status:'entregue',foto_path:saved,motivo_recusa:null,concluida_em:new Date().toISOString()});
+        w.classList.remove('open');toast('Virou entrega ✓');re();
+      };
+    }
+  });
   w.querySelectorAll('[data-chega]').forEach(b=>b.onclick=async()=>{
     if(!navigator.onLine){filaAdd({tipo:'upd',table:'entregas',id:b.dataset.chega,row:{status:'andamento',chegada_em:new Date().toISOString()}});re();return}
     await upd('entregas',b.dataset.chega,{status:'andamento',chegada_em:new Date().toISOString()});re();
