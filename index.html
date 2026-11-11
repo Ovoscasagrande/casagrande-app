@@ -801,7 +801,7 @@ PAGES.jornada=async el=>{
       if(r){
         // Distribuidora: roteiro abriu jornada → rota vira EM ROTA
         if(empAtiva()==='DISTRIBUIDORA'&&!carga&&rots[0]){
-          await sb.from('rotas').update({status:'em_rota',inicio:new Date().toISOString(),km_inicial:kmv}).eq('roteiro',rots[0]).in('status',['aberto','planejada','distribuida']);
+          await sb.from('rotas').update({status:'em_rota',inicio:new Date().toISOString(),km_inicial:kmv}).eq('roteiro',rots[0]).in('status',['aberto','aceito','planejada','distribuida']);
         }
         toast('Jornada iniciada! CRLV-e liberado na aba Multas e documentos');go('jornada')
       }
