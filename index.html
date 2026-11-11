@@ -3013,7 +3013,7 @@ async function pagRotaDetalhe(id){
     return `<div class="sec"><b>📦 Carga — NF ${esc(e.notas_fiscais?.numero||'')} · ${esc(e.clientes_dist?.nome||'')}</b> ${e.carga_ok?'<span class="tag ok">conferida pelo motorista</span>':'<span class="tag">pendente</span>'}
     ${lista.map((it,ix)=>{const m=(e.carga||[])[ix];return `<p class="hint" style="font-size:12px">${m&&m.ok?'✅':'⬜'} ${esc(it.descricao)} — <b style="color:var(--ink)">${fmtKm(it.qtd)} ${esc(it.unid)}</b></p>`}).join('')}</div>`}).join('');
   let html=`<button class="btn sec" id="rd-volt">← Voltar</button><h1 class="pg">Rota ${fmtD(r.data)}</h1>
-  <div class="sec"><b>${esc(r.motoristas?.nome||'—')}</b> · ${esc(r.veiculos?.placa||'—')} <span class="tag">${({aberto:'ABERTO',em_rota:'EM ROTA',finalizado:'FINALIZADO'}[r.status])||r.status}</span>
+  <div class="sec"><b>${esc(r.motoristas?.nome||'—')}</b> · ${esc(r.veiculos?.placa||'—')} <span class="tag">${({aberto:'ABERTO',aceito:'ACEITO',em_rota:'EM ROTA',finalizado:'FINALIZADO',cancelado:'CANCELADO'}[r.status])||r.status}</span>
   ${r.km_inicial!=null?`<p class="hint">Km ${fmtKm(r.km_inicial)}${r.km_final!=null?' → '+fmtKm(r.km_final)+' · percorrido '+fmtKm(Number(r.km_final)-Number(r.km_inicial)):''}</p>`:''}</div>
   ${cargaHtml}
   <div class="sec"><h3>Entregas (${(ents||[]).length})</h3>`+((ents||[]).map(e=>{
@@ -3033,11 +3033,28 @@ async function pagRotaDetalhe(id){
       </div>
       <p class="hint" style="margin:8px 0 0">Em rota, só o motorista mexe — a gerência fica de olho.</p></div>`;
   }
+  if(ME.perfil==='gerencia'&&['cancelado','aberto','aceito'].includes(r.status)){
+    html+=`<div class="sec"><button class="btn sec" id="rd-excluir" style="border-color:#8b3a3a;color:#ff9b9b">🗑 Excluir roteiro (apaga de vez)</button></div>`;
+  }
   $('main').innerHTML=html;
   $('rd-volt').onclick=()=>go(PAGE==='roteiros'?'roteiros':'rotas');
   for(const e of (ents||[]).filter(x=>x.foto_path)){const d=$('rd-foto-'+e.id);if(d)d.innerHTML=await fotoHtml(e.foto_path)}
   const enc=$('rd-enc');if(enc)enc.onclick=async()=>{await upd('rotas',id,{status:'finalizado',fim:new Date().toISOString()});toast('Rota encerrada');pagRotaDetalhe(id)};
   const cnc=$('rd-cancel');if(cnc)cnc.onclick=()=>cancelarRoteiro(id);
+  const ex=$('rd-excluir');if(ex)ex.onclick=()=>{
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<h3>🗑 Excluir roteiro?</h3>
+      <p style="font-size:13px;color:#dddddd">O roteiro e todas as entregas dele serão <b>apagados de vez</b> do banco. Não dá para desfazer.</p>
+      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
+    w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    document.getElementById('m-ok').onclick=async()=>{
+      await sb.from('entregas').delete().eq('rota_id',id);
+      const {error}=await sb.from('rotas').delete().eq('id',id);
+      if(error){toast(err(error));return}
+      w.classList.remove('open');toast('Roteiro excluído');go('roteiros');
+    };
+  };
   const bx=$('rd-baixa');if(bx)bx.onclick=()=>{
     const pendentes=(ents||[]).filter(e=>e.status==='pendente'||e.status==='andamento');
     const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
