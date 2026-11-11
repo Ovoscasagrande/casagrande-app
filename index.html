@@ -697,9 +697,18 @@ PAGES.jornada=async el=>{
   const {data:aberta}=await sb.from('jornadas').select('*, veiculos(placa,modelo)').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
   const {data:ultimas}=await sb.from('jornadas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).neq('status','aberta').order('inicio',{ascending:false}).limit(5);
   if(!aberta){
-    const {data:veicsRaw}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa,modelo)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
+    const {data:veicsRaw}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa,modelo,empresa)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
     const veics=(veicsRaw||[]).filter(v=>v.veiculos);
-    if(!veics.length){w.innerHTML=`<div class="sec">Nenhum veículo vinculado a você. Peça à gerência.</div>`;return}
+    if(!veics.length){
+      const ocultos=(veicsRaw||[]).filter(v=>!v.veiculos);
+      if(ocultos.length){
+        const {data:vs2}=await sb.from('veiculos').select('id,placa,empresa').in('id',ocultos.map(x=>x.veiculo_id));
+        w.innerHTML=`<div class="sec">⚠️ Há ${ocultos.length} caminhão(ões) vinculados a você, mas de outra empresa: <b>${(vs2||[]).map(v=>esc(v.placa)+' ('+(v.empresa||'')+')').join(', ')}</b>.<br><br>Peça à gerência para vincular um caminhão da sua empresa, ou troque de empresa no topo (se o seu usuário tiver mais de uma).</div>`;
+      } else {
+        w.innerHTML=`<div class="sec">Nenhum veículo vinculado a você. Peça à gerência.</div>`;
+      }
+      return;
+    }
     const {data:bloq} = ME.empresa!=='AMBAS' ? await sb.rpc('veiculos_bloqueados') : {data:null};
     const bloqueados=new Set(bloq||[]);
     w.innerHTML=`<div class="sec"><h3>Iniciar jornada</h3>
@@ -2360,7 +2369,14 @@ PAGES.motoristas=async el=>{
     const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
     const {data:atual}=await sb.from('motorista_veiculo').select('id,veiculo_id,ativo,veiculos(placa)').eq('motorista_id',mid);
     const ativos=new Set((atual||[]).filter(x=>x.ativo).map(x=>x.veiculo_id));
-    const campos=(vs||[]).map(v=>({id:'vv-'+v.id,label:v.placa+(v.modelo?' · '+v.modelo:'')+(v.empresa&&v.empresa!=='AMBAS'?' ('+v.empresa+')':''),tipo:'vvchk',valor:ativos.has(v.id)}));
+    const {data:mot}=await sb.from('motoristas').select('empresas,empresa').eq('id',mid).maybeSingle();
+    const empsMot=((mot&&mot.empresas)||[]);
+    const veNaoVisivel=v=>{
+      const e=v.empresa;
+      if(e==='TODAS'||e==='AMBAS')return false;
+      return !empsMot.includes(e);
+    };
+    const campos=(vs||[]).map(v=>({id:'vv-'+v.id,label:v.placa+(v.modelo?' · '+v.modelo:'')+(v.empresa&&v.empresa!=='AMBAS'&&v.empresa!=='TODAS'?' ('+v.empresa+')':'')+(veNaoVisivel(v)?' ⚠️ fora das empresas dele':''),tipo:'vvchk',valor:ativos.has(v.id)}));
     const w=document.getElementById('modal-wrap'),m=document.getElementById('modal');
     m.innerHTML=`<h3>🚚 Veículos do motorista</h3><p class="hint" style="margin:0 0 8px">Toque para marcar/desmarcar. Pode deixar vários — o caminhão em viagem fica bloqueado sozinho.</p>`+
       campos.map(f=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #242424;cursor:pointer"><input type="checkbox" id="${f.id}" ${f.valor?'checked':''} style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">${esc(f.label)}</span></label>`).join('')+
@@ -2382,8 +2398,11 @@ PAGES.motoristas=async el=>{
           if(!error)n++;
         }
       }
+      const foraMarcado=(vs||[]).filter(v=>document.getElementById('vv-'+v.id).checked&&veNaoVisivel(v));
       w.classList.remove('open');
-      if(erro)toast('Erro: '+erro);else toast(n?'Vínculos atualizados':'Nada mudou');
+      if(erro)toast('Erro: '+erro);
+      else if(foraMarcado.length)toast('⚠️ '+foraMarcado.length+' veículo(s) de outra empresa: o motorista só enxerga os da empresa dele ('+empsMot.join(', ')+')');
+      else toast(n?'Vínculos atualizados':'Nada mudou');
       go('motoristas');
     };
   });
