@@ -3296,7 +3296,7 @@ PAGES['minha-rota']=async el=>{
 
 /* ============ NF por PDF + carga (Distribuidora) ============ */
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-function numBR(s){if(!s)return null;const t=String(s).replace(/\s/g,'');if(!/^[0-9.,-]+$/.test(t))return null;const n=t.replace(/\./g,'').replace(',','.');const v=parseFloat(n);return isNaN(v)?null:v}
+function numBR(s){if(!s)return null;let t=String(s).replace(/\s/g,'');if(!/^[0-9.,-]+$/.test(t))return null;if(t.includes(',')){t=t.replace(/\./g,'').replace(',','.')}else if(/^\d+\.\d{1,2}$/.test(t)){}else{t=t.replace(/\./g,'')}const v=parseFloat(t);return isNaN(v)?null:v}
 function parseDanfe(items){
   const lines=[];
   for(const it of items){
