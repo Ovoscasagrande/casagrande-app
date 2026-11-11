@@ -2599,8 +2599,10 @@ PAGES.usuarios=async el=>{
     if(p==='motorista'||p==='promotor'){
       const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',id).maybeSingle();
       let mid=mex?.id;
-      if(!mid){const u=lista.find(x=>x.id===id);const {data:mn}=await sb.from('motoristas').insert({nome:u?u.nome:'Motorista',usuario_id:id,situacao:sit,empresa:e==='AMBAS'?'OVOS':e,...dados}).select('id');mid=mn?.[0]?.id}
-      else{await sb.from('motoristas').update({empresa:e==='AMBAS'?'OVOS':e,situacao:sit,...dados}).eq('usuario_id',id)}
+      const GRUPO=['OVOS','TRANSPORTADORA','DISTRIBUIDORA'];
+      const legada=(arr)=>arr.length===3?'TODAS':(arr.length===2&&arr.includes('OVOS')&&arr.includes('TRANSPORTADORA')?'AMBAS':arr[0]);
+      if(!mid){const u=lista.find(x=>x.id===id);const {data:mn}=await sb.from('motoristas').insert({nome:u?u.nome:'Motorista',usuario_id:id,situacao:sit,empresas:GRUPO,empresa:'TODAS',...dados}).select('id');mid=mn?.[0]?.id}
+      else{await sb.from('motoristas').update({empresas:GRUPO,empresa:'TODAS',situacao:sit,...dados}).eq('usuario_id',id)}
       const vid=document.querySelector(`[data-veic="${id}"]`)?.value;
       if(mid&&vid){await sb.from('motorista_veiculo').insert({motorista_id:mid,veiculo_id:vid,ativo:true})}
     }
@@ -2637,8 +2639,8 @@ PAGES.usuarios=async el=>{
       if(!r)return false;
       if(np==='motorista'||np==='promotor'){
         const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',u.id).maybeSingle();
-        if(!mex){await sb.from('motoristas').insert({nome:u.nome,usuario_id:u.id,situacao:'incompleto',empresa:ne==='AMBAS'?'OVOS':ne})}
-        else{await sb.from('motoristas').update({empresa:ne==='AMBAS'?'OVOS':ne}).eq('usuario_id',u.id)}
+        if(!mex){await sb.from('motoristas').insert({nome:u.nome,usuario_id:u.id,situacao:'incompleto',empresas:['OVOS','TRANSPORTADORA','DISTRIBUIDORA'],empresa:'TODAS'})}
+        else{await sb.from('motoristas').update({empresas:['OVOS','TRANSPORTADORA','DISTRIBUIDORA'],empresa:'TODAS'}).eq('usuario_id',u.id)}
       }
       go('usuarios');
     });
