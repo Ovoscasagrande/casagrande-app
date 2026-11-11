@@ -706,10 +706,10 @@ PAGES.jornada=async el=>{
       <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}" ${bloqueados.has(v.veiculo_id)?'disabled':''}>${bloqueados.has(v.veiculo_id)?'🔒 ':''}${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}${bloqueados.has(v.veiculo_id)?' (aguardando conferência)':''}</option>`).join('')}</select>
       ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
       <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500">
-      ${empAtiva()==='DISTRIBUIDORA'?`<label>Nº do roteiro</label><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 1"><p class="hint" style="margin:4px 0 0">O nº gerado em Pedidos & Rota aparece aqui — digite o mesmo.</p>`:''}
+      ${empAtiva()==='DISTRIBUIDORA'?`<label>Nº do roteiro</label><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 1"><p class="hint" id="j-rot-hint" style="margin:4px 0 0">O nº gerado em Pedidos & Rota aparece aqui — digite o mesmo.</p>`:''}
       ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;cursor:pointer"><input type="checkbox" id="j-carga" style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">📦 <b>Carregamento</b> — saiu vazio para carregar (sem roteiro)</span></label>`:''}
-      <button class="btn" id="j-iniciar">▶ Iniciar jornada</button><div class="msg" id="j-msg"></div></div>
+      <button class="btn" id="j-iniciar">▶ ${empAtiva()==='DISTRIBUIDORA'?'Iniciar roteiro':'Iniciar jornada'}</button><div class="msg" id="j-msg"></div></div>
       ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
     window.__rots=[];
     if(empAtiva()==='DISTRIBUIDORA'&&ME.motorista){
@@ -730,6 +730,7 @@ PAGES.jornada=async el=>{
           aviso.textContent='📋 Roteiro nº '+minhaRota.roteiro+' gerado pela gerência'+(pend?' · '+pend+' entregas pendentes':'');
           $('j-rot').parentElement.appendChild(aviso);
         }
+        const h=$('j-rot-hint');if(h)h.textContent='Nº do roteiro liberado para você — não edita';
       }
     }
     const renderRots=()=>{
