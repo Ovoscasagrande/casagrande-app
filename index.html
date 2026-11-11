@@ -337,9 +337,11 @@ async function init(){
   readParams();
   if(!ensureClient()){showCfg();mostraSeloConvite();return}
   mostraSeloConvite();
-  const {data} = await sb.auth.getSession();
+  let data;
+  try{({data}=await sb.auth.getSession())}
+  catch(e){showLogin();return}
   if(data.session&&IS_RECOVERY){showRedefinir();return}
-  if(data.session){await afterLogin()}else{showLogin()}
+  if(data.session){try{await afterLogin()}catch(e){await sb.auth.signOut().catch(()=>{});showLogin()}}else{showLogin()}
 }
 function showRedefinir(){
   $('app').classList.add('hide');$('login').classList.remove('hide');
