@@ -2314,7 +2314,7 @@ PAGES.motoristas=async el=>{
   let q=sb.from('motoristas').select('*').eq('ativo',!verInativos).order('nome');
   const ea=empAtiva();
   if(ea!=='GRUPO'){
-    q=q.or(`empresa.in.(${JSON.stringify([ea,'AMBAS','TODAS']).slice(1,-1)}),empresas.cs.${JSON.stringify([ea])}`);
+    q=q.or(`empresa.in.("${ea}","AMBAS","TODAS"),empresas.cs.{"${ea}"}`);
   }
   const {data:lista}=await q;
   const l=$('mo-list');
