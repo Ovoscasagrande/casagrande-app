@@ -2355,8 +2355,7 @@ PAGES.motoristas=async el=>{
   l.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{
     const m=(lista||[]).find(x=>x.id===b.dataset.ed);if(!m)return;
     openModal('Editar motorista — '+m.nome,[
-      {id:'ed-emp',label:'Empresas onde trabalha',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','OVOS + Transportadora'],['TODAS','Todas (3)'],['CUSTOM','Escolher várias (marcar abaixo)']],valor:m.empresa||'OVOS'},
-      {id:'ed-emps',label:'Empresas (marque todas que ele trabalha)',tipo:'checkboxes',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora']],valor:m.empresas||[]},
+      {id:'ed-emps',label:'Empresas onde ele trabalha',tipo:'checkboxes',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora']],valor:m.empresas||[]},
       {id:'ed-cpf',label:'CPF',valor:m.cpf||'',placeholder:'000.000.000-00',inputmode:'numeric'},
       {id:'ed-cnh',label:'CNH',valor:m.cnh||'',inputmode:'numeric'},
       {id:'ed-cat',label:'Categoria da CNH',valor:m.cnh_categoria||'',placeholder:'D / E'},
@@ -2364,14 +2363,9 @@ PAGES.motoristas=async el=>{
       {id:'ed-cont',label:'Contato (WhatsApp)',valor:m.contato||'',placeholder:'(19) 99999-9999',inputmode:'tel'},
     ],async v=>{
       const sit=(v['ed-cpf']&&v['ed-cnh']&&v['ed-val'])?'completo':'incompleto';
-      // empresas: se escolheu CUSTOM usa checkboxes; senão deriva do select
       let emps=v['ed-emps']||[];
-      const sel=v['ed-emp'];
-      if(sel==='CUSTOM'){ if(!emps.length){toast('Marque pelo menos uma empresa');return false} }
-      else if(sel==='TODAS')emps=['OVOS','TRANSPORTADORA','DISTRIBUIDORA'];
-      else if(sel==='AMBAS')emps=['OVOS','TRANSPORTADORA'];
-      else emps=[sel];
-      const empresaLegada=emps.length===1?emps[0]:(emps.length===3?'TODAS':(emps.includes('OVOS')&&emps.includes('TRANSPORTADORA')?'AMBAS':emps[0]));
+      if(!emps.length){toast('Marque pelo menos uma empresa');return false}
+      const empresaLegada=emps.length===3?'TODAS':(emps.length===2&&emps.includes('OVOS')&&emps.includes('TRANSPORTADORA')?'AMBAS':emps[0]);
       return await upd('motoristas',m.id,{cpf:v['ed-cpf']||null,cnh:v['ed-cnh']||null,cnh_categoria:v['ed-cat']||null,cnh_validade:v['ed-val']||null,contato:v['ed-cont']||null,situacao:sit,empresas:emps,empresa:empresaLegada})?(go('motoristas'),true):false;
     });
   });
