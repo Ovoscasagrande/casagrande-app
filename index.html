@@ -151,6 +151,7 @@ body[data-emp="DISTRIBUIDORA"]{--acc:#797f35}
     <button class="btn sec" id="li-criar" style="margin-top:10px">➕ Criar conta (equipe)</button>
   </div>
   <div class="card hide" id="card-criar">
+    <div id="cv-selo" style="display:none;background:rgba(252,200,92,.15);border:1px solid rgba(252,200,92,.4);border-radius:10px;padding:10px;margin-bottom:12px;font-size:13px"></div>
     <h2>Criar conta</h2>
     <label>Seu nome</label><input id="cr-nome" placeholder="nome completo">
     <label>Email</label><input id="cr-email" type="email" autocomplete="username">
@@ -321,9 +322,21 @@ function empty(t){return `<div class="empty">${t}</div>`}
 function err(e){return (e&&e.message)?e.message:'Erro inesperado'}
 /* ============ boot ============ */
 window.addEventListener('load',init);
+async function mostraSeloConvite(){
+  if(!window.__convite)return;
+  try{
+    const {data,error}=await sb.rpc('convite_info',{p_token:window.__convite});
+    if(error||!data||data.erro){const s=document.getElementById('cv-selo');s.style.display='block';s.style.borderColor='#8b3a3a';s.style.background='rgba(139,58,58,.15)';s.textContent='⚠️ '+(data&&data.erro?data.erro:'Convite inválido ou expirado');return}
+    const s=document.getElementById('cv-selo');
+    s.style.display='block';
+    s.innerHTML=`🎟️ <b>Convite: ${data.perfil}</b> na <b>${data.empresa}</b><div class="hint" style="color:#cfcfcf">Seu cadastro já nasce aprovado. Expira em ${new Date(data.expira_em).toLocaleString('pt-BR')}</div>`;
+    document.querySelector('#card-criar h2').textContent='Complete seu cadastro';
+  }catch(e){}
+}
 async function init(){
   readParams();
-  if(!ensureClient()){showCfg();return}
+  if(!ensureClient()){showCfg();mostraSeloConvite();return}
+  mostraSeloConvite();
   const {data} = await sb.auth.getSession();
   if(data.session&&IS_RECOVERY){showRedefinir();return}
   if(data.session){await afterLogin()}else{showLogin()}
@@ -382,7 +395,16 @@ $('cr-btn').onclick=async()=>{
     if(error)throw error;
     let pendOk=false;
     const cpf=$('cr-cpf').value.trim(),cnh=$('cr-cnh').value.trim(),cat=$('cr-cat').value.trim(),val=$('cr-val').value,cont=$('cr-cont').value.trim();
-    try{const {error:e2}=await sb.rpc('auto_cadastro_pendente',{p_nome:nome,p_cpf:cpf,p_cnh:cnh,p_cat:cat,p_val:val||null,p_contato:cont});pendOk=!e2}catch(_){}
+    if(window.__convite){
+      try{
+        const {data:res,error:e2}=await sb.rpc('aceitar_convite',{p_token:window.__convite,p_nome:nome});
+        pendOk=!e2&&res==='OK';
+        if(!pendOk&&res)throw new Error(res);
+        if(e2)throw e2;
+      }catch(e3){$('cr-msg').className='msg err';$('cr-msg').textContent=err(e3);$('cr-btn').disabled=false;return}
+    }else{
+      try{const {error:e2}=await sb.rpc('auto_cadastro_pendente',{p_nome:nome,p_cpf:cpf,p_cnh:cnh,p_cat:cat,p_val:val||null,p_contato:cont});pendOk=!e2}catch(_){}
+    }
     try{await sb.auth.signOut()}catch(_){}
     $('card-criar').classList.add('hide');$('card-login').classList.remove('hide');
     $('li-msg').className='msg ok';
@@ -444,7 +466,7 @@ function logout(){sb.auth.signOut().then(()=>location.reload())}
 function menusPara(){
   const base={
     pendente:['home'],
-    gerencia:['home','hoje','manuais','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
+    gerencia:['home','hoje','manuais','convites','promotoria','relatorios','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','recebimentos','avisos','os','multas','tipos','usuarios','auditoria'],
     motorista:['home','manuais','jornada','gastos','meu-historico','recnovo','avisos','multas'],
     promotor:['home','manuais','pro-roteiro','pro-avulsa','jornada','gastos','meu-historico','avisos','multas'],
     conferente:['home','manuais','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
@@ -463,6 +485,7 @@ function menusPara(){
     if(ex.includes('promotor')&&!m.includes('pro-roteiro'))m.push('pro-roteiro','pro-avulsa');
     if((ex.includes('motorista')||ex.includes('promotor'))&&!m.includes('meu-historico'))m.push('meu-historico');
   }
+  if(!ME.master)m=m.filter(x=>x!=='convites');
   if(e!=='OVOS'&&ME.perfil!=='gerencia')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria'&&x!=='pro-avulsa');
   if(e==='TRANSPORTADORA')m=m.filter(x=>x!=='conferencia');
   if(e==='OVOS')m=m.filter(x=>x!=='recebimentos');
@@ -470,7 +493,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento','pedidos-rota':'Pedidos & Rota',roteiros:'Roteiros'};
+const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',convites:'Convites',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento','pedidos-rota':'Pedidos & Rota',roteiros:'Roteiros'};
 function buildNav(){
   const items=menusPara();
   NAV=items;
@@ -480,7 +503,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={hoje:'☀️',manuais:'📘',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦','pedidos-rota':'📋',roteiros:'🧭'};
+const ICONS={hoje:'☀️',manuais:'📘',convites:'🎟️',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦','pedidos-rota':'📋',roteiros:'🧭'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -950,6 +973,42 @@ PAGES['meu-historico']=async el=>{
     document.querySelectorAll('#mh-abas .mhab').forEach(b=>b.classList.toggle('on',b.dataset.a===a));};
   document.querySelectorAll('#mh-abas .mhab').forEach(b=>b.onclick=()=>render(b.dataset.a));
   render('resumo');
+};
+/* ============ CONVITES (só MASTER) ============ */
+PAGES.convites=async el=>{
+  el.innerHTML=`<h1 class="pg">🎟️ Convites</h1>
+  <div class="sec"><h3>Gerar convite</h3>
+    <label>Empresa</label><select id="cv-emp" style="width:100%"><option value="OVOS">OVOS CASAGRANDE</option><option value="TRANSPORTADORA">TRANSPORTADORA CASAGRANDE</option><option value="DISTRIBUIDORA">DISTRIBUIDORA CASAGRANDE</option></select>
+    <label>Perfil</label><select id="cv-perf" style="width:100%"><option value="gerencia">Gerente</option><option value="motorista">Motorista</option><option value="promotor">Promotor</option><option value="conferente">Conferente</option><option value="mecanico">Mecânico</option></select>
+    <button class="btn" id="cv-btn" style="margin-top:10px">🎟️ Gerar link de convite</button>
+    <div class="msg ok" id="cv-ok" style="display:none"></div></div>
+  <div id="cv-lista">${empty('Carregando…')}</div>`;
+  const carregar=async()=>{
+    const {data:list}=await sb.from('convites').select('*').order('criado_em',{ascending:false}).limit(30);
+    const l=$('cv-lista');
+    if(!list||!list.length){l.innerHTML=empty('Nenhum convite gerado ainda');return}
+    l.innerHTML=`<div class="sec"><h3>Convites gerados (${list.length})</h3>${list.map(c=>{
+      const expirado=new Date(c.expira_em)<new Date();
+      const usado=!!c.usado_em;
+      const st=usado?'<span class="tag fechada">usado</span>':expirado?'<span class="tag reprovada">expirado</span>':'<span class="tag conferencia">válido</span>';
+      return `<div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px">
+        <b>${esc(c.perfil)}</b> · ${esc(c.empresa)} ${st}
+        <div class="hint">criado ${fmtDT(c.criado_em)} · expira ${fmtDT(c.expira_em)}${c.usado_em?' · usado '+fmtDT(c.usado_em):''}</div>
+        ${!usado&&!expirado?`<button class="btn mini" data-cp="${c.token}">📋 Copiar link</button>`:''}</div>`}).join('')}</div>`;
+    l.querySelectorAll('[data-cp]').forEach(b=>b.onclick=async()=>{
+      const url=location.origin+location.pathname+'?convite='+b.dataset.cp;
+      try{await navigator.clipboard.writeText(url);toast('Link copiado! Envie por WhatsApp')}catch(e){prompt('Copie o link:',url)}
+    });
+  };
+  $('cv-btn').onclick=async()=>{
+    const {data:t,error}=await sb.rpc('gerar_convite',{p_empresa:$('cv-emp').value,p_perfil:$('cv-perf').value});
+    if(error){toast(err(error));return}
+    const url=location.origin+location.pathname+'?convite='+t;
+    const ok=$('cv-ok');ok.style.display='block';ok.textContent='Link gerado! Toque para copiar: '+url;
+    try{await navigator.clipboard.writeText(url);toast('Link copiado! Envie por WhatsApp')}catch(e){}
+    carregar();
+  };
+  carregar();
 };
 /* ============ MANUAIS (só gerência) ============ */
 PAGES.manuais=async el=>{
