@@ -2203,7 +2203,7 @@ PAGES.veiculos=async el=>{
   <div class="row"><div><label>Marca</label><input id="v-marca"></div><div><label>Modelo</label><input id="v-modelo"></div></div>
   <div class="row"><div><label>Ano</label><input id="v-ano" type="number"></div><div><label>Cor</label><input id="v-cor"></div></div>
   <div class="row"><div><label>Intervalo troca de óleo (km)</label><input id="v-oleo" type="number" placeholder="ex.: 10000"></div><div><label>Última troca (km)</label><input id="v-oleo-km" type="number"></div></div>
-  <label>Empresa do veículo</label><select id="v-emp">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','OVOS + Transportadora'],['TODAS','Todas (3)']],empAtiva()==='GRUPO'?'OVOS':empAtiva())}</select>
+  <label>Empresa do veículo</label><select id="v-emp">${opt([['TODAS','Todas (3) — padrão'],['OVOS','Só OVOS'],['TRANSPORTADORA','Só Transportadora'],['DISTRIBUIDORA','Só Distribuidora'],['AMBAS','OVOS + Transportadora']],'TODAS')}</select>
   <p class="hint">"Todas (compartilhado)" = o mesmo caminhão serve nas empresas — aparece na frota de todas.</p>
   <label>CRLV-e (PDF ou foto) *</label><input id="v-crlv" type="file" accept="application/pdf,image/*">
   <label>Vencimento do CRLV-e</label><input id="v-crlv-venc" type="date">
@@ -2234,7 +2234,7 @@ PAGES.veiculos=async el=>{
   const {data:docs}=await sb.from('veiculos_documentos').select('id,veiculo_id,tipo,arquivo_path,vencimento,criado_em').eq('tipo','CRLV-e').order('criado_em',{ascending:false});
   const crlvBy={};(docs||[]).forEach(d=>{if(!crlvBy[d.veiculo_id])crlvBy[d.veiculo_id]=d});
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Placa</th><th>Marca/Modelo</th><th>Ano</th><th>Empresa</th><th>Óleo (km)</th><th>CRLV-e</th><th>Status</th><th></th></tr>
-  ${lista.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();const empN={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'Todas'}[v.empresa]||v.empresa||'—';return `<tr><td><b>${esc(v.placa)}</b></td><td>${esc(v.marca||'')} ${esc(v.modelo||'')}</td><td>${v.ano||'—'}</td><td><span class="tag">${esc(empN)}</span></td><td>${v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—'}</td>
+  ${lista.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();const empN={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'}[v.empresa]||v.empresa||'—';return `<tr><td><b>${esc(v.placa)}</b></td><td>${esc(v.marca||'')} ${esc(v.modelo||'')}</td><td>${v.ano||'—'}</td><td><span class="tag">${esc(empN)}</span></td><td>${v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—'}</td>
   <td>${d?`<button class="btn mini" data-dc="${d.arquivo_path}">Abrir</button> <button class="btn mini" data-dl="${d.arquivo_path}" data-pl="${esc(v.placa)}">⬇️ Baixar</button>${d.vencimento?`<div class="hint" style="${venc?'color:var(--bad)':''}">venc. ${fmtD(d.vencimento)}${venc?' ⚠️':''}</div>`:''}`:'<span class="tag reprovada">faltando</span>'}</td>
   <td>${v.ativo?'<span class="tag fechada">ativo</span>':'<span class="tag arquivado">inativo</span>'}</td>
   <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-emp="${v.id}" data-e="${esc(v.empresa||'OVOS')}">🏢 ${esc(empN)}</button> <button class="btn mini" data-crlv="${v.id}" data-placa="${esc(v.placa)}">📄 ${d?'Trocar':'Enviar'}</button> <button class="btn mini" data-tg="${v.id}" data-a="${v.ativo?0:1}">${v.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
@@ -2244,7 +2244,7 @@ PAGES.veiculos=async el=>{
   l.querySelectorAll('[data-emp]').forEach(b=>b.onclick=()=>{
     const atual=b.dataset.e;
     openModal('🏢 Empresa do veículo',[
-      {id:'ve-emp',label:'Onde este veículo opera',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','OVOS + Transportadora'],['TODAS','Todas (3)']],valor:atual}
+      {id:'ve-emp',label:'Onde este veículo opera',tipo:'select',opcoes:[['TODAS','Todas (3) — padrão'],['OVOS','Só OVOS'],['TRANSPORTADORA','Só Transportadora'],['DISTRIBUIDORA','Só Distribuidora'],['AMBAS','OVOS + Transportadora']],valor:atual||'TODAS'}
     ],async v=>{
       const r=await upd('veiculos',b.dataset.emp,{empresa:v['ve-emp']});
       if(r){toast('Empresa atualizada');go('veiculos')}
