@@ -444,6 +444,7 @@ async function afterLogin(){
   if(!user){showLogin();return}
   let {data:u,error:e1}=await sb.from('usuarios').select('*').eq('id',user.id).maybeSingle();
   if(e1){toast('Erro ao carregar perfil: '+err(e1))}
+  if(u&&u.ativo===false){await sb.auth.signOut().catch(()=>{});toast('Conta desativada. Fale com a gerência.');showLogin();return}
   if(!u){
     const nome=user.email.split('@')[0].replace(/[._-]/g,' ').toUpperCase();
     // 1º login do sistema vira GERÊNCIA; logins seguintes ficam PENDENTES p/ aprovação
