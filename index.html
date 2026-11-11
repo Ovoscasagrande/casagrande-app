@@ -232,6 +232,7 @@ function setEmp(e){
     toast('Você tem jornada aberta na '+(EMPNOME[window.__empTravada]||window.__empTravada)+' — finalize para trocar de empresa');
     return;
   }
+  if(ME&&ME.empresa==='MULTI'&&e==='GRUPO'){toast('Você não tem acesso ao GRUPO');return}
   window.__EMP=e;applyBranding();buildNav();applyEmpBtn();bindEmpMenu();
   if(!NAV.includes(PAGE)){go('home');toast('Você está em '+(EMPNOME[e]||'GRUPO'))}
   else{go(PAGE)}
@@ -247,7 +248,7 @@ function applyBranding(){
 function empChip(){const e=empAtiva();return `<div class="empchip">🏢 <b>${esc(EMPNOME[e])}</b></div>`}
 function applyEmpBtn(){
   const b=document.getElementById('emp-btn');if(!b)return;
-  if(!ME||!['AMBAS','TODAS'].includes(ME.empresa)){b.style.display='none';return}
+  if(!ME||!['AMBAS','TODAS','MULTI'].includes(ME.empresa)){b.style.display='none';return}
   const e=empAtiva();
   const cor=e==='TRANSPORTADORA'?'#1e5aa8':e==='DISTRIBUIDORA'?'#797f35':e==='GRUPO'?'#9a9a9a':'#fcc85c';
   const nome=e==='TRANSPORTADORA'?'TRANSPORTADORA':e==='DISTRIBUIDORA'?'DISTRIBUIDORA':e==='GRUPO'?'GRUPO':'OVOS';
@@ -262,13 +263,17 @@ function applyEmpBtn(){
 function bindEmpMenu(){
   const b=document.getElementById('emp-btn'),m=document.getElementById('emp-menu');
   if(!b||!m)return;
-  if(!ME||!['AMBAS','TODAS'].includes(ME.empresa)){b.style.display='none';m.classList.remove('open');return}
+  if(!ME||!['AMBAS','TODAS','MULTI'].includes(ME.empresa)){b.style.display='none';m.classList.remove('open');return}
   if(window.__empTravada){
     m.classList.remove('open');
     b.onclick=()=>{toast('Você tem jornada aberta na '+(EMPNOME[window.__empTravada]||window.__empTravada)+' — finalize a jornada para trocar de empresa')};
     return;
   }
-  const opts=ME.empresa==='TODAS'?[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['DISTRIBUIDORA','🏪 DISTRIBUIDORA'],['GRUPO','Σ GRUPO — as três']]:[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['GRUPO','Σ GRUPO — as duas']];
+  let opts;
+  if(ME.empresa==='MULTI'){
+    const NOMES={OVOS:'🥚 OVOS CASAGRANDE',TRANSPORTADORA:'🚚 TRANSPORTADORA',DISTRIBUIDORA:'🏪 DISTRIBUIDORA'};
+    opts=(ME.empresasMotorista||[]).filter(x=>NOMES[x]).map(x=>[x,NOMES[x]]);
+  } else opts=ME.empresa==='TODAS'?[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['DISTRIBUIDORA','🏪 DISTRIBUIDORA'],['GRUPO','Σ GRUPO — as três']]:[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['GRUPO','Σ GRUPO — as duas']];
   m.innerHTML=opts.map(o=>`<button data-e="${o[0]}" class="${empAtiva()===o[0]?'on':''}">${o[1]}</button>`).join('');
   m.querySelectorAll('button').forEach(x=>x.onclick=()=>{m.classList.remove('open');setEmp(x.dataset.e)});
   b.onclick=ev=>{ev.stopPropagation();m.classList.toggle('open')};
@@ -459,6 +464,11 @@ async function afterLogin(){
   if(ME.perfil==='motorista'||ME.perfil==='promotor'||ME.perfil==='gerencia'){
     const {data:m}=await sb.from('motoristas').select('*').eq('usuario_id',user.id).order('criado_em',{ascending:true}).limit(1);
     ME.motorista=m&&m.length?m[0]:null;
+    // empresas do motorista (mesma base do grupo): se 2+, o usuário tem seletor multi-empresa
+    if(ME.motorista&&Array.isArray(ME.motorista.empresas)&&ME.motorista.empresas.length>1){
+      ME.empresa=ME.motorista.empresas.length>=3?'TODAS':'MULTI';
+      ME.empresasMotorista=ME.motorista.empresas;
+    }
     // jornada aberta trava a empresa: iniciou na OVOS, só sai da OVOS quando fechar (e vice-versa)
     window.__empTravada=null;
     if(ME.motorista&&ME.perfil!=='gerencia'&&!ME.master){
@@ -508,7 +518,7 @@ const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',convites:'Convites',promo
 function buildNav(){
   const items=menusPara();
   NAV=items;
-  $('nav').innerHTML=`<div class="who">${esc(ME.nome)}<br><span style="color:var(--acc)">${esc(ME.perfil)}${['AMBAS','TODAS'].includes(ME.empresa)?' · '+empAtiva():''}</span></div>`+
+  $('nav').innerHTML=`<div class="who">${esc(ME.nome)}<br><span style="color:var(--acc)">${esc(ME.perfil)}${['AMBAS','TODAS','MULTI'].includes(ME.empresa)?' · '+empAtiva():''}</span></div>`+
     items.map(p=>`<button data-pg="${p}" class="${p===PAGE?'on':''}">${ICONS[p]||'•'} ${TITLES[p]||p}</button>`).join('')+
     `<button id="nv-out">🚪 Sair</button>`;
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
