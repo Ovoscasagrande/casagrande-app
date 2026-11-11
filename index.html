@@ -277,7 +277,7 @@ document.addEventListener('click',ev=>{
   const m=document.getElementById('emp-menu');
   if(m&&m.classList.contains('open')&&!m.contains(ev.target)){const b=document.getElementById('emp-btn');if(!b||!b.contains(ev.target))m.classList.remove('open')}
 });
-function empFilter(q){const e=empAtiva();if(e==='GRUPO'||!ME)return q;return q.in('empresa',[e,'AMBAS'])}
+function empFilter(q){const e=empAtiva();if(e==='GRUPO'||!ME)return q;return q.in('empresa',[e,'AMBAS','TODAS'])}
 function empresasGrupo(){return ME&&ME.empresa==='TODAS'?['OVOS','TRANSPORTADORA','DISTRIBUIDORA']:['OVOS','TRANSPORTADORA']}
 function insEmp(row){const e=empAtiva();if(e&&e!=='GRUPO')row.empresa=e;return row}
 const $=id=>document.getElementById(id);
@@ -303,6 +303,7 @@ function openModal(titulo,campos,aoSalvar){
     let inp;
     if(f.tipo==='select')inp=`<select id="${f.id}">${(f.opcoes||[]).map(o=>`<option value="${esc(o[0])}" ${o[0]===(f.valor||'')?'selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
     else if(f.tipo==='textarea')inp=`<textarea id="${f.id}" rows="3" placeholder="${esc(f.placeholder||'')}">${esc(f.valor||'')}</textarea>`;
+    else if(f.tipo==='checkboxes')inp=(f.opcoes||[]).map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px"><input type="checkbox" class="${f.id}-ck" value="${esc(o[0])}" ${(f.valor||[]).includes(o[0])?'checked':''} style="width:18px;height:18px;accent-color:var(--acc)"> ${esc(o[1])}</label>`).join('');
     else inp=`<input id="${f.id}" type="${f.tipo||'text'}" value="${esc(f.valor!=null?f.valor:'')}" placeholder="${esc(f.placeholder||'')}" ${f.inputmode?`inputmode="${f.inputmode}"`:''}>`;
     return `<label>${esc(f.label)}</label>${inp}`;
   }).join('')+`<div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="m-ok">Salvar</button></div>`;
@@ -310,7 +311,10 @@ function openModal(titulo,campos,aoSalvar){
   document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
   w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
   document.getElementById('m-ok').onclick=async()=>{
-    const vals={};campos.forEach(f=>vals[f.id]=document.getElementById(f.id).value);
+    const vals={};campos.forEach(f=>{
+      if(f.tipo==='checkboxes'){vals[f.id]=[...m.querySelectorAll('.'+f.id+'-ck:checked')].map(c=>c.value)}
+      else vals[f.id]=document.getElementById(f.id).value;
+    });
     const ok=await aoSalvar(vals);
     if(ok!==false)w.classList.remove('open');
   };
@@ -2199,7 +2203,7 @@ PAGES.veiculos=async el=>{
   <div class="row"><div><label>Marca</label><input id="v-marca"></div><div><label>Modelo</label><input id="v-modelo"></div></div>
   <div class="row"><div><label>Ano</label><input id="v-ano" type="number"></div><div><label>Cor</label><input id="v-cor"></div></div>
   <div class="row"><div><label>Intervalo troca de óleo (km)</label><input id="v-oleo" type="number" placeholder="ex.: 10000"></div><div><label>Última troca (km)</label><input id="v-oleo-km" type="number"></div></div>
-  <label>Empresa do veículo</label><select id="v-emp">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','Todas (compartilhado)']],empAtiva()==='GRUPO'?'OVOS':empAtiva())}</select>
+  <label>Empresa do veículo</label><select id="v-emp">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','OVOS + Transportadora'],['TODAS','Todas (3)']],empAtiva()==='GRUPO'?'OVOS':empAtiva())}</select>
   <p class="hint">"Todas (compartilhado)" = o mesmo caminhão serve nas empresas — aparece na frota de todas.</p>
   <label>CRLV-e (PDF ou foto) *</label><input id="v-crlv" type="file" accept="application/pdf,image/*">
   <label>Vencimento do CRLV-e</label><input id="v-crlv-venc" type="date">
@@ -2240,7 +2244,7 @@ PAGES.veiculos=async el=>{
   l.querySelectorAll('[data-emp]').forEach(b=>b.onclick=()=>{
     const atual=b.dataset.e;
     openModal('🏢 Empresa do veículo',[
-      {id:'ve-emp',label:'Onde este veículo opera',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','Todas (compartilhado)']],valor:atual}
+      {id:'ve-emp',label:'Onde este veículo opera',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','OVOS + Transportadora'],['TODAS','Todas (3)']],valor:atual}
     ],async v=>{
       const r=await upd('veiculos',b.dataset.emp,{empresa:v['ve-emp']});
       if(r){toast('Empresa atualizada');go('veiculos')}
@@ -2287,6 +2291,12 @@ PAGES.motoristas=async el=>{
   <div class="row"><div><label>Nome completo *</label><input id="mo-nome"></div><div><label>CPF</label><input id="mo-cpf"></div></div>
   <div class="row"><div><label>CNH</label><input id="mo-cnh"></div><div><label>Categoria</label><input id="mo-cat" placeholder="D / E"></div></div>
   <div class="row"><div><label>Validade CNH</label><input id="mo-val" type="date"></div><div><label>Contato</label><input id="mo-cont"></div></div>
+  <label>Empresas onde trabalha</label>
+  <div id="mo-emps" style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0">
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="OVOS" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> OVOS</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="TRANSPORTADORA" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> Transportadora</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="DISTRIBUIDORA" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> Distribuidora</label>
+  </div>
   <button class="btn" id="mo-btn">Cadastrar motorista</button><div class="msg" id="mo-msg"></div></div>
   <div id="mo-list">${empty('Carregando…')}</div>`;
   $('mot-toggle').onclick=()=>{window.__motInativos=!verInativos;go('motoristas')};
@@ -2295,17 +2305,26 @@ PAGES.motoristas=async el=>{
     if(!nome){$('mo-msg').className='msg err';$('mo-msg').textContent='Informe o nome';return}
     const cpf=$('mo-cpf').value.trim(),cnh=$('mo-cnh').value.trim(),val=$('mo-val').value;
     const situacao=(cpf&&cnh&&val)?'completo':'incompleto';
-    const r=await ins('motoristas',insEmp({nome,cpf:cpf||null,cnh:cnh||null,cnh_categoria:$('mo-cat').value||null,cnh_validade:val||null,contato:$('mo-cont').value||null,situacao}));
+    let emps=[...document.querySelectorAll('.mo-emp:checked')].map(c=>c.value);
+    if(!emps.length)emps=[empAtiva()!=='GRUPO'?empAtiva():'OVOS'];
+    const empresaLegada=emps.length===3?'TODAS':(emps.length===2&&emps.includes('OVOS')&&emps.includes('TRANSPORTADORA')?'AMBAS':emps[0]);
+    const r=await ins('motoristas',{nome,cpf:cpf||null,cnh:cnh||null,cnh_categoria:$('mo-cat').value||null,cnh_validade:val||null,contato:$('mo-cont').value||null,situacao,empresas:emps,empresa:empresaLegada});
     if(r){toast('Motorista cadastrado'+(situacao==='incompleto'?' (com pendências)':''));go('motoristas')}
   };
-  const {data:lista}=await empFilter(sb.from('motoristas').select('*')).eq('ativo',!verInativos).order('nome');
+  let q=sb.from('motoristas').select('*').eq('ativo',!verInativos).order('nome');
+  const ea=empAtiva();
+  if(ea!=='GRUPO'){
+    q=q.or(`empresa.in.(${JSON.stringify([ea,'AMBAS','TODAS']).slice(1,-1)}),empresas.cs.${JSON.stringify([ea])}`);
+  }
+  const {data:lista}=await q;
   const l=$('mo-list');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhum motorista');return}
   const hojeStr=hoje();
   const {data:vinc}=await sb.from('motorista_veiculo').select('motorista_id,ativo,veiculos(id,placa,modelo)');
   const vincBy={};(vinc||[]).forEach(v=>{if(v.ativo)vincBy[v.motorista_id]=vincBy[v.motorista_id]||[];if(v.ativo)vincBy[v.motorista_id].push(v.veiculos)});
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>CPF</th><th>CNH</th><th>Validade</th><th>Veículo</th><th>Situação</th><th></th></tr>
-  ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';return `<tr><td><b>${esc(m.nome)}</b></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
+  const EMPNICK={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'};
+  l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>Empresas</th><th>CPF</th><th>CNH</th><th>Validade</th><th>Veículo</th><th>Situação</th><th></th></tr>
+  ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';const empsTxt=(m.empresas&&m.empresas.length?m.empresas.map(x=>EMPNICK[x]||x).join(', '):EMPNICK[m.empresa]||m.empresa||'—');return `<tr><td><b>${esc(m.nome)}</b></td><td><span class="tag" style="font-size:10px">${esc(empsTxt)}</span></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
   <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-vv="${m.id}">🚚 veículo</button> <button class="btn mini" data-ed="${m.id}">✏️</button> <button class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
     if(await upd('motoristas',b.dataset.tg,{ativo:b.dataset.a==='1'}))go('motoristas');
@@ -2336,6 +2355,8 @@ PAGES.motoristas=async el=>{
   l.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{
     const m=(lista||[]).find(x=>x.id===b.dataset.ed);if(!m)return;
     openModal('Editar motorista — '+m.nome,[
+      {id:'ed-emp',label:'Empresas onde trabalha',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','OVOS + Transportadora'],['TODAS','Todas (3)'],['CUSTOM','Escolher várias (marcar abaixo)']],valor:m.empresa||'OVOS'},
+      {id:'ed-emps',label:'Empresas (marque todas que ele trabalha)',tipo:'checkboxes',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora']],valor:m.empresas||[]},
       {id:'ed-cpf',label:'CPF',valor:m.cpf||'',placeholder:'000.000.000-00',inputmode:'numeric'},
       {id:'ed-cnh',label:'CNH',valor:m.cnh||'',inputmode:'numeric'},
       {id:'ed-cat',label:'Categoria da CNH',valor:m.cnh_categoria||'',placeholder:'D / E'},
@@ -2343,7 +2364,15 @@ PAGES.motoristas=async el=>{
       {id:'ed-cont',label:'Contato (WhatsApp)',valor:m.contato||'',placeholder:'(19) 99999-9999',inputmode:'tel'},
     ],async v=>{
       const sit=(v['ed-cpf']&&v['ed-cnh']&&v['ed-val'])?'completo':'incompleto';
-      return await upd('motoristas',m.id,{cpf:v['ed-cpf']||null,cnh:v['ed-cnh']||null,cnh_categoria:v['ed-cat']||null,cnh_validade:v['ed-val']||null,contato:v['ed-cont']||null,situacao:sit})?(go('motoristas'),true):false;
+      // empresas: se escolheu CUSTOM usa checkboxes; senão deriva do select
+      let emps=v['ed-emps']||[];
+      const sel=v['ed-emp'];
+      if(sel==='CUSTOM'){ if(!emps.length){toast('Marque pelo menos uma empresa');return false} }
+      else if(sel==='TODAS')emps=['OVOS','TRANSPORTADORA','DISTRIBUIDORA'];
+      else if(sel==='AMBAS')emps=['OVOS','TRANSPORTADORA'];
+      else emps=[sel];
+      const empresaLegada=emps.length===1?emps[0]:(emps.length===3?'TODAS':(emps.includes('OVOS')&&emps.includes('TRANSPORTADORA')?'AMBAS':emps[0]));
+      return await upd('motoristas',m.id,{cpf:v['ed-cpf']||null,cnh:v['ed-cnh']||null,cnh_categoria:v['ed-cat']||null,cnh_validade:v['ed-val']||null,contato:v['ed-cont']||null,situacao:sit,empresas:emps,empresa:empresaLegada})?(go('motoristas'),true):false;
     });
   });
 };
