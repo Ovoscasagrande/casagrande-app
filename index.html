@@ -698,6 +698,11 @@ PAGES.jornada=async el=>{
     window.__rots=[];
     if(empAtiva()==='DISTRIBUIDORA'&&ME.motorista){
       const {data:minhaRota}=await sb.from('rotas').select('roteiro,sequencia,entregas(status)').eq('motorista_id',ME.motorista.id).in('status',['aberto','em_rota','planejada','distribuida']).order('data',{ascending:false}).limit(1);
+      if(!minhaRota||!minhaRota.roteiro){
+        const av=document.createElement('p');av.className='hint';av.style.color='#e0a052';
+        av.textContent='⚠️ Nenhum roteiro aberto para você — a gerência gera em Pedidos & Rota.';
+        const lbl=$('j-rot')&&$('j-rot').parentElement;if(lbl)lbl.appendChild(av);
+      }
       if(minhaRota&&minhaRota.roteiro){
         const input=$('j-rot');
         if(input){input.value=minhaRota.roteiro;input.readOnly=true}
@@ -2889,8 +2894,8 @@ async function pagRotaDetalhe(id){
     ${e.motivo?`<p class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo)}</p>`:''}
     ${e.carga_ok?'<span class="tag ok">carga conferida</span>':''}
     ${e.foto_path?`<div id="rd-foto-${e.id}">${empty('comprovante…')}</div>`:''}</div>`}).join('')||empty(''))+`</div>`;
-  if(ME.perfil==='gerencia'&&['aberto','em_rota','planejada','distribuida'].includes(r.status)){
-    html+=`<div class="sec"><button class="btn" id="rd-enc">✅ Encerrar rota</button> <button class="btn sec" id="rd-cancel" style="border-color:#5c3a2e;color:#e88">❌ Cancelar roteiro</button></div>`;
+  if(ME.perfil==='gerencia'&&['aberto','finalizado','planejada','distribuida'].includes(r.status)){
+    html+=`<div class="sec"><button class="btn sec" id="rd-cancel" style="border-color:#5c3a2e;color:#e88">❌ Cancelar roteiro</button></div>`;
   }
   $('main').innerHTML=html;
   $('rd-volt').onclick=()=>go(PAGE==='roteiros'?'roteiros':'rotas');
@@ -3786,7 +3791,8 @@ PAGES.roteiros=async el=>{
 async function cancelarRoteiro(id){
   const {data:r}=await sb.from('rotas').select('*, entregas(status)').eq('id',id).maybeSingle();
   if(!r){toast('Roteiro não encontrado');return}
-  if(r.status==='finalizado'){toast('Roteiro finalizado não pode ser cancelado');return}
+  if(r.status==='em_rota'){toast('Roteiro EM ROTA não pode ser cancelado — motorista em jornada');return}
+  if(!['aberto','finalizado','planejada','distribuida'].includes(r.status)){toast('Este roteiro não pode ser cancelado');return}
   const ents=r.entregas||[];
   const feitas=ents.filter(e=>e.status==='entregue'||e.status==='nao_realizada').length;
   openModal('❌ Cancelar R'+String(r.roteiro||0).padStart(5,'0'),[
@@ -3794,7 +3800,7 @@ async function cancelarRoteiro(id){
   ],async v=>{
     const motivo=(v['cr-motivo']||'').trim();
     if(!motivo){toast('Informe o motivo');return false}
-    // volta entregas pendentes e marca a rota cancelada
+    // entregas pendentes viram canceladas (no finalizado não há pendentes)
     await sb.from('entregas').update({status:'cancelada',motivo:'Roteiro cancelado: '+motivo}).eq('rota_id',id).in('status',['pendente','andamento']);
     const rr=await upd('rotas',id,{status:'cancelado',fim:new Date().toISOString()});
     if(rr){toast('Roteiro cancelado');go('roteiros')}
