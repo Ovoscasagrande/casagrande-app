@@ -3574,10 +3574,13 @@ async function geraPdfCarga(rota,lote){
   const X0=12,W=273;
   const cols=[{x:X0,w:16,t:'Cód'},{x:X0+18,w:150,t:'PRODUTO'},{x:X0+170,w:20,t:'EMB'},{x:X0+192,w:22,t:'UN'},{x:X0+216,w:26,t:'C'},{x:X0+244,w:26,t:'M'}];
   const titulo=(y)=>{
+    const agora=new Date();
+    const dd=String(agora.getDate()).padStart(2,'0'),mm=String(agora.getMonth()+1).padStart(2,'0'),yy=agora.getFullYear();
+    const hh=String(agora.getHours()).padStart(2,'0'),mi=String(agora.getMinutes()).padStart(2,'0');
     doc.setFontSize(10);doc.setFont(undefined,'bold');
     doc.text('LMER_CG.QRP  CARREGAMENTO',X0,y);
     doc.setFont(undefined,'normal');
-    doc.text('Página: '+fmtD(rota.data)+'   Roteiro: '+String(rota.numero).padStart(5,'0')+'   Veículo: '+vei,X0+120,y);
+    doc.text(dd+'.'+mm+'.'+yy+' '+hh+':'+mi+'   Roteiro: '+String(rota.numero).padStart(5,'0')+'   Veículo: '+vei,X0+120,y);
     doc.text('Motorista: '+mot,X0+120,y+4.5);
     return y+10;
   };
@@ -3627,9 +3630,13 @@ async function geraPdfCargaCliente(rota,lote){
   const X0=12,W=186;
   const vei=((window.veicsCache||[]).find(v=>v.id===rota.veiculo_id)||{}).placa||'—';
   const titulo=()=>{
+    const agora=new Date();
+    const dd=String(agora.getDate()).padStart(2,'0'),mm=String(agora.getMonth()+1).padStart(2,'0'),yy=agora.getFullYear();
+    const hh=String(agora.getHours()).padStart(2,'0'),mi=String(agora.getMinutes()).padStart(2,'0');
     doc.setFontSize(12);doc.setFont(undefined,'bold');
     doc.text('RELATÓRIO DE CARGA',105,14,{align:'center'});
     doc.setFontSize(9);doc.setFont(undefined,'normal');
+    doc.text(dd+'.'+mm+'.'+yy+' '+hh+':'+mi,105,10,{align:'center'});
     doc.text('Roteiro: '+String(rota.numero).padStart(5,'0')+'   Motorista: '+(((window.motsCache||[]).find(m=>m.id===rota.motorista_id)||{}).nome||'—')+'   Veículo: '+vei,105,20,{align:'center'});
     return 27;
   };
@@ -3712,10 +3719,14 @@ async function geraPdfRoteiro(rota,lote){
     linhas.push({n:i+1,nome,bairro,prods,endereco});
   }
   const header=()=>{
+    const agora=new Date();
+    const dd=String(agora.getDate()).padStart(2,'0'),mm=String(agora.getMonth()+1).padStart(2,'0'),yy=agora.getFullYear();
+    const hh=String(agora.getHours()).padStart(2,'0'),mi=String(agora.getMinutes()).padStart(2,'0');
     doc.setFontSize(13);doc.setFont(undefined,'bold');
     doc.text('ROTEIRO DE ENTREGAS — '+String(rota.numero).padStart(5,'0'),105,16,{align:'center'});
     doc.setFontSize(9);doc.setFont(undefined,'normal');
-    doc.text('Motorista: '+mot+'   |   Caminhão: '+vei+'   |   '+fmtD(rota.data),105,22,{align:'center'});
+    doc.text(dd+'.'+mm+'.'+yy+' '+hh+':'+mi,105,10,{align:'center'});
+    doc.text('Motorista: '+mot+'   |   Caminhão: '+vei,105,22,{align:'center'});
     doc.setFontSize(8);
     doc.text('Saída: DAS ACACIAS, 360 - Jardim Boa Vista, Hortolândia-SP - CEP 13187-042',105,27,{align:'center'});
     return 33;
