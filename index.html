@@ -1000,15 +1000,20 @@ PAGES.convites=async el=>{
         ${!usado&&!expirado?`<button class="btn mini" data-cp="${c.token}">📋 Copiar link</button>`:''}</div>`}).join('')}</div>`;
     l.querySelectorAll('[data-cp]').forEach(b=>b.onclick=async()=>{
       const url=location.origin+location.pathname+'?convite='+b.dataset.cp;
-      try{await navigator.clipboard.writeText(url);toast('Link copiado! Envie por WhatsApp')}catch(e){prompt('Copie o link:',url)}
+      const c=list.find(x=>x.token===b.dataset.cp);
+      const PERFIL={gerencia:'Gerente',motorista:'Motorista',promotor:'Promotor',conferente:'Conferente',mecanico:'Mecânico'};
+      const msg='🎟️ *Convite para '+PERFIL[c.perfil]+' da '+(c.empresa==='OVOS'?'OVOS CASAGRANDE':c.empresa==='TRANSPORTADORA'?'TRANSPORTADORA CASAGRANDE':'DISTRIBUIDORA CASAGRANDE')+'*\n\nToque no link e crie seu acesso ao app:\n'+url+'\n\n⏰ O link é válido por 24 horas e é de uso único.';
+      try{await navigator.clipboard.writeText(msg);toast('Convite copiado com a mensagem!')}catch(e){prompt('Copie a mensagem:',msg)}
     });
   };
   $('cv-btn').onclick=async()=>{
     const {data:t,error}=await sb.rpc('gerar_convite',{p_empresa:$('cv-emp').value,p_perfil:$('cv-perf').value});
     if(error){toast(err(error));return}
     const url=location.origin+location.pathname+'?convite='+t;
-    const ok=$('cv-ok');ok.style.display='block';ok.textContent='Link gerado! Toque para copiar: '+url;
-    try{await navigator.clipboard.writeText(url);toast('Link copiado! Envie por WhatsApp')}catch(e){}
+    const PERFIL={gerencia:'Gerente',motorista:'Motorista',promotor:'Promotor',conferente:'Conferente',mecanico:'Mecânico'};
+    const msg='🎟️ *Convite para '+PERFIL[$('cv-perf').value]+' da '+($('cv-emp').value==='OVOS'?'OVOS CASAGRANDE':$('cv-emp').value==='TRANSPORTADORA'?'TRANSPORTADORA CASAGRANDE':'DISTRIBUIDORA CASAGRANDE')+'*\n\nToque no link e crie seu acesso ao app:\n'+url+'\n\n⏰ O link é válido por 24 horas e é de uso único.';
+    const ok=$('cv-ok');ok.style.display='block';ok.textContent='Link gerado! Toque em Copiar para enviar: '+url;
+    try{await navigator.clipboard.writeText(msg);toast('Convite copiado com a mensagem! Envie por WhatsApp')}catch(e){}
     carregar();
   };
   carregar();
