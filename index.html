@@ -978,6 +978,7 @@ PAGES['meu-historico']=async el=>{
 };
 /* ============ CONVITES (só MASTER) ============ */
 PAGES.convites=async el=>{
+  if(!ME.master){el.innerHTML=empty('Somente o MASTER gera convites');return}
   el.innerHTML=`<h1 class="pg">🎟️ Convites</h1>
   <div class="sec"><h3>Gerar convite</h3>
     <label>Empresa</label><select id="cv-emp" style="width:100%"><option value="OVOS">OVOS CASAGRANDE</option><option value="TRANSPORTADORA">TRANSPORTADORA CASAGRANDE</option><option value="DISTRIBUIDORA">DISTRIBUIDORA CASAGRANDE</option></select>
