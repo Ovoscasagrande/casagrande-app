@@ -2324,12 +2324,13 @@ PAGES.motoristas=async el=>{
     const r=await ins('motoristas',{nome,cpf:cpf||null,cnh:cnh||null,cnh_categoria:$('mo-cat').value||null,cnh_validade:val||null,contato:$('mo-cont').value||null,situacao,empresas:emps,empresa:empresaLegada});
     if(r){toast('Motorista cadastrado'+(situacao==='incompleto'?' (com pendências)':''));go('motoristas')}
   };
-  let q=sb.from('motoristas').select('*').eq('ativo',!verInativos).order('nome');
+  const {data:listaRaw}=await sb.from('motoristas').select('*').eq('ativo',!verInativos).order('nome');
   const ea=empAtiva();
-  if(ea!=='GRUPO'){
-    q=q.or(`empresa.in.("${ea}","AMBAS","TODAS"),empresas.cs.["${ea}"]`);
-  }
-  const {data:lista}=await q;
+  const lista=(listaRaw||[]).filter(m=>{
+    if(ea==='GRUPO')return true;
+    const emps=Array.isArray(m.empresas)?m.empresas:[];
+    return [ea,'AMBAS','TODAS'].includes(m.empresa)||emps.includes(ea);
+  });
   const l=$('mo-list');
   if(!lista||!lista.length){l.innerHTML=empty('Nenhum motorista');return}
   const hojeStr=hoje();
