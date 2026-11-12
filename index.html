@@ -874,7 +874,7 @@ async function afterLogin(){
     }
   }
   buildNav();applyEmpBtn();bindEmpMenu();$('login').classList.add('hide');$('app').classList.remove('hide');
-  if(ME.perfil==='vendedor'){go('com-rota')}
+  if(ME.perfil==='vendedor'){go('vendas')}
   atualizaBadgeOffline();filaProcessa();
   // sincronização do perfil: a cada 60s verifica se o perfil mudou no banco
   // (ex.: pendente aprovado pela gerência — o menu atualiza sozinho, sem reabrir o app)
@@ -902,7 +902,7 @@ function menusPara(){
     promotor:['home','manuais','pro-roteiro','pro-avulsa','jornada','gastos','meu-historico','avisos','multas'],
     conferente:['home','manuais','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
     mecanico:['home','manuais','os'],
-    vendedor:['home','com-rota','com-pedido','com-curvac','promotoria','com-metas']
+    vendedor:['home','vendas','com-rota','com-pedido','com-curvac','promotoria','com-metas']
   };
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
@@ -917,6 +917,7 @@ function menusPara(){
     if(ex.includes('promotor')&&!m.includes('pro-roteiro'))m.push('pro-roteiro','pro-avulsa');
     if((ex.includes('motorista')||ex.includes('promotor'))&&!m.includes('meu-historico'))m.push('meu-historico');
     if(ex.includes('vendedor')&&!m.includes('com-rota'))m.push('com-rota','com-pedido','com-curvac','com-metas');
+    if(ex.includes('vendedor')&&!m.includes('vendas'))m.push('vendas');
   }
   if(ME.perfil==='gerencia'&&(ME.extra||[]).includes('vendedor')){
     const tb=document.getElementById('tabbar');
@@ -933,7 +934,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',convites:'Convites','com-rota':'Minha rota','com-pedido':'Pedido','com-curvac':'Curva C','com-metas':'Metas',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento','pedidos-rota':'Pedidos & Rota',roteiros:'Roteiros'};
+const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',convites:'Convites',vendas:'VENDAS','com-rota':'Minha rota','com-pedido':'Pedido','com-curvac':'Curva C','com-metas':'Metas',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento','pedidos-rota':'Pedidos & Rota',roteiros:'Roteiros'};
 function buildNav(){
   if(window.lucide)lucide.createIcons();
   const items=menusPara();
@@ -946,7 +947,7 @@ function buildNav(){
       promotor:[['home','home','Início'],['pro-roteiro','route','Roteiro'],['jornada','truck','Jornada'],['gastos','wallet','Gastos'],['meu-historico','chart','Meus dados']],
       conferente:[['home','home','Início'],['jornadas','list','Jornadas'],['conferencia','clipboard-check','Conferir'],['despesas','wallet','Despesas']],
       mecanico:[['home','home','Início'],['os','wrench','Oficina']],
-      vendedor:[['com-rota','map-pin','Rota'],['com-pedido','calculator','Pedido'],['com-curvac','message-circle','Curva C'],['promotoria','store','Promotoria'],['com-metas','target','Metas']]
+      vendedor:[['vendas','store','Vendas'],['com-rota','map-pin','Rota'],['com-pedido','calculator','Pedido'],['com-curvac','message-circle','Curva C'],['com-metas','target','Metas']]
     }[ME.perfil]||[];
     const emps=ME.extra||[];
     if(ME.perfil==='motorista'&&emps.includes('promotor')){}
@@ -966,7 +967,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={hoje:'☀️',manuais:'📘',convites:'🎟️','com-rota':'📍','com-pedido':'🧮','com-curvac':'💬','com-metas':'🎯',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦','pedidos-rota':'📋',roteiros:'🧭'};
+const ICONS={hoje:'☀️',manuais:'📘',convites:'🎟️',vendas:'💰','com-rota':'📍','com-pedido':'🧮','com-curvac':'💬','com-metas':'🎯',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦','pedidos-rota':'📋',roteiros:'🧭'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -1018,6 +1019,22 @@ function lightbox(src){
 }
 function filaLer(){try{return JSON.parse(localStorage.getItem(FILA_KEY)||'[]')}catch(e){return[]}}
 function filaSalvar(f){try{localStorage.setItem(FILA_KEY,JSON.stringify(f))}catch(e){}}
+/* ====== rodapé fixo do pedido (acompanha o vendedor nas abas comerciais) ====== */
+function atualizaRodapePedido(){
+  let rp=document.getElementById('pedido-rodape');
+  const itens=__vendasPedido?__vendasPedido.itens:[];
+  const rec=itens.reduce((s,x)=>s+x.qtd*x.preco,0);
+  if(!itens.length){if(rp)rp.remove();return}
+  if(!rp){
+    rp=document.createElement('div');rp.id='pedido-rodape';
+    rp.style.cssText='position:fixed;left:0;right:0;bottom:var(--tabbar-h);z-index:29;background:var(--card);border-top:1px solid var(--primary-color);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;cursor:pointer';
+    rp.onclick=()=>go('com-pedido');
+    document.body.appendChild(rp);
+  }
+  const mg=(()=>{let cmv=0;for(const x of itens)cmv+=x.qtd*(x.custo||0);return rec>0?(rec-cmv)/rec:0})();
+  rp.innerHTML=`<span><i data-lucide="calculator" style="width:16px;height:16px;vertical-align:-3px;color:var(--primary-color)"></i> ${itens.length} item(ns) · ${fmtBRL(rec)} · margem ${(mg*100).toFixed(1).replace('.',',')}%</span><span style="color:var(--primary-color)">Abrir pedido ›</span>`;
+  if(window.lucide)lucide.createIcons();
+}
 function atualizaBadgeOffline(){const n=filaLer().length;const b=document.getElementById('off-badge');if(!b)return;b.classList.toggle('hide',!n);b.textContent=n?('📴 '+n):''}
 function filaAdd(op){const f=filaLer();f.push(Object.assign({em:new Date().toISOString()},op));filaSalvar(f);atualizaBadgeOffline();toast('📴 Sem sinal — salvo no aparelho, envia sozinho quando voltar')}
 async function filaProcessa(){
@@ -1549,6 +1566,40 @@ PAGES.convites=async el=>{
   };
   carregar();
 };
+/* ============ VENDAS (porta de entrada do módulo comercial) ============ */
+let __vendasPedido={itens:[],cliente:null,tabela:'Varejo'};
+PAGES.vendas=async el=>{
+  const {data:clis}=await sb.from('clientes_dist').select('id,nome,curva,telefone').order('nome');
+  const {data:prods}=await sb.from('produtos').select('sku,custo,tabelas').eq('empresa','DISTRIBUIDORA');
+  const curvaC=(clis||[]).filter(c=>c.curva==='Curva C');
+  const semTel=curvaC.filter(c=>!c.telefone).length;
+  // KPIs do header (estilo Gemini)
+  const metaTotal=175100;
+  const rec=__vendasPedido.itens.reduce((s,x)=>s+x.qtd*x.preco,0);
+  el.innerHTML=`
+  <div class="card" style="background:linear-gradient(135deg,var(--primary-soft),transparent 60%),var(--card);border-color:var(--primary-color)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="width:44px;height:44px;border-radius:12px;background:var(--primary-color);display:flex;align-items:center;justify-content:center"><i data-lucide="store" style="width:24px;height:24px;color:var(--primary-contrast)"></i></div>
+      <div><b style="font-size:16px">MÓDULO COMERCIAL</b><div class="hint">Distribuidora Casagrande · carteira completa</div></div>
+    </div>
+    <div class="kpis" style="margin-bottom:0">
+      <div class="kpi"><div class="v" style="font-size:16px">${fmtBRL(metaTotal)}</div><div class="l">Meta unificada</div></div>
+      <div class="kpi"><div class="v" style="font-size:16px">${(clis||[]).filter(c=>c.curva!=='Curva C').length}</div><div class="l">Clientes A+B</div></div>
+      <div class="kpi"><div class="v" style="font-size:16px">${semTel}</div><div class="l">Curva C s/ tel.</div></div>
+      <div class="kpi"><div class="v" style="font-size:16px">${fmtBRL(rec)}</div><div class="l">Pedido atual</div></div>
+    </div>
+  </div>
+  <div class="sec"><h3>O que você quer fazer?</h3>
+    <div style="display:grid;gap:10px">
+      <button type="button" class="btn sec" data-go2="com-rota" style="justify-content:flex-start;text-align:left"><i data-lucide="map-pin"></i> <span><b>Minha Rota 8h</b><div class="hint">20 dias úteis · clientes Curva A e B · GPS e telefone</div></span></button>
+      <button type="button" class="btn sec" data-go2="com-pedido" style="justify-content:flex-start;text-align:left"><i data-lucide="calculator"></i> <span><b>Simulador de Pedido</b><div class="hint">Tabela de preço · margem · comissão · Smart Upsell</div></span></button>
+      <button type="button" class="btn sec" data-go2="com-curvac" style="justify-content:flex-start;text-align:left"><i data-lucide="message-circle"></i> <span><b>Curva C & WhatsApp</b><div class="hint">Reativação remota · auditoria de telefones · disparo</div></span></button>
+      <button type="button" class="btn sec" data-go2="com-metas" style="justify-content:flex-start;text-align:left"><i data-lucide="target"></i> <span><b>Metas & Comissão</b><div class="hint">Simulador mensal · giro por canal</div></span></button>
+    </div></div>
+  <div id="vendas-rodape"></div>`;
+  el.querySelectorAll('[data-go2]').forEach(b=>b.onclick=()=>go(b.dataset.go2));
+  if(window.lucide)lucide.createIcons();
+};
 /* ============ COMERCIAL — ABA CURVA C ============ */
 PAGES['com-curvac']=async el=>{
   el.innerHTML=`<h1 class="pg">Curva C — reativação</h1>
@@ -1645,7 +1696,8 @@ PAGES['com-pedido']=async el=>{
   const {data:prods}=await sb.from('produtos').select('sku,nome,un,custo,tabelas,queima').eq('empresa','DISTRIBUIDORA').order('nome');
   const sel=$('sp-cli');
   sel.innerHTML='<option value="">— escolha o cliente —</option>'+(clis||[]).map(c=>`<option value="${c.id}" ${window.__pedCliente===c.id?'selected':''}>${esc(c.nome)}</option>`).join('');
-  let itens=[];
+  let itens=__vendasPedido.itens||[];
+  window.__vendasPedido={itens,cliente:sel.value||null,tabela:'Varejo'};
   const tabelaDo=()=>{
     const c=(clis||[]).find(x=>x.id===sel.value);
     let t=c?(c.tabela||'Varejo'):'Varejo';
@@ -1656,6 +1708,8 @@ PAGES['com-pedido']=async el=>{
     return t;
   };
   const calc=()=>{
+    window.__vendasPedido={itens,cliente:sel.value||null,tabela:tabelaDo()};
+    atualizaRodapePedido();
     let rec=0,cmv=0;
     for(const it of itens){rec+=it.qtd*it.preco;cmv+=it.qtd*(it.custo||0)}
     const lucro=rec-cmv;
@@ -1679,7 +1733,8 @@ PAGES['com-pedido']=async el=>{
       const i=+inp.dataset.i;itens[i].qtd=parseFloat(inp.value)||0;calc()});
     $('sp-resumo').querySelectorAll('.sp-preco').forEach(inp=>inp.onchange=()=>{
       const i=+inp.dataset.i;itens[i].preco=parseFloat(inp.value)||0;calc()});
-    const sv=document.getElementById('sp-salvar');
+    atualizaRodapePedido();
+  const sv=document.getElementById('sp-salvar');
     if(sv)sv.onclick=async()=>{
       const recT=itens.reduce((s,x)=>s+x.qtd*x.preco,0);
       const cmvT=itens.reduce((s,x)=>s+x.qtd*(x.custo||0),0);
