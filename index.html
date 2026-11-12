@@ -111,7 +111,7 @@ img{max-width:100%;display:block}
 .tabbar button{
   flex:1; background:none; border:none; color:var(--muted);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:3px; font-family:var(--font); font-size:10.5px; font-weight:600;
+  gap:3px; font-family:var(--font); font-size:12px; font-weight:600;
   padding:6px 2px; position:relative; transition:color .15s;
 }
 .tabbar button svg{width:22px; height:22px}
@@ -203,7 +203,7 @@ main{padding:var(--sp-4); padding-bottom:calc(var(--tabbar-h) + var(--sp-5) + en
 
 /* ---------- 8. INPUTS ---------- */
 .field label{
-  display:block; font-size:var(--fs-xs); color:var(--muted);
+  display:block; font-size:12px; color:var(--muted);
   margin:var(--sp-3) 0 6px; font-weight:600; letter-spacing:.02em;
 }
 input,select,textarea{
@@ -245,7 +245,7 @@ textarea{resize:vertical; min-height:76px}
 /* ---------- 11. TOASTS ---------- */
 .toast{
   position:fixed; left:var(--sp-4); right:var(--sp-4);
-  bottom:calc(var(--tabbar-h) + var(--sp-4) + env(safe-area-inset-bottom));
+  top:calc(var(--header-h) + var(--sp-3) + env(safe-area-inset-top));
   z-index:300;
   display:flex; align-items:center; gap:var(--sp-3);
   background:var(--card); border:1px solid var(--divider);
@@ -437,18 +437,19 @@ tr:last-child td{border-bottom:none}
 .tag.warn{background:var(--warn-soft);color:var(--warn)}
 .tag.neutral{background:var(--field);color:var(--muted)}
 .tag.primary{background:var(--primary-soft);color:var(--primary-color)}
+label{display:block;font-size:12px;color:var(--muted);margin:var(--sp-3) 0 6px;font-weight:600}
 /* msg legada */
 .msg{font-size:var(--fs-sm);margin-top:10px;min-height:16px}
 .msg.err{color:var(--bad)}.msg.ok{color:var(--ok)}
 /* toast legado */
-#toast{position:fixed;left:var(--sp-4);right:var(--sp-4);bottom:calc(var(--tabbar-h) + var(--sp-4) + env(safe-area-inset-bottom));z-index:300;background:var(--card);border:1px solid var(--divider);border-radius:var(--r-md);box-shadow:var(--shadow-float);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);font-weight:600;opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;pointer-events:none;text-align:center}
+#toast{position:fixed;left:var(--sp-4);right:var(--sp-4);top:calc(var(--header-h) + var(--sp-3) + env(safe-area-inset-top));z-index:300;background:var(--card);border:1px solid var(--divider);border-radius:var(--r-md);box-shadow:var(--shadow-float);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);font-weight:600;opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;pointer-events:none;text-align:center}
 #toast.on{opacity:1;transform:translateY(0)}
 /* modal legado */
 #modal-wrap{position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(4px);display:none;align-items:flex-end;justify-content:center;z-index:200;padding:var(--sp-4)}
 #modal-wrap.open{display:flex}
 #modal{background:var(--card);border:1px solid var(--divider);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:480px;max-height:86vh;overflow-y:auto;padding:var(--sp-4);padding-bottom:calc(var(--sp-4) + env(safe-area-inset-bottom));animation:slideup .22s ease-out}
 #modal h3{margin:0 0 var(--sp-3);font-size:var(--fs-md)}
-#modal label{font-size:var(--fs-xs);color:var(--muted);margin:10px 0 4px;display:block;font-weight:600}
+#modal label{font-size:12px;color:var(--muted);margin:10px 0 4px;display:block;font-weight:600}
 #modal input,#modal select,#modal textarea{width:100%;background:var(--field);color:var(--ink);border:1px solid var(--divider);border-radius:var(--r-md);padding:9px 10px;font-size:var(--fs-sm);font-family:var(--font)}
 #modal .mrow{display:flex;gap:var(--sp-2);margin-top:var(--sp-4)}
 #modal .mrow .btn{flex:1}
@@ -501,13 +502,13 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
     <input id="li-email" type="email" placeholder="email@casagrande" autocomplete="username">
     <label>Senha</label>
     <input id="li-pass" type="password" placeholder="••••••••" autocomplete="current-password">
-    <button class="btn" id="li-btn">Entrar</button>
+    <button type="button" class="btn" id="li-btn">Entrar</button>
     <div class="msg" id="li-msg"></div>
     <div class="hint" style="font-size:11px;color:var(--mut);margin-top:8px">Conta nova passa pela aprovação da gerência</div>
-    <button class="btn sec" id="li-esqueci" style="margin-top:10px">🔑 Esqueci minha senha</button>
-    <button class="btn sec" id="li-cfg" style="margin-top:10px">⚙️ Configurar conexão</button>
+    <button type="button" class="btn sec" id="li-esqueci" style="margin-top:10px">🔑 Esqueci minha senha</button>
+    <button type="button" class="btn sec" id="li-cfg" style="margin-top:10px">⚙️ Configurar conexão</button>
     <div class="msg" id="cfg-msg"></div>
-    <button class="btn sec" id="li-criar" style="margin-top:10px">➕ Criar conta (equipe)</button>
+    <button type="button" class="btn sec" id="li-criar" style="margin-top:10px">➕ Criar conta (equipe)</button>
   </div>
   <div class="card hide" id="card-criar">
     <div id="cv-selo" style="display:none;background:rgba(252,200,92,.15);border:1px solid rgba(252,200,92,.4);border-radius:10px;padding:10px;margin-bottom:12px;font-size:13px"></div>
@@ -520,27 +521,27 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
     <div class="row"><div><label>Categoria</label><input id="cr-cat" placeholder="D / E"></div><div><label>Validade da CNH</label><input id="cr-val" type="date"></div></div>
     <label>Contato (WhatsApp)</label><input id="cr-cont" inputmode="tel" placeholder="(19) 99999-9999">
     <p class="hint" style="margin:6px 0 0">A gerência confere esses dados na hora de liberar seu acesso.</p>
-    <button class="btn" id="cr-btn">Criar minha conta</button>
+    <button type="button" class="btn" id="cr-btn">Criar minha conta</button>
     <div class="msg" id="cr-msg"></div>
-    <button class="btn sec" id="cr-voltar" style="margin-top:10px">← Voltar para o login</button>
+    <button type="button" class="btn sec" id="cr-voltar" style="margin-top:10px">← Voltar para o login</button>
   </div>
   <div class="card hide" id="card-redef">
     <h2>Nova senha</h2>
     <label>Nova senha (mín. 6)</label><input id="rd-p1" type="password" autocomplete="new-password">
     <label>Confirmar nova senha</label><input id="rd-p2" type="password" autocomplete="new-password">
-    <button class="btn" id="rd-btn">Salvar nova senha</button>
+    <button type="button" class="btn" id="rd-btn">Salvar nova senha</button>
     <div class="msg" id="rd-msg"></div>
-    <button class="btn sec" id="rd-voltar" style="margin-top:10px">← Voltar para o login</button>
+    <button type="button" class="btn sec" id="rd-voltar" style="margin-top:10px">← Voltar para o login</button>
   </div>
 </div>
 <div id="modal-wrap"><div id="modal"></div></div>
 <div id="app" class="hide">
   <header>
-    <button class="burger" id="burger">☰</button>
+    <button type="button" class="burger" id="burger">☰</button>
     <img id="lg-head" src="logo-branca.png" alt="">
     <div class="tt" id="pg-title">Início</div>
-    <button class="emp-btn" id="emp-btn" style="margin-right:6px"></button>
-    <button class="bell" id="bell">🔔<span class="bdg hide" id="bdg">0</span></button>
+    <button type="button" class="emp-btn" id="emp-btn" style="margin-right:6px"></button>
+    <button type="button" class="bell" id="bell">🔔<span class="bdg hide" id="bdg">0</span></button>
   </header>
   <div class="emp-menu" id="emp-menu"></div>
   <div id="scrim" class="hide"></div>
@@ -611,7 +612,7 @@ function applyBranding(){
 function empChip(){const e=empAtiva();return `<div class="empchip">🏢 <b>${esc(EMPNOME[e])}</b></div>`}
 function applyEmpBtn(){
   const b=document.getElementById('emp-btn');if(!b)return;
-  if(!ME||!['AMBAS','TODAS','MULTI'].includes(ME.empresa)){b.style.display='none';return}
+  if(!ME){b.style.display='none';return}
   const e=empAtiva();
   const cor=e==='TRANSPORTADORA'?'#1e5aa8':e==='DISTRIBUIDORA'?'#797f35':e==='GRUPO'?'#9a9a9a':'#fcc85c';
   const nome=e==='TRANSPORTADORA'?'TRANSPORTADORA':e==='DISTRIBUIDORA'?'DISTRIBUIDORA':e==='GRUPO'?'GRUPO':'OVOS';
@@ -621,12 +622,12 @@ function applyEmpBtn(){
     b.title='Jornada aberta nesta empresa — finalize para trocar';
     return;
   }
-  b.innerHTML=`<span style="background:${cor}"></span>${nome} ▾`;
+  b.innerHTML=`<span style="background:${cor}"></span>${nome}${['AMBAS','TODAS','MULTI'].includes(ME.empresa)?' ▾':''}`;
 }
 function bindEmpMenu(){
   const b=document.getElementById('emp-btn'),m=document.getElementById('emp-menu');
   if(!b||!m)return;
-  if(!ME||!['AMBAS','TODAS','MULTI'].includes(ME.empresa)){b.style.display='none';m.classList.remove('open');return}
+  if(!ME||!['AMBAS','TODAS','MULTI'].includes(ME.empresa)){m.classList.remove('open');b.onclick=null;return}
   if(window.__empTravada){
     m.classList.remove('open');
     b.onclick=()=>{toast('Você tem jornada aberta na '+(EMPNOME[window.__empTravada]||window.__empTravada)+' — finalize a jornada para trocar de empresa')};
@@ -637,7 +638,7 @@ function bindEmpMenu(){
     const NOMES={OVOS:'🥚 OVOS CASAGRANDE',TRANSPORTADORA:'🚚 TRANSPORTADORA',DISTRIBUIDORA:'🏪 DISTRIBUIDORA'};
     opts=(ME.empresasMotorista||[]).filter(x=>NOMES[x]).map(x=>[x,NOMES[x]]);
   } else opts=ME.empresa==='TODAS'?[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['DISTRIBUIDORA','🏪 DISTRIBUIDORA'],['GRUPO','Σ GRUPO — as três']]:[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['GRUPO','Σ GRUPO — as duas']];
-  m.innerHTML=opts.map(o=>`<button data-e="${o[0]}" class="${empAtiva()===o[0]?'on':''}">${o[1]}</button>`).join('');
+  m.innerHTML=opts.map(o=>`<button type="button" data-e="${o[0]}" class="${empAtiva()===o[0]?'on':''}">${o[1]}</button>`).join('');
   m.querySelectorAll('button').forEach(x=>x.onclick=()=>{m.classList.remove('open');setEmp(x.dataset.e)});
   b.onclick=ev=>{ev.stopPropagation();m.classList.toggle('open')};
 }
@@ -651,7 +652,7 @@ function insEmp(row){const e=empAtiva();if(e&&e!=='GRUPO')row.empresa=e;return r
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function placaLimpa(v){return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8)}
-function toast(t){const el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('on'),2600)}
+function toast(t){const el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('on'),2600);if(window.lucide)lucide.createIcons()}
 function fmt(v){return v==null||v===''?'—':v}
 function fmtD(d){if(!d)return'—';const x=new Date(d);return x.toLocaleDateString('pt-BR')}
 function fmtDT(d){if(!d)return'—';const x=new Date(d);return x.toLocaleDateString('pt-BR')+' '+x.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
@@ -667,6 +668,7 @@ function pedirTexto(titulo,label,valor=''){
 }
 function openModal(titulo,campos,aoSalvar){
   const w=document.getElementById('modal-wrap'),m=document.getElementById('modal');
+  setTimeout(()=>{if(window.lucide)lucide.createIcons()},50);
   m.innerHTML=`<h3>${esc(titulo)}</h3>`+campos.map(f=>{
     let inp;
     if(f.tipo==='select')inp=`<select id="${f.id}">${(f.opcoes||[]).map(o=>`<option value="${esc(o[0])}" ${o[0]===(f.valor||'')?'selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
@@ -674,7 +676,7 @@ function openModal(titulo,campos,aoSalvar){
     else if(f.tipo==='checkboxes')inp=(f.opcoes||[]).map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px"><input type="checkbox" class="${f.id}-ck" value="${esc(o[0])}" ${(f.valor||[]).includes(o[0])?'checked':''} style="width:18px;height:18px;accent-color:var(--acc)"> ${esc(o[1])}</label>`).join('');
     else inp=`<input id="${f.id}" type="${f.tipo||'text'}" value="${esc(f.valor!=null?f.valor:'')}" placeholder="${esc(f.placeholder||'')}" ${f.inputmode?`inputmode="${f.inputmode}"`:''}>`;
     return `<label>${esc(f.label)}</label>${inp}`;
-  }).join('')+`<div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="m-ok">Salvar</button></div>`;
+  }).join('')+`<div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="m-ok">Salvar</button></div>`;
   w.classList.add('open');
   document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
   w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
@@ -896,15 +898,15 @@ function buildNav(){
     if(ME.perfil==='motorista'&&emps.includes('promotor')){}
     const disponiveis=tabs.filter(t=>NAV.includes(t[0])||t[0]==='home');
     if(!tb){tb=document.createElement('nav');tb.id='tabbar';tb.className='tabbar';document.body.appendChild(tb)}
-    tb.innerHTML=disponiveis.map(t=>`<button data-tb="${t[0]}" class="${PAGE===t[0]?'on':''}"><i data-lucide="${t[1]}"></i>${t[2]}</button>`).join('');
+    tb.innerHTML=disponiveis.map(t=>`<button type="button" data-tb="${t[0]}" class="${PAGE===t[0]?'on':''}"><i data-lucide="${t[1]}"></i>${t[2]}</button>`).join('');
     tb.querySelectorAll('[data-tb]').forEach(b=>b.onclick=()=>go(b.dataset.tb));
     if(window.lucide)lucide.createIcons();
   } else if(tb){tb.remove()}
   document.body.classList.toggle('sem-tabbar',!operacional);
   NAV=items;
   $('nav').innerHTML=`<div class="who">${esc(ME.nome)}<br><span style="color:var(--acc)">${esc(ME.perfil)}${['AMBAS','TODAS','MULTI'].includes(ME.empresa)?' · '+empAtiva():''}</span></div>`+
-    items.map(p=>`<button data-pg="${p}" class="${p===PAGE?'on':''}">${ICONS[p]||'•'} ${TITLES[p]||p}</button>`).join('')+
-    `<button id="nv-out">🚪 Sair</button>`;
+    items.map(p=>`<button type="button" data-pg="${p}" class="${p===PAGE?'on':''}">${ICONS[p]||'•'} ${TITLES[p]||p}</button>`).join('')+
+    `<button type="button" id="nv-out">🚪 Sair</button>`;
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
@@ -945,6 +947,19 @@ window.addEventListener('hashchange',()=>{
 });
 /* ============ fila offline (lançamentos sem sinal) ============ */
 const FILA_KEY='cg_fila_offline';
+/* ====== lightbox: toque na foto para ampliar ====== */
+function lightbox(src){
+  let lb=document.getElementById('lightbox');
+  if(!lb){
+    lb=document.createElement('div');lb.id='lightbox';
+    lb.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;cursor:zoom-out';
+    lb.innerHTML='<img style="max-width:100%;max-height:100%;border-radius:12px">';
+    lb.onclick=()=>lb.style.display='none';
+    document.body.appendChild(lb);
+  }
+  lb.querySelector('img').src=src;
+  lb.style.display='flex';
+}
 function filaLer(){try{return JSON.parse(localStorage.getItem(FILA_KEY)||'[]')}catch(e){return[]}}
 function filaSalvar(f){try{localStorage.setItem(FILA_KEY,JSON.stringify(f))}catch(e){}}
 function atualizaBadgeOffline(){const n=filaLer().length;const b=document.getElementById('off-badge');if(!b)return;b.classList.toggle('hide',!n);b.textContent=n?('📴 '+n):''}
@@ -1047,7 +1062,7 @@ async function assinar(path,bucket){
 async function fotoHtml(path,bucket){
   if(!path)return'';
   const url=await assinar(path,bucket);
-  return url?`<img class="photo" src="${url}" alt="comprovante">`:'';
+  return url?`<img class="photo" src="${url}" alt="comprovante" onclick="lightbox('${url}')" style="cursor:zoom-in">`:'';
 }
 async function comprimir(file){
   if(!file.type.startsWith('image/'))return file;
@@ -1112,7 +1127,7 @@ PAGES.jornada=async el=>{
           <h3 style="margin:10px 0 6px">Roteiro ${R} aguardando você</h3>
           <p class="hint" style="margin:0 0 4px">${fmtD(rotaPendente.data)} · ${(rotaPendente.entregas||[]).length} clientes na rota</p>
           <p class="hint" style="margin:0 0 16px">Ao aceitar, a jornada abre com o caminhão e o roteiro que a gerência definiu — você só digita o km.</p>
-          <button class="btn" id="j-aceitar">✅ ACEITAR ROTEIRO</button>
+          <button type="button" class="btn" id="j-aceitar">✅ ACEITAR ROTEIRO</button>
           <div class="msg" id="j-msg"></div></div>`;
         document.getElementById('j-aceitar').onclick=async()=>{
           const {error}=await sb.from('rotas').update({status:'aceito'}).eq('id',rotaPendente.id);
@@ -1127,9 +1142,9 @@ PAGES.jornada=async el=>{
       ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
       <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500">
       ${empAtiva()==='DISTRIBUIDORA'?`<label>Nº do roteiro</label><input id="j-rot" type="number" inputmode="numeric" value="${rotaAceita?rotaAceita.roteiro:''}" readonly style="${rotaAceita?'background:#262626':''}"><p class="hint" id="j-rot-hint" style="margin:4px 0 0">${rotaAceita?'Roteiro aceito por você — só confirme o km e inicie.':'O nº gerado em Pedidos & Rota aparece aqui — digite o mesmo.'}</p>`:''}
-      ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>
+      ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button type="button" class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;cursor:pointer"><input type="checkbox" id="j-carga" style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">📦 <b>Carregamento</b> — saiu vazio para carregar (sem roteiro)</span></label>`:''}
-      <button class="btn" id="j-iniciar">▶ ${empAtiva()==='DISTRIBUIDORA'?'Iniciar roteiro':'Iniciar jornada'}</button><div class="msg" id="j-msg"></div></div>
+      <button type="button" class="btn" id="j-iniciar">▶ ${empAtiva()==='DISTRIBUIDORA'?'Iniciar roteiro':'Iniciar jornada'}</button><div class="msg" id="j-msg"></div></div>
       ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
     window.__rots=[];
     if(empAtiva()==='DISTRIBUIDORA'&&ME.motorista){
@@ -1203,13 +1218,13 @@ PAGES.jornada=async el=>{
       ${avisoRota}
       <div id="j-crlv" style="margin:8px 0">${empty('Carregando documento…')}</div>
       ${empAtiva()==='OVOS'?`<div style="display:flex;gap:8px;align-items:center;margin:10px 0">
-        <button class="btn mini" id="j-carga" type="button">📦 Registrar carregamento</button>
+        <button type="button" class="btn mini" id="j-carga" type="button">📦 Registrar carregamento</button>
         <span class="hint" id="j-carga-n" style="margin:0"></span>
       </div>`:''}
       <div id="j-cargas" style="margin-bottom:8px"></div>
       <label>Quilometragem final</label><input id="j-kmf" type="number" inputmode="numeric" placeholder="km na chegada">
       <label>Ocorrências (opcional)</label><textarea id="j-oc" placeholder="algo aconteceu no trajeto?"></textarea>
-      <button class="btn" id="j-fechar">🏁 Finalizar jornada</button><div class="msg" id="j-msg2"></div></div>`;
+      <button type="button" class="btn" id="j-fechar">🏁 Finalizar jornada</button><div class="msg" id="j-msg2"></div></div>`;
     // carregamentos: lista + registrar
     (async()=>{
       const {data:cgs}=await sb.from('jornada_carregamentos').select('*').eq('jornada_id',aberta.id).order('criado_em');
@@ -1235,8 +1250,8 @@ PAGES.jornada=async el=>{
       box.innerHTML=`<div style="display:flex;gap:8px;align-items:center;background:var(--field);border:1px solid #333;border-radius:10px;padding:10px">
         <span style="font-size:22px">📄</span>
         <div style="flex:1"><b style="font-size:13px">CRLV-e · ${esc(aberta.veiculos?.placa||'')}</b>${doc.vencimento?`<div class="hint">venc. ${fmtD(doc.vencimento)}</div>`:''}</div>
-        <button class="btn mini" id="j-crlv-open">Abrir</button>
-        <button class="btn mini" id="j-crlv-dl">⬇️</button>
+        <button type="button" class="btn mini" id="j-crlv-open">Abrir</button>
+        <button type="button" class="btn mini" id="j-crlv-dl">⬇️</button>
       </div>`;
       $('j-crlv-open').onclick=async()=>{const url=await assinar(doc.arquivo_path,'documentos');if(url)window.open(url,'_blank');else toast('Documento não encontrado')};
       $('j-crlv-dl').onclick=async()=>{
@@ -1273,7 +1288,7 @@ PAGES.gastos=async el=>{
       <div style="font-size:42px">🛣️</div>
       <h3 style="margin:10px 0 6px">Nenhuma jornada aberta</h3>
       <p class="hint" style="margin:0 0 14px">Para lançar um gasto, inicie a jornada primeiro — o gasto fica vinculado ao caminhão e ao km da viagem.</p>
-      <button class="btn" id="g-irj">🛣️ Ir para minha jornada</button></div>`;
+      <button type="button" class="btn" id="g-irj">🛣️ Ir para minha jornada</button></div>`;
     $('g-irj').onclick=()=>go('jornada');
     return;
   }
@@ -1296,7 +1311,7 @@ PAGES.gastos=async el=>{
       <div class="hint" id="a-calc" style="margin:-6px 0 8px"></div>
       <label>Abastecimento parcial?</label><select id="a-parcial"><option value="false">Tanque cheio / normal</option><option value="true">Parcial (não conta na média)</option></select>
       ${blocoFoto('a-foto','Foto do comprovante')}
-      <button class="btn" id="a-btn">Lançar abastecimento</button><div class="msg" id="a-msg"></div>`;
+      <button type="button" class="btn" id="a-btn">Lançar abastecimento</button><div class="msg" id="a-msg"></div>`;
       const getAFoto=bindFoto('a-foto');
       (async()=>{
         const {data:postos}=await sb.from('postos').select('id,nome').eq('ativo',true).order('nome');
@@ -1308,7 +1323,7 @@ PAGES.gastos=async el=>{
           mm.innerHTML=`<h3>➕ Cadastrar posto novo</h3>
             <label>Nome do posto *</label><input id="np-nome" placeholder="ex.: AUTO POSTO CENTRAL" style="width:100%">
             <div class="msg err" id="np-msg" style="display:none"></div>
-            <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="np-ok">Cadastrar</button></div>`;
+            <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="np-ok">Cadastrar</button></div>`;
           w.classList.add('open');
           w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
           document.getElementById('m-cancel').onclick=()=>{w.classList.remove('open');sp.value=''};
@@ -1357,7 +1372,7 @@ PAGES.gastos=async el=>{
       <label>Quilometragem (opcional)</label><input id="d-km" type="number" inputmode="numeric" min="${aberta.km_inicial}">
       ${blocoFoto('d-foto','Foto do recibo')}
       <label>Observações</label><textarea id="d-obs"></textarea>
-      <button class="btn" id="d-btn">Lançar despesa</button><div class="msg" id="d-msg"></div>`;
+      <button type="button" class="btn" id="d-btn">Lançar despesa</button><div class="msg" id="d-msg"></div>`;
       const getDFoto=bindFoto('d-foto');
       const renderCampos=()=>{
         const t=tps.find(x=>x.nome===$('d-cat').value);
@@ -1390,7 +1405,7 @@ async function jornadaAbertaId(){if(!ME.motorista)return null;const {data}=await
 PAGES['meu-historico']=async el=>{
   el.innerHTML=`<h1 class="pg">Meu histórico</h1>
   <div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap" id="mh-abas">
-    ${[['resumo','📊 Resumo'],['jornadas','🛣️ Jornadas'],['gastos','💰 Gastos'],['multas','🚨 Multas'],['avisos','📣 Meus avisos']].map(([v,t],i)=>`<button class="btn mini mhab" data-a="${v}" ${i===0?'':''}>${t}</button>`).join('')}
+    ${[['resumo','📊 Resumo'],['jornadas','🛣️ Jornadas'],['gastos','💰 Gastos'],['multas','🚨 Multas'],['avisos','📣 Meus avisos']].map(([v,t],i)=>`<button type="button" class="btn mini mhab" data-a="${v}" ${i===0?'':''}>${t}</button>`).join('')}
   </div>
   <div id="mh">${empty('Carregando…')}</div>`;
   const ini=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
@@ -1443,7 +1458,7 @@ PAGES.convites=async el=>{
   <div class="sec"><h3>Gerar convite</h3>
     <label>Empresa</label><select id="cv-emp" style="width:100%"><option value="OVOS">OVOS CASAGRANDE</option><option value="TRANSPORTADORA">TRANSPORTADORA CASAGRANDE</option><option value="DISTRIBUIDORA">DISTRIBUIDORA CASAGRANDE</option></select>
     <label>Perfil</label><select id="cv-perf" style="width:100%"><option value="gerencia">Gerente</option><option value="motorista">Motorista</option><option value="promotor">Promotor</option><option value="conferente">Conferente</option><option value="mecanico">Mecânico</option></select>
-    <button class="btn" id="cv-btn" style="margin-top:10px">🎟️ Gerar link de convite</button>
+    <button type="button" class="btn" id="cv-btn" style="margin-top:10px">🎟️ Gerar link de convite</button>
     <div class="msg ok" id="cv-ok" style="display:none"></div></div>
   <div id="cv-lista">${empty('Carregando…')}</div>`;
   const carregar=async()=>{
@@ -1457,7 +1472,7 @@ PAGES.convites=async el=>{
       return `<div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px">
         <b>${esc(c.perfil)}</b> · ${esc(c.empresa)} ${st}
         <div class="hint">criado ${fmtDT(c.criado_em)} · expira ${fmtDT(c.expira_em)}${c.usado_em?' · usado '+fmtDT(c.usado_em):''}</div>
-        ${!usado&&!expirado?`<button class="btn mini" data-cp="${c.token}">📋 Copiar link</button>`:''}</div>`}).join('')}</div>`;
+        ${!usado&&!expirado?`<button type="button" class="btn mini" data-cp="${c.token}">📋 Copiar link</button>`:''}</div>`}).join('')}</div>`;
     l.querySelectorAll('[data-cp]').forEach(b=>b.onclick=async()=>{
       const url=location.origin+location.pathname+'?convite='+b.dataset.cp;
       const c=list.find(x=>x.token===b.dataset.cp);
@@ -1486,7 +1501,7 @@ PAGES.manuais=async el=>{
     <input type="file" id="mn-arq" accept="application/pdf" style="width:100%">
     <input id="mn-nome" placeholder="Nome do manual — comece com o perfil (ex.: motorista - Manual do motorista)" style="width:100%;margin-top:6px">
     <p class="hint" style="margin:6px 0 0">Quem vê o quê: nome com "motorista" → motoristas e promotores · "conferente" → conferentes · "mecanico" → mecânicos · "gerente" ou "promotoria" → só gerência · sem palavra de perfil → todos.</p>
-    <button class="btn" id="mn-btn" style="margin-top:8px">📤 Enviar</button><div class="msg" id="mn-msg"></div></div>`:''}
+    <button type="button" class="btn" id="mn-btn" style="margin-top:8px">📤 Enviar</button><div class="msg" id="mn-msg"></div></div>`:''}
   <div id="mn-lista">${empty('Carregando…')}</div>`;
   const alvo=ME.perfil;
   const visivelPara=f=>{
@@ -1505,7 +1520,7 @@ PAGES.manuais=async el=>{
     l.innerHTML=`<div class="sec"><h3>Meus manuais (${meus.length})</h3>${meus.map(f=>`
       <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid #242424">
         <span style="font-size:13px">📄 ${esc(f.name.replace(/\.pdf$/i,''))}</span>
-        <button class="btn mini" data-dl="${esc(f.name)}">⬇️ Abrir</button></div>`).join('')}</div>`;
+        <button type="button" class="btn mini" data-dl="${esc(f.name)}">⬇️ Abrir</button></div>`).join('')}</div>`;
     l.querySelectorAll('[data-dl]').forEach(b=>b.onclick=async()=>{
       const {data}=await sb.storage.from('manuais').createSignedUrl(b.dataset.dl,300,{download:true});
       if(data)window.open(data.signedUrl,'_blank');else toast('Não consegui abrir o arquivo');
@@ -1534,7 +1549,7 @@ PAGES['pro-avulsa']=async el=>{
   <div class="sec"><p class="hint" style="margin:0 0 8px">Sem roteiro hoje? Escolha o cliente que você visitou — a visita vale igual (localização + 3 fotos + pedido).</p>
   <input id="pa-busca" placeholder="🔍 buscar cliente..." style="width:100%">
   <div id="pa-lista" style="margin-top:8px"></div>
-  ${['promotor','gerencia'].includes(ME.perfil)?`<button class="btn sec" id="pa-novo" style="margin-top:10px;width:100%">➕ Cliente novo (estou na porta da loja)</button>`:''}</div>`;
+  ${['promotor','gerencia'].includes(ME.perfil)?`<button type="button" class="btn sec" id="pa-novo" style="margin-top:10px;width:100%">➕ Cliente novo (estou na porta da loja)</button>`:''}</div>`;
   const render=q=>{
     const t=(q||'').trim().toLowerCase();
     const l=(clis||[]).filter(c=>!t||c.nome.toLowerCase().includes(t));
@@ -1556,7 +1571,7 @@ PAGES['pro-avulsa']=async el=>{
       <label>Endereço</label><input id="nv-end" placeholder="rua, número, bairro, cidade" style="width:100%">
       <label>CNPJ</label><input id="nv-cnpj" placeholder="00.000.000/0000-00" style="width:100%">
       <div class="msg" id="nv-msg"></div>
-      <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="nv-ok">Pegar GPS e cadastrar</button></div>`;
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="nv-ok">Pegar GPS e cadastrar</button></div>`;
     w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     document.getElementById('nv-ok').onclick=async()=>{
@@ -1587,7 +1602,7 @@ PAGES['pro-avulsa-visita']=async el=>{
   $('pc').innerHTML=`
   <div class="sec"><span class="tag conferencia">🚶 visita avulsa — sem roteiro</span>
     <b style="font-size:16px;display:block;margin-top:8px">${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}</div>
-    <div id="pc-gps" style="margin-top:10px"><button class="btn" id="pc-gpsbtn">📍 Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
+    <div id="pc-gps" style="margin-top:10px"><button type="button" class="btn" id="pc-gpsbtn">📍 Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
   <div class="sec" id="pc-fotos-sec" style="display:none"><h3>Fotos da loja (mínimo 3)</h3>
     <div id="pc-fotos" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     <div class="fotobtns" style="margin-top:8px">
@@ -1598,7 +1613,7 @@ PAGES['pro-avulsa-visita']=async el=>{
     <div class="hint" id="pc-fcount" style="margin-top:6px"></div></div>
   <div class="sec" id="pc-ped-sec" style="display:none"><h3>Pedido ou observação</h3>
     <textarea id="pc-ped" rows="3" placeholder="ex.: pediu 10 caixas de extra para sexta"></textarea></div>
-  <div class="sec" id="pc-fin-sec" style="display:none"><button class="btn" id="pc-fin">✓ Concluir visita avulsa</button><div class="msg" id="pc-msg"></div></div>`;
+  <div class="sec" id="pc-fin-sec" style="display:none"><button type="button" class="btn" id="pc-fin">✓ Concluir visita avulsa</button><div class="msg" id="pc-msg"></div></div>`;
   const estado={gps:null,fotos:[]};
   $('pc-gpsbtn').onclick=()=>{
     $('pc-gpsmsg').className='msg';$('pc-gpsmsg').textContent='Pegando GPS…';
@@ -1615,7 +1630,7 @@ PAGES['pro-avulsa-visita']=async el=>{
         estado.gps={ok:false,dist};
         $('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Você está a '+dist+' m do ponto cadastrado';
         const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
-        mm.innerHTML=`<h3>📍 Longe do ponto cadastrado</h3><p style="font-size:13px;color:#dddddd">Confirma a visita mesmo assim? Escreva o motivo.</p><label>Motivo *</label><textarea id="gj-just" rows="2" style="width:100%"></textarea><div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="gj-ok">Confirmar visita</button></div>`;
+        mm.innerHTML=`<h3>📍 Longe do ponto cadastrado</h3><p style="font-size:13px;color:#dddddd">Confirma a visita mesmo assim? Escreva o motivo.</p><label>Motivo *</label><textarea id="gj-just" rows="2" style="width:100%"></textarea><div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="gj-ok">Confirmar visita</button></div>`;
         w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
         document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
         document.getElementById('gj-ok').onclick=()=>{
@@ -1627,7 +1642,7 @@ PAGES['pro-avulsa-visita']=async el=>{
     },()=>{
       $('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Não consegui pegar o GPS';
       const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
-      mm.innerHTML=`<h3>📍 GPS não disponível</h3><p style="font-size:13px;color:#dddddd">Confirma a visita sem GPS? A gerência fica sabendo.</p><div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="gj-ok">Confirmar sem GPS</button></div>`;
+      mm.innerHTML=`<h3>📍 GPS não disponível</h3><p style="font-size:13px;color:#dddddd">Confirma a visita sem GPS? A gerência fica sabendo.</p><div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="gj-ok">Confirmar sem GPS</button></div>`;
       w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
       document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
       document.getElementById('gj-ok').onclick=()=>{estado.gps={ok:null,dist:null,just:'sem GPS'};w.classList.remove('open');gpsOk('Visita confirmada (sem GPS)')};
@@ -1636,7 +1651,7 @@ PAGES['pro-avulsa-visita']=async el=>{
   const gpsOk=(msg)=>{$('pc-gpsmsg').className='msg ok';$('pc-gpsmsg').textContent=msg||'Localização confirmada ✓';
     $('pc-fotos-sec').style.display='';$('pc-ped-sec').style.display='';$('pc-fin-sec').style.display='';renderFotos()};
   const renderFotos=()=>{
-    $('pc-fotos').innerHTML=estado.fotos.map((f,i)=>`<div style="position:relative;width:86px;height:86px"><img src="${f.url}" style="width:86px;height:86px;object-fit:cover;border-radius:10px"><button data-rm="${i}" style="position:absolute;top:-6px;right:-6px;background:#8b3a3a;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px">✕</button></div>`).join('');
+    $('pc-fotos').innerHTML=estado.fotos.map((f,i)=>`<div style="position:relative;width:86px;height:86px"><img src="${f.url}" style="width:86px;height:86px;object-fit:cover;border-radius:10px"><button type="button" data-rm="${i}" style="position:absolute;top:-6px;right:-6px;background:#8b3a3a;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px">✕</button></div>`).join('');
     $('pc-fcount').textContent=estado.fotos.length+' foto(s)'+(estado.fotos.length<3?` — faltam ${3-estado.fotos.length}`:' ✓');
     $('pc-fotos').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{estado.fotos.splice(+b.dataset.rm,1);renderFotos()});
   };
@@ -1662,9 +1677,9 @@ PAGES.promotoria=async el=>{
   el.innerHTML=`<h1 class="pg">Promotoria</h1>
   <div class="row" style="gap:8px;align-items:center;margin-bottom:10px">
     <input type="date" id="pm-data" value="${hoje()}" style="flex:1">
-    <button class="btn mini" id="pm-ver">Ver</button>
-    <button class="btn mini" id="pm-novo">+ Criar roteiro</button>
-    <button class="btn mini" id="pm-ncli">+ Cliente</button>
+    <button type="button" class="btn mini" id="pm-ver">Ver</button>
+    <button type="button" class="btn mini" id="pm-novo">+ Criar roteiro</button>
+    <button type="button" class="btn mini" id="pm-ncli">+ Cliente</button>
   </div>
   <div id="pm">${empty('Carregando…')}</div>
   <div id="pm-avulsas"></div>`;
@@ -1692,7 +1707,7 @@ PAGES.promotoria=async el=>{
             <div class="hint">${esc(c.clientes_promotoria?.endereco||'')}${v&&v.pedido?' · 📝 '+esc(v.pedido.slice(0,40)):''}</div></div>
             ${v?`<span style="font-size:18px">${semGps?'⚠️':'✅'}</span>`:'<span class="hint">pendente</span>'}
           </div>`}).join('')}</div>
-        <button class="btn sec mini" data-excluir="${r.id}" style="margin-top:8px;color:#ff9b9b;border-color:#8b3a3a">🗑 Excluir roteiro</button>
+        <button type="button" class="btn sec mini" data-excluir="${r.id}" style="margin-top:8px;color:#ff9b9b;border-color:#8b3a3a">🗑 Excluir roteiro</button>
       </div>`}).join('');
     box.querySelectorAll('[data-cli]').forEach(d=>d.onclick=async()=>{
       const cid=d.dataset.cid,rid=d.dataset.rot;
@@ -1716,7 +1731,7 @@ PAGES.promotoria=async el=>{
         </div>
         <div style="margin-top:10px">${fotosHtml}</div>`
         :'<p class="hint" style="margin-top:10px">Visita ainda não feita.</p>'}
-        <div class="mrow"><button class="btn sec" id="m-cancel">Fechar</button></div>`;
+        <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Fechar</button></div>`;
       w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
       document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     });
@@ -1724,7 +1739,7 @@ PAGES.promotoria=async el=>{
       const rid=b.dataset.excluir;
       const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
       mm.innerHTML=`<h3>🗑 Excluir roteiro?</h3><p style="font-size:13px;color:#dddddd">O roteiro e a lista de clientes do dia serão apagados. As visitas já feitas também saem. Não dá para desfazer.</p>
-      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
       w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
       document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
       document.getElementById('m-ok').onclick=async()=>{
@@ -1761,7 +1776,7 @@ function novoClienteUI(recarregar){
     <div id="nc-map" style="height:220px;border-radius:10px;border:1px solid #333;margin-top:4px"></div>
     <div class="hint" id="nc-coord" style="margin:6px 0 0">Toque no mapa para marcar o ponto da loja</div>
     <div class="msg err" id="nc-msg" style="display:none"></div>
-    <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="nc-ok">Cadastrar</button></div>`;
+    <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="nc-ok">Cadastrar</button></div>`;
   w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
   document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
   // Leaflet (OpenStreetMap, grátis)
@@ -1808,7 +1823,7 @@ function criarRoteiroUI(recarregar){
     <div id="nr-clis" style="max-height:220px;overflow-y:auto;border:1px solid #333;border-radius:10px;padding:6px"></div>
     <div class="hint" id="nr-cont" style="margin:6px 0 0"></div>
     <div class="msg err" id="nr-msg" style="display:none"></div>
-    <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="nr-ok">Criar</button></div>`;
+    <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="nr-ok">Criar</button></div>`;
   w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
   document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
   const datas=[];
@@ -1872,7 +1887,7 @@ PAGES['pro-roteiro']=async el=>{
   const cli=(deHoje.roteiro_clientes||[]).slice().sort((a,b)=>a.ordem-b.ordem);
   const feitos=cli.filter(c=>vmap[c.cliente_id]).length;
   box.innerHTML=`
-  <div class="row" style="gap:6px;overflow-x:auto;padding-bottom:6px">${rot.map(r=>`<button class="btn mini prd ${r.id===deHoje.id?'on':''}" data-d="${r.id}">${r.data===hoje?'HOJE':r.data.slice(8,10)+'/'+r.data.slice(5,7)} · ${(r.roteiro_clientes||[]).length}</button>`).join('')}</div>
+  <div class="row" style="gap:6px;overflow-x:auto;padding-bottom:6px">${rot.map(r=>`<button type="button" class="btn mini prd ${r.id===deHoje.id?'on':''}" data-d="${r.id}">${r.data===hoje?'HOJE':r.data.slice(8,10)+'/'+r.data.slice(5,7)} · ${(r.roteiro_clientes||[]).length}</button>`).join('')}</div>
   <div class="sec"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:15px">${deHoje.data===hoje?'Hoje':deHoje.data.slice(8,10)+'/'+deHoje.data.slice(5,7)} — ${cli.length} clientes</b><span class="tag ${feitos===cli.length?'aprovada':'conferencia'}">${feitos}/${cli.length}</span></div>
   <div style="background:#262626;border-radius:8px;height:6px;margin-top:8px;overflow:hidden"><div style="width:${cli.length?Math.round(feitos/cli.length*100):0}%;height:100%;background:var(--acc)"></div></div></div>
   <div id="pr-lista">${cli.map((c,i)=>{
@@ -1881,7 +1896,7 @@ PAGES['pro-roteiro']=async el=>{
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
         <div><b style="font-size:14px">${i+1}. ${esc(c.clientes_promotoria?.nome||'')}</b>
         <div class="hint">${esc(c.clientes_promotoria?.endereco||'')}</div></div>
-        ${v?'<span style="font-size:22px">✅</span>':`<button class="btn mini" data-vis="${c.cliente_id}">Visitar</button>`}
+        ${v?'<span style="font-size:22px">✅</span>':`<button type="button" class="btn mini" data-vis="${c.cliente_id}">Visitar</button>`}
       </div></div>`}).join('')}</div>`;
   box.querySelectorAll('.prd').forEach(b=>b.onclick=()=>{go('pro-roteiro');window.__roteiroSel=b.dataset.d});
   box.querySelectorAll('[data-vis]').forEach(b=>b.onclick=()=>{window.__clienteVis=b.dataset.vis;window.__roteiroVis=deHoje.id;go('pro-cliente')});
@@ -1893,7 +1908,7 @@ PAGES['pro-cliente']=async el=>{
   if(!c){$('pc').innerHTML=empty('Cliente não encontrado');return}
   $('pc').innerHTML=`
   <div class="sec"><b style="font-size:16px">${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}${c.cnpj?' · CNPJ '+esc(c.cnpj):''}</div>
-    <div id="pc-gps" style="margin-top:10px"><button class="btn" id="pc-gpsbtn">📍 Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
+    <div id="pc-gps" style="margin-top:10px"><button type="button" class="btn" id="pc-gpsbtn">📍 Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
   <div class="sec" id="pc-fotos-sec" style="display:none"><h3>Fotos da loja (mínimo 3)</h3>
     <div id="pc-fotos" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     <div class="fotobtns" style="margin-top:8px">
@@ -1904,7 +1919,7 @@ PAGES['pro-cliente']=async el=>{
     <div class="hint" id="pc-fcount" style="margin-top:6px"></div></div>
   <div class="sec" id="pc-ped-sec" style="display:none"><h3>Pedido ou observação</h3>
     <textarea id="pc-ped" rows="3" placeholder="ex.: pediu 10 caixas de extra para sexta"></textarea></div>
-  <div class="sec" id="pc-fin-sec" style="display:none"><button class="btn" id="pc-fin">✓ Concluir visita</button><div class="msg" id="pc-msg"></div></div>`;
+  <div class="sec" id="pc-fin-sec" style="display:none"><button type="button" class="btn" id="pc-fin">✓ Concluir visita</button><div class="msg" id="pc-msg"></div></div>`;
   const estado={gps:null,fotos:[]};
   $('pc-gpsbtn').onclick=()=>{
     $('pc-gpsmsg').className='msg';$('pc-gpsmsg').textContent='Pegando GPS…';
@@ -1927,7 +1942,7 @@ PAGES['pro-cliente']=async el=>{
         $('pc-gpsmsg').textContent='Você está a '+dist+' m do ponto cadastrado';
         const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
         mm.innerHTML=`<h3>📍 Longe do ponto cadastrado</h3><p style="font-size:13px;color:#dddddd">Está a <b>${dist} m</b> do ponto salvo para este cliente. Confirma a visita mesmo assim? Escreva o motivo (ex.: loja mudou de endereço).</p>
-        <label>Motivo *</label><textarea id="gj-just" rows="2" style="width:100%"></textarea><div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="gj-ok">Confirmar visita</button></div>`;
+        <label>Motivo *</label><textarea id="gj-just" rows="2" style="width:100%"></textarea><div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="gj-ok">Confirmar visita</button></div>`;
         w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
         document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
         document.getElementById('gj-ok').onclick=()=>{
@@ -1939,7 +1954,7 @@ PAGES['pro-cliente']=async el=>{
     },()=>{
       $('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Não consegui pegar o GPS';
       const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
-      mm.innerHTML=`<h3>📍 GPS não disponível</h3><p style="font-size:13px;color:#dddddd">Confirma a visita sem GPS? A visita fica marcada como "sem GPS" para a gerência.</p><div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="gj-ok">Confirmar sem GPS</button></div>`;
+      mm.innerHTML=`<h3>📍 GPS não disponível</h3><p style="font-size:13px;color:#dddddd">Confirma a visita sem GPS? A visita fica marcada como "sem GPS" para a gerência.</p><div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="gj-ok">Confirmar sem GPS</button></div>`;
       w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
       document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
       document.getElementById('gj-ok').onclick=()=>{estado.gps={ok:null,dist:null,just:'sem GPS'};w.classList.remove('open');gpsOk('Visita confirmada (sem GPS — gerência avisada)')};
@@ -1948,7 +1963,7 @@ PAGES['pro-cliente']=async el=>{
   const gpsOk=(msg)=>{ $('pc-gpsmsg').className='msg ok';$('pc-gpsmsg').textContent=msg||'Localização confirmada ✓';
     $('pc-fotos-sec').style.display='';$('pc-ped-sec').style.display='';$('pc-fin-sec').style.display='';renderFotos();};
   const renderFotos=()=>{
-    $('pc-fotos').innerHTML=estado.fotos.map((f,i)=>`<div style="position:relative;width:86px;height:86px"><img src="${f.url}" style="width:86px;height:86px;object-fit:cover;border-radius:10px"><button data-rm="${i}" style="position:absolute;top:-6px;right:-6px;background:#8b3a3a;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px">✕</button></div>`).join('');
+    $('pc-fotos').innerHTML=estado.fotos.map((f,i)=>`<div style="position:relative;width:86px;height:86px"><img src="${f.url}" style="width:86px;height:86px;object-fit:cover;border-radius:10px"><button type="button" data-rm="${i}" style="position:absolute;top:-6px;right:-6px;background:#8b3a3a;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px">✕</button></div>`).join('');
     $('pc-fcount').textContent=estado.fotos.length+' foto(s)'+(estado.fotos.length<3?` — faltam ${3-estado.fotos.length}`:' ✓');
     $('pc-fotos').querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{estado.fotos.splice(+b.dataset.rm,1);renderFotos()});
   };
@@ -1992,7 +2007,7 @@ async function pagAvisosMotorista(el){
   <label>Fotos (até 3)</label><input id="av-f1" type="file" accept="image/*" capture="environment">
   <input id="av-f2" type="file" accept="image/*" style="margin-top:6px">
   <input id="av-f3" type="file" accept="image/*" style="margin-top:6px">
-  <button class="btn" id="av-btn">Enviar aviso</button><div class="msg" id="av-msg"></div></div>
+  <button type="button" class="btn" id="av-btn">Enviar aviso</button><div class="msg" id="av-msg"></div></div>
   <div class="sec"><h3>Meus avisos</h3><div id="av-list">${empty('Carregando…')}</div></div>`;
   const {data:veics}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
   $('av-veic').innerHTML=(veics||[]).map(v=>`<option value="${v.veiculo_id}">${esc(v.veiculos.placa)}</option>`).join('');
@@ -2020,7 +2035,7 @@ async function pagAvisosGestao(el){
   g.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Motorista</th><th>Veículo</th><th>Categoria</th><th>Aviso</th><th>Status</th><th></th></tr>
   ${lista.map(a=>{const velho=['recebido','em_analise'].includes(a.status)&&(Date.now()-new Date(a.criado_em))>24*3600e3;
     return `<tr ${velho?'style="background:rgba(139,58,58,.25)"':''}><td>${fmtDT(a.criado_em)}${velho?'<div style="color:var(--bad);font-weight:700">⚠ +24h sem resposta</div>':''}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.categoria||'—')}</td><td>${esc(a.texto)}</td><td>${tag(a.status)}</td>
-  <td><button class="btn mini" data-av="${a.id}" data-st="${a.status==='recebido'?'em_analise':a.status==='em_analise'?'encaminhado':a.status==='encaminhado'?'resolvido':'arquivado'}">${a.status==='recebido'?'▶ Em análise':a.status==='em_analise'?'🔧 Encaminhar p/ mecânico':a.status==='encaminhado'?'✓ Resolver':'🗄 Arquivar'}</button></td></tr>`}).join('')}</table></div>`;
+  <td><button type="button" class="btn mini" data-av="${a.id}" data-st="${a.status==='recebido'?'em_analise':a.status==='em_analise'?'encaminhado':a.status==='encaminhado'?'resolvido':'arquivado'}">${a.status==='recebido'?'▶ Em análise':a.status==='em_analise'?'🔧 Encaminhar p/ mecânico':a.status==='encaminhado'?'✓ Resolver':'🗄 Arquivar'}</button></td></tr>`}).join('')}</table></div>`;
   g.querySelectorAll('[data-av]').forEach(b=>b.onclick=async()=>{
     const r=await upd('avisos',b.dataset.av,{status:b.dataset.st});
     if(r){toast('Status atualizado');go('avisos')}
@@ -2047,7 +2062,7 @@ PAGES.conferencia=async el=>{
       <div class="row" style="margin-top:10px;font-size:12px;color:var(--mut)"><div>📅 ${fmtDT(j.inicio)}</div><div>🏁 ${fmtDT(j.fim)}</div></div>
       <div class="row" style="margin-top:4px;font-size:12px;color:var(--mut)"><div>🛣️ ${km(j.km_inicial)} → ${km(j.km_final)}</div><div><b style="color:var(--ink)">${kmP!=null?kmP.toLocaleString('pt-BR')+' km percorridos':'—'}</b></div></div>
       <div style="background:#262626;border-radius:8px;height:6px;margin-top:10px;overflow:hidden"><div style="width:${Math.round(p/5*100)}%;height:100%;background:var(--acc)"></div></div>
-      <button class="btn" data-open="${j.id}" style="margin-top:12px">📋 Abrir conferência</button>
+      <button type="button" class="btn" data-open="${j.id}" style="margin-top:12px">📋 Abrir conferência</button>
     </div>`}).join('');
   c.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>pagConfDetalhe(el,b.dataset.open));
 };
@@ -2068,12 +2083,12 @@ async function pagConfDetalhe(el,jid){
   ];
   const kmP=j.km_final!=null?Math.round(Number(j.km_final)-Number(j.km_inicial)):null;
   d.innerHTML=`
-  <button class="btn sec" id="cf-voltar" style="margin-top:0">← Voltar para a lista</button>
+  <button type="button" class="btn sec" id="cf-voltar" style="margin-top:0">← Voltar para a lista</button>
   <div class="sec" style="margin-top:12px">
     <b style="font-size:16px">${esc(j.motoristas?.nome)}</b>
     <div class="hint">${esc(j.veiculos?.placa)} — ${esc(j.veiculos?.modelo||'')}</div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
-      <button class="btn mini" id="cf-editar" style="margin-top:0">✏️ Editar dados da jornada</button>
+      <button type="button" class="btn mini" id="cf-editar" style="margin-top:0">✏️ Editar dados da jornada</button>
       <span class="hint" style="margin:0">km, horários, roteiro e ocorrências</span>
     </div>
     ${(j.roteiros_extra||[]).length?`<div class="hint" style="margin-top:6px">Roteiros extras: ${j.roteiros_extra.map(r=>'nº '+esc(r)).join(', ')}</div>`:''}
@@ -2085,8 +2100,8 @@ async function pagConfDetalhe(el,jid){
   <div class="sec"><h3>Comprovantes da jornada (${comps.length})</h3><div id="cf-comps">${comps.length?'':empty('Nenhum comprovante anexado a esta jornada')}</div></div>
   <div class="sec"><h3>Checklist de conferência</h3><div id="cf-itens"></div>
     <div style="margin-top:12px;font-size:12px;color:var(--mut)" id="cf-prog"></div>
-    <button class="btn" id="cf-fechar" style="margin-top:10px">✓ Fechar jornada</button>
-    <button class="btn sec" id="cf-cancelar" style="margin-top:8px;width:100%;border-color:#8b3a3a;color:#ff9b9b">🗑 Cancelar jornada (com motivo)</button>
+    <button type="button" class="btn" id="cf-fechar" style="margin-top:10px">✓ Fechar jornada</button>
+    <button type="button" class="btn sec" id="cf-cancelar" style="margin-top:8px;width:100%;border-color:#8b3a3a;color:#ff9b9b">🗑 Cancelar jornada (com motivo)</button>
     <div class="msg" id="cf-msg"></div>
   </div>`;
   $('cf-voltar').onclick=()=>go('conferencia');
@@ -2102,7 +2117,7 @@ async function pagConfDetalhe(el,jid){
       ${f('ed-ini','Saída (data e hora)',dtLocal(j.inicio),'datetime-local')}
       ${f('ed-fim','Chegada (data e hora)',dtLocal(j.fim),'datetime-local')}
       <label>Ocorrências</label><textarea id="ed-oc" rows="2" style="width:100%">${esc(j.ocorrencias||'')}</textarea>
-      <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="ed-ok">Salvar</button></div>`;
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="ed-ok">Salvar</button></div>`;
     w.classList.add('open');
     w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
@@ -2144,7 +2159,7 @@ async function pagConfDetalhe(el,jid){
           <b>${esc(e.clientes_dist?.nome||'—')}</b> <span class="tag ${st[0]}">${st[1]}</span>
           ${e.motivo_recusa?`<div class="hint" style="color:var(--bad)">Motivo da recusa: ${esc(e.motivo_recusa)}</div>`:''}
           ${e.motivo?`<div class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo)}</div>`:''}
-          ${foto?`<button class="btn mini" data-can="${foto}">👁 canhoto</button>`:'<span class="hint">sem canhoto anexado</span>'}
+          ${foto?`<button type="button" class="btn mini" data-can="${foto}">👁 canhoto</button>`:'<span class="hint">sem canhoto anexado</span>'}
         </div>`}).join('');
     $('cf-comps').appendChild(box);
     box.querySelectorAll('[data-can]').forEach(b=>b.onclick=async()=>{const url=await assinar(b.dataset.can,'fotos');if(url)window.open(url,'_blank')});
@@ -2166,7 +2181,7 @@ async function pagConfDetalhe(el,jid){
       mm.innerHTML=`<h3>🗑 Excluir lançamento?</h3>
         <p style="font-size:13px;color:#dddddd">${esc(cpt.t)} · ${esc(cpt.s)}</p>
         <p class="hint" style="margin-top:6px">Ex: motorista lançou duas vezes o mesmo custo. O lançamento sai da jornada. Não dá para desfazer.</p>
-        <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
+        <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
       w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
       document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
       document.getElementById('m-ok').onclick=async()=>{
@@ -2192,7 +2207,7 @@ async function pagConfDetalhe(el,jid){
       <label>Valor</label><input id="ec-valor" inputmode="decimal" value="${a.valor??''}" style="width:100%">`;
     }
     mm.innerHTML=`<h3>✏️ Editar lançamento</h3>${campos}
-      <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="ec-ok">Salvar</button></div>`;
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="ec-ok">Salvar</button></div>`;
     w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     document.getElementById('ec-ok').onclick=async()=>{
@@ -2218,8 +2233,8 @@ async function pagConfDetalhe(el,jid){
         <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
           <b style="font-size:13px">${i+1}. ${it}</b>
           <div style="display:flex;gap:6px">
-            <button class="btn mini" data-ok="${i}" style="margin-top:0">✓</button>
-            <button class="btn mini" data-no="${i}" style="margin-top:0">✗</button>
+            <button type="button" class="btn mini" data-ok="${i}" style="margin-top:0">✓</button>
+            <button type="button" class="btn mini" data-no="${i}" style="margin-top:0">✗</button>
           </div>
         </div>
         ${st.ok===false?`<textarea data-obs="${i}" placeholder="O que está pendente? (salva automático)" style="margin-top:8px">${esc(st.obs||'')}</textarea>`:''}
@@ -2263,7 +2278,7 @@ async function pagConfDetalhe(el,jid){
       <label style="margin-top:10px">Por que está cancelando? *</label>
       <textarea id="cx-motivo" rows="3" placeholder="ex.: motorista saiu por engano / caminhão quebrou antes da rota / jornada duplicada" style="width:100%"></textarea>
       <div class="msg err" id="cx-msg" style="display:none"></div>
-      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Cancelar jornada</button></div>`;
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="m-ok" style="background:#8b3a3a">Cancelar jornada</button></div>`;
     w.classList.add('open');
     w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
@@ -2283,7 +2298,7 @@ async function pagConfDetalhe(el,jid){
   };
 };
 PAGES.abastecimentos=async el=>{
-  el.innerHTML=`<h1 class="pg">Abastecimentos</h1><div id="ab-f" class="sec"><h3>Filtros</h3><div class="row"><div><label>De</label><input id="f-de" type="date" value=""></div><div><label>Até</label><input id="f-ate" type="date" value=""></div></div><button class="btn mini" id="f-btn">Filtrar</button></div><div id="ab-l">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Abastecimentos</h1><div id="ab-f" class="sec"><h3>Filtros</h3><div class="row"><div><label>De</label><input id="f-de" type="date" value=""></div><div><label>Até</label><input id="f-ate" type="date" value=""></div></div><button type="button" class="btn mini" id="f-btn">Filtrar</button></div><div id="ab-l">${empty('Carregando…')}</div>`;
   const carregar=async()=>{
     let q=empFilter(sb.from('abastecimentos').select('*, veiculos(placa), motoristas(nome)')).order('data',{ascending:false}).limit(300);
     const de=$('f-de').value,ate=$('f-ate').value;
@@ -2296,7 +2311,7 @@ PAGES.abastecimentos=async el=>{
     const litros=data.reduce((s,a)=>s+Number(a.litros||0),0);
     l.innerHTML=`<div class="kpis"><div class="kpi"><div class="v">${fmtBRL(tot)}</div><div class="l">Total no período</div></div><div class="kpi"><div class="v">${litros.toLocaleString('pt-BR',{maximumFractionDigits:0})} L</div><div class="l">Litros</div></div><div class="kpi"><div class="v">${data.length}</div><div class="l">Lançamentos</div></div></div>
     <div class="tblwrap"><table><tr><th>Data</th><th>Veículo</th><th>Motorista</th><th>Posto</th><th>Km</th><th>Litros</th><th>R$/L</th><th>Total</th><th>Foto</th></tr>
-    ${data.map(a=>`<tr><td>${fmtDT(a.data)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.posto||'—')}</td><td>${km(a.km)}</td><td>${a.litros??'—'}</td><td>${a.preco_litro??'—'}</td><td>${fmtBRL(a.valor_total)}</td><td><button class="btn mini" data-foto="${a.foto_path}">👁</button></td></tr>`).join('')}</table></div>`;
+    ${data.map(a=>`<tr><td>${fmtDT(a.data)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.posto||'—')}</td><td>${km(a.km)}</td><td>${a.litros??'—'}</td><td>${a.preco_litro??'—'}</td><td>${fmtBRL(a.valor_total)}</td><td><button type="button" class="btn mini" data-foto="${a.foto_path}">👁</button></td></tr>`).join('')}</table></div>`;
     l.querySelectorAll('[data-foto]').forEach(b=>b.onclick=async()=>{
       const url=await assinar(b.dataset.foto);
       if(url)window.open(url,'_blank');
@@ -2311,7 +2326,7 @@ PAGES.despesas=async el=>{
   if(!lista||!lista.length){d.innerHTML=empty('Nenhuma despesa');return}
   d.innerHTML=`<div class="tblwrap"><table><tr><th>Data</th><th>Motorista</th><th>Veículo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Status</th><th></th></tr>
   ${lista.map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.motoristas?.nome)}</td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.categoria)}</td><td>${esc(x.descricao||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${tag(x.status)}</td>
-  <td>${(x.status==='aguardando'&&(ME.perfil==='gerencia'||ME.perfil==='conferente'))?`<button class="btn mini" data-ok="${x.id}">✓</button> <button class="btn mini" data-no="${x.id}">✗</button>`:''}</td></tr>`).join('')}</table></div>`;
+  <td>${(x.status==='aguardando'&&(ME.perfil==='gerencia'||ME.perfil==='conferente'))?`<button type="button" class="btn mini" data-ok="${x.id}">✓</button> <button type="button" class="btn mini" data-no="${x.id}">✗</button>`:''}</td></tr>`).join('')}</table></div>`;
   d.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(await upd('despesas',b.dataset.ok,{status:'aprovada',aprovada_por:ME.id,aprovada_em:new Date().toISOString()}))go('despesas')});
   d.querySelectorAll('[data-no]').forEach(b=>b.onclick=async()=>{
     const motivo=await pedirTexto('Reprovar despesa','Motivo da reprovação');if(motivo===null)return;
@@ -2327,7 +2342,7 @@ PAGES.multas=async el=>{
     <div class="row"><div><label>Data da infração</label><input id="m-data" type="date"></div><div><label>Prazo</label><input id="m-prazo" type="date"></div></div>
     <label>Notificação (foto/PDF)</label><input id="m-arq" type="file" accept="image/*,application/pdf">
     <label>Observações</label><input id="m-obs">
-    <button class="btn" id="m-btn">Cadastrar multa</button><div class="msg" id="m-msg"></div></div>`:''}
+    <button type="button" class="btn" id="m-btn">Cadastrar multa</button><div class="msg" id="m-msg"></div></div>`:''}
   <div id="m-list">${empty('Carregando…')}</div>`;
   if(ehGestao){
     const veics=await sel('veiculos','id,placa,ativo','placa');
@@ -2353,7 +2368,7 @@ PAGES.multas=async el=>{
   if(!lista||!lista.length){l.innerHTML=empty('Nenhuma multa cadastrada');return}
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Veículo</th><th>Motorista</th><th>Órgão</th><th>Infração</th><th>Prazo</th><th>Valor</th><th>Status</th><th></th></tr>
   ${lista.map(m=>`<tr><td>${esc(m.veiculos?.placa)}</td><td>${esc(m.motoristas?.nome||'—')}</td><td>${esc(m.orgao||'—')}</td><td>${fmtD(m.data_infracao)}</td><td>${fmtD(m.prazo)}</td><td>${fmtBRL(m.valor)}</td><td>${tag(m.status)}</td>
-  <td><button class="btn mini" data-det="${m.id}">Ver detalhes</button>${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?` <button class="btn mini" data-cie="${m.id}">Confirmar ciência</button>`:''}</td></tr>`).join('')}</table></div>`;
+  <td><button type="button" class="btn mini" data-det="${m.id}">Ver detalhes</button>${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?` <button type="button" class="btn mini" data-cie="${m.id}">Confirmar ciência</button>`:''}</td></tr>`).join('')}</table></div>`;
   l.querySelectorAll('[data-cie]').forEach(b=>b.onclick=async()=>{
     const {error}=await sb.rpc('confirmar_ciencia',{p_multa_id:b.dataset.cie});
     if(error){toast(err(error))}else{toast('Ciência registrada');go('multas')}
@@ -2372,7 +2387,7 @@ PAGES.multas=async el=>{
       ${linha('Status',tag(m.status))}
       ${m.obs?`<div style="margin-top:10px"><span style="color:#9a9a9a">Observações:</span><br>${esc(m.obs)}</div>`:''}
       ${m.notificacao_path?`<div style="margin-top:12px"><span style="color:#9a9a9a">Notificação da multa:</span><br>${foto||'<p class="hint">Não foi possível carregar a foto agora.</p>'}</div>`:'<p class="hint" style="margin-top:12px">Sem foto da notificação anexada.</p>'}
-      ${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?`<button class="btn" id="md-cie" style="margin-top:12px">✅ Li e estou ciente desta multa</button>`:''}
+      ${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?`<button type="button" class="btn" id="md-cie" style="margin-top:12px">✅ Li e estou ciente desta multa</button>`:''}
     </div>`;
     w.classList.add('open');
     w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
@@ -2501,7 +2516,7 @@ async function renderCharts(e){
   const tabs=[temDin?['dinheiro','💰 Dinheiro']:null,temOpe?['operacao','🚚 Operação']:null,temCtl?['controle','📋 Controle']:null].filter(Boolean);
   if(!tabs.length){box.innerHTML=empty('Sem dados no período para gráficos');return}
   if(!window.__dbTab||!tabs.find(t=>t[0]===window.__dbTab))window.__dbTab=tabs[0][0];
-  box.innerHTML=`<div class="dbtabs">${tabs.map(t=>`<button data-t="${t[0]}" class="${window.__dbTab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div><div id="db-tab-body"></div>`;
+  box.innerHTML=`<div class="dbtabs">${tabs.map(t=>`<button type="button" data-t="${t[0]}" class="${window.__dbTab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div><div id="db-tab-body"></div>`;
   box.querySelectorAll('.dbtabs button').forEach(b=>b.onclick=()=>{window.__dbTab=b.dataset.t;box.querySelectorAll('.dbtabs button').forEach(x=>x.classList.toggle('on',x===b));renderTab()});
   function renderTab(){
     const el=document.getElementById('db-tab-body');if(!el)return;
@@ -2611,7 +2626,7 @@ PAGES.relatorios=async el=>{
   function renderTab(){
     destr();
     const t=window.__relTab;
-    let html=`<div class="dbtabs">${tabs.map(x=>`<button data-t="${x[0]}" class="${t===x[0]?'on':''}">${x[1]}</button>`).join('')}</div><div id="rel-body"></div>`;
+    let html=`<div class="dbtabs">${tabs.map(x=>`<button type="button" data-t="${x[0]}" class="${t===x[0]?'on':''}">${x[1]}</button>`).join('')}</div><div id="rel-body"></div>`;
     box.innerHTML=html;
     box.querySelectorAll('.dbtabs button').forEach(b=>b.onclick=()=>{window.__relTab=b.dataset.t;renderTab()});
     const el=document.getElementById('rel-body');
@@ -2650,9 +2665,9 @@ PAGES.relatorios=async el=>{
       if(!window.__relSort)window.__relSort='km';
       rows.sort(ordenar[window.__relSort]);
       el.innerHTML=`<div class="dbtabs" style="margin-top:0">
-        <button data-s="km" class="${window.__relSort==='km'?'on':''}">🛣️ Mais rodou</button>
-        <button data-s="manut" class="${window.__relSort==='manut'?'on':''}">🔧 Mais gastou manutenção</button>
-        <button data-s="total" class="${window.__relSort==='total'?'on':''}">💰 Maior gasto total</button>
+        <button type="button" data-s="km" class="${window.__relSort==='km'?'on':''}">🛣️ Mais rodou</button>
+        <button type="button" data-s="manut" class="${window.__relSort==='manut'?'on':''}">🔧 Mais gastou manutenção</button>
+        <button type="button" data-s="total" class="${window.__relSort==='total'?'on':''}">💰 Maior gasto total</button>
       </div>
       <div class="sec"><div class="tblwrap"><table><tr><th>Motorista</th><th>Jorn.</th><th>Km</th><th>km/L</th><th>⛽ R$</th><th>🔧 Manut. R$</th><th>Outros R$</th><th>🚨 Multas</th><th>TOTAL R$</th></tr>
       ${rows.map((g,i)=>`<tr${i===0?' style="background:rgba(252,200,92,.08)"':''}><td><b>${esc(g.nome)}</b></td><td>${g.nJ}</td><td>${Math.round(g.km).toLocaleString('pt-BR')}</td><td>${g.kml?g.kml.toFixed(1).replace('.',','):'—'}</td><td>${Math.round(g.comb).toLocaleString('pt-BR')}</td><td>${Math.round(g.manut).toLocaleString('pt-BR')}</td><td>${Math.round(g.outras).toLocaleString('pt-BR')}</td><td>${g.multas?g.multas+' × '+Math.round(g.vMultas).toLocaleString('pt-BR'):'—'}</td><td><b>${Math.round(g.total).toLocaleString('pt-BR')}</b></td></tr>`).join('')}
@@ -2674,7 +2689,7 @@ PAGES.veiculos=async el=>{
   <p class="hint">"Todas (compartilhado)" = o mesmo caminhão serve nas empresas — aparece na frota de todas.</p>
   <label>CRLV-e (PDF ou foto) *</label><input id="v-crlv" type="file" accept="application/pdf,image/*">
   <label>Vencimento do CRLV-e</label><input id="v-crlv-venc" type="date">
-  <button class="btn" id="v-btn">Cadastrar veículo</button><div class="msg" id="v-msg"></div></div>
+  <button type="button" class="btn" id="v-btn">Cadastrar veículo</button><div class="msg" id="v-msg"></div></div>
   <div id="v-list">${empty('Carregando…')}</div>`;
   $('v-btn').onclick=async()=>{
     const placa=placaLimpa($('v-placa').value);
@@ -2701,11 +2716,22 @@ PAGES.veiculos=async el=>{
   // CRLV-e de cada veículo (para a coluna e o botão 📄)
   const {data:docs}=await sb.from('veiculos_documentos').select('id,veiculo_id,tipo,arquivo_path,vencimento,criado_em').eq('tipo','CRLV-e').order('criado_em',{ascending:false});
   const crlvBy={};(docs||[]).forEach(d=>{if(!crlvBy[d.veiculo_id])crlvBy[d.veiculo_id]=d});
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Placa</th><th>Marca/Modelo</th><th>Ano</th><th>Empresa</th><th>Óleo (km)</th><th>CRLV-e</th><th>Status</th><th></th></tr>
-  ${lista.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();const empN={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'}[v.empresa]||v.empresa||'—';return `<tr><td><b>${esc(v.placa)}</b></td><td>${esc(v.marca||'')} ${esc(v.modelo||'')}</td><td>${v.ano||'—'}</td><td><span class="tag">${esc(empN)}</span></td><td>${v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—'}</td>
-  <td>${d?`<button class="btn mini" data-dc="${d.arquivo_path}">Abrir</button> <button class="btn mini" data-dl="${d.arquivo_path}" data-pl="${esc(v.placa)}">⬇️ Baixar</button>${d.vencimento?`<div class="hint" style="${venc?'color:var(--bad)':''}">venc. ${fmtD(d.vencimento)}${venc?' ⚠️':''}</div>`:''}`:'<span class="tag reprovada">faltando</span>'}</td>
-  <td>${v.ativo?'<span class="tag fechada">ativo</span>':'<span class="tag arquivado">inativo</span>'}</td>
-  <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-ved="${v.id}">✏️ Editar</button> <button class="btn mini" data-emp="${v.id}" data-e="${esc(v.empresa||'OVOS')}">🏢 ${esc(empN)}</button> <button class="btn mini" data-crlv="${v.id}" data-placa="${esc(v.placa)}">📄 ${d?'Trocar':'Enviar'}</button> <button class="btn mini" data-tg="${v.id}" data-a="${v.ativo?0:1}">${v.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
+  l.innerHTML=lista.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();const empN={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'}[v.empresa]||v.empresa||'—';
+  const faltaOleo=(v.km_atual!=null&&v.intervalo_oleo_km&&v.ultima_troca_oleo_km!=null)?Number(v.km_atual)-(Number(v.ultima_troca_oleo_km)+Number(v.intervalo_oleo_km)):null;
+  const oleoTxt=faltaOleo!=null?(faltaOleo>=0?`<b style="color:var(--bad)">TROCAR (+${km(faltaOleo)})</b>`:`próxima em ${km(-faltaOleo)}`):(v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—');
+  return `<div class="listcard ${faltaOleo!=null&&faltaOleo>=0?'danger':''}">
+  <div class="lc-ico"><i data-lucide="truck"></i></div>
+  <div class="lc-main">
+    <div class="lc-title"><span>${esc(v.placa)}</span><span class="tag ${v.ativo?'ok':'neutral'}">${v.ativo?'Ativo':'Inativo'}</span></div>
+    <div class="lc-sub">${esc(v.marca||'')} ${esc(v.modelo||'')}${v.ano?' · '+v.ano:''} · ${esc(empN)}</div>
+    <div class="lc-rows">
+      <div class="lc-row"><span>Odômetro</span><b>${v.km_atual!=null?km(v.km_atual):'—'}</b></div>
+      <div class="lc-row"><span>Óleo</span><b>${oleoTxt}</b></div>
+      <div class="lc-row"><span>CRLV-e</span><b>${d?(d.vencimento?`venc. ${fmtD(d.vencimento)}${venc?' ⚠️':''}`:'anexado'):'<span style="color:var(--bad)">faltando</span>'}</b></div>
+    </div>
+    <div class="lc-actions">${ME.perfil==='gerencia'?`<button type="button" class="btn mini" data-ved="${v.id}"><i data-lucide="pencil"></i> Editar</button> <button type="button" class="btn mini sec" data-emp="${v.id}" data-e="${esc(v.empresa||'OVOS')}"><i data-lucide="building-2"></i> ${esc(empN)}</button> <button type="button" class="btn mini sec" data-crlv="${v.id}" data-placa="${esc(v.placa)}"><i data-lucide="file-text"></i> ${d?'Trocar':'Enviar'} CRLV</button> ${d?`<button type="button" class="btn mini sec" data-dl="${d.arquivo_path}" data-pl="${esc(v.placa)}"><i data-lucide="download"></i> Baixar</button>`:''} <button type="button" class="btn mini sec" data-tg="${v.id}" data-a="${v.ativo?0:1}">${v.ativo?'Inativar':'Reativar'}</button>`:''}</div>
+  </div></div>`}).join('');
+  if(window.lucide)lucide.createIcons();
   l.querySelectorAll('[data-ved]').forEach(b=>b.onclick=()=>{
     const v=lista.find(x=>x.id===b.dataset.ved);if(!v)return;
     openModal('✏️ Editar — '+v.placa,[
@@ -2772,7 +2798,7 @@ PAGES.veiculos=async el=>{
 };
 PAGES.motoristas=async el=>{
   const verInativos=window.__motInativos===true;
-  el.innerHTML=`<h1 class="pg">Motoristas <button class="btn mini" id="mot-toggle" style="float:right">${verInativos?'Ver ativos':'Ver inativos'}</button></h1>
+  el.innerHTML=`<h1 class="pg">Motoristas <button type="button" class="btn mini" id="mot-toggle" style="float:right">${verInativos?'Ver ativos':'Ver inativos'}</button></h1>
   <div class="sec"><h3>Novo motorista</h3>
   <div class="row"><div><label>Nome completo *</label><input id="mo-nome"></div><div><label>CPF</label><input id="mo-cpf"></div></div>
   <div class="row"><div><label>CNH</label><input id="mo-cnh"></div><div><label>Categoria</label><input id="mo-cat" placeholder="D / E"></div></div>
@@ -2783,7 +2809,7 @@ PAGES.motoristas=async el=>{
     <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="TRANSPORTADORA" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> Transportadora</label>
     <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="DISTRIBUIDORA" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> Distribuidora</label>
   </div>
-  <button class="btn" id="mo-btn">Cadastrar motorista</button><div class="msg" id="mo-msg"></div></div>
+  <button type="button" class="btn" id="mo-btn">Cadastrar motorista</button><div class="msg" id="mo-msg"></div></div>
   <div id="mo-list">${empty('Carregando…')}</div>`;
   $('mot-toggle').onclick=()=>{window.__motInativos=!verInativos;go('motoristas')};
   $('mo-btn').onclick=async()=>{
@@ -2812,7 +2838,7 @@ PAGES.motoristas=async el=>{
   const EMPNICK={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'};
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>Empresas</th><th>CPF</th><th>CNH</th><th>Validade</th><th>Veículo</th><th>Situação</th><th></th></tr>
   ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';const empsTxt=(m.empresas&&m.empresas.length?m.empresas.map(x=>EMPNICK[x]||x).join(', '):EMPNICK[m.empresa]||m.empresa||'—');return `<tr><td><b>${esc(m.nome)}</b></td><td><span class="tag" style="font-size:10px">${esc(empsTxt)}</span></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
-  <td>${ME.perfil==='gerencia'?`<button class="btn mini" data-vv="${m.id}">🚚 veículo</button> <button class="btn mini" data-ed="${m.id}">✏️</button> <button class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
+  <td>${ME.perfil==='gerencia'?`<button type="button" class="btn mini" data-vv="${m.id}">🚚 veículo</button> <button type="button" class="btn mini" data-ed="${m.id}">✏️</button> <button type="button" class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
     if(b.dataset.a==='0'){
       const ml=lista.find(x=>x.id===b.dataset.tg);
@@ -2843,7 +2869,7 @@ PAGES.motoristas=async el=>{
     const w=document.getElementById('modal-wrap'),m=document.getElementById('modal');
     m.innerHTML=`<h3>🚚 Veículos do motorista</h3><p class="hint" style="margin:0 0 8px">Toque para marcar/desmarcar. Pode deixar vários — o caminhão em viagem fica bloqueado sozinho.</p>`+
       campos.map(f=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid #242424;cursor:pointer"><input type="checkbox" id="${f.id}" ${f.valor?'checked':''} style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">${esc(f.label)}</span></label>`).join('')+
-      `<div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="m-ok">Salvar</button></div>`;
+      `<div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="m-ok">Salvar</button></div>`;
     w.classList.add('open');
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
@@ -2890,7 +2916,7 @@ PAGES.motoristas=async el=>{
 PAGES.jornadas=async el=>{
   el.innerHTML=`<h1 class="pg">Jornadas</h1>
   <div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap" id="jn-filtros">
-    ${[['','Todas'],['aberta','Abertas'],['conferencia','Conferência'],['fechada','Fechadas'],['cancelada','🗑 Canceladas']].map(([v,t])=>`<button class="btn mini jnf" data-f="${v}">${t}</button>`).join('')}
+    ${[['','Todas'],['aberta','Abertas'],['conferencia','Conferência'],['fechada','Fechadas'],['cancelada','🗑 Canceladas']].map(([v,t])=>`<button type="button" class="btn mini jnf" data-f="${v}">${t}</button>`).join('')}
   </div>
   <div id="jn">${empty('Carregando…')}</div>`;
   const carregar=async(f)=>{
@@ -2899,8 +2925,23 @@ PAGES.jornadas=async el=>{
     if(f)q=q.eq('status',f);
     const {data:lista}=await q;
     if(!lista||!lista.length){l.innerHTML=empty(f==='cancelada'?'Nenhuma jornada cancelada':'Nenhuma jornada');return}
-    l.innerHTML=`<div class="tblwrap"><table><tr><th>Saída</th><th>Motorista</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th>${f==='cancelada'?'<th>Motivo do cancelamento</th>':'<th>Ocorrências</th>'}</tr>
-    ${lista.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.motoristas?.nome)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td>${f==='cancelada'?`<td style="max-width:260px">${esc(j.motivo_cancelamento||'—')}${j.usuarios?.nome?`<div class="hint">por ${esc(j.usuarios.nome)} · ${fmtDT(j.cancelada_em)}</div>`:''}</td>`:`<td>${esc(j.ocorrencias||'—')}</td>`}</tr>`).join('')}</table></div>`;
+    l.innerHTML=lista.map(j=>{
+      const st={aberta:['warn','Em rota'],conferencia:['primary','Conferência'],fechada:['ok','Fechada'],cancelada:['bad','Cancelada']}[j.status]||['neutral',j.status];
+      const kmP=j.km_final!=null?(Number(j.km_final)-Number(j.km_inicial)):null;
+      return `<div class="listcard ${j.status==='aberta'?'highlight':''}">
+      <div class="lc-ico"><i data-lucide="${j.status==='aberta'?'truck':j.status==='conferencia'?'clipboard-check':j.status==='cancelada'?'x-circle':'check-circle-2'}"></i></div>
+      <div class="lc-main">
+        <div class="lc-title"><span>${esc(j.motoristas?.nome)}</span><span class="tag ${st[0]}">${st[1]}</span></div>
+        <div class="lc-sub">${esc(j.veiculos?.placa)} · ${rotTxt(j)}</div>
+        <div class="lc-rows">
+          <div class="lc-row"><span>Saída</span><b>${fmtDT(j.inicio)}</b></div>
+          <div class="lc-row"><span>Km</span><b>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}${kmP!=null?' ('+kmP.toLocaleString('pt-BR')+' km)':''}</b></div>
+          ${j.ocorrencias?`<div class="lc-row"><span>Ocorrência</span><b style="color:var(--warn)">${esc(j.ocorrencias.slice(0,60))}</b></div>`:''}
+          ${f==='cancelada'&&j.motivo_cancelamento?`<div class="lc-row"><span>Motivo</span><b style="color:var(--bad)">${esc(j.motivo_cancelamento.slice(0,60))}</b></div>`:''}
+          ${f==='cancelada'&&j.usuarios?.nome?`<div class="lc-row"><span>Cancelada por</span><b>${esc(j.usuarios.nome)} · ${fmtDT(j.cancelada_em)}</b></div>`:''}
+        </div>
+      </div></div>`}).join('')||empty('Nenhuma jornada');
+    if(window.lucide)lucide.createIcons();
   };
   document.querySelectorAll('#jn-filtros .jnf').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#jn-filtros .jnf').forEach(x=>x.classList.remove('on'));
@@ -2916,7 +2957,7 @@ PAGES.os=async el=>{
     <label>Veículo</label><select id="o-veic"></select>
     <label>Descrição do problema/serviço</label><textarea id="o-desc"></textarea>
     <label>Vincular aviso (opcional)</label><select id="o-aviso"><option value="">—</option></select>
-    <button class="btn" id="o-btn">Abrir ordem de serviço</button><div class="msg" id="o-msg"></div></div>`}
+    <button type="button" class="btn" id="o-btn">Abrir ordem de serviço</button><div class="msg" id="o-msg"></div></div>`}
   <div class="sec"><h3>${ME.perfil==='mecanico'?'Todas as ordens de serviço':'Ordens de serviço'}</h3></div>
   <div id="o-list">${empty('Carregando…')}</div>`;
   if(ME.perfil!=='mecanico'){
@@ -2964,7 +3005,7 @@ PAGES.os=async el=>{
       <div class="kpi"><div class="v">${conclMes}</div><div class="l">Concluídas no mês</div></div>
       <div class="kpi"><div class="v">${fmtBRL(custoMes)}</div><div class="l">Custo do mês</div></div>
     </div>
-    <div style="margin:4px 0 12px"><button class="btn" id="to-btn">🛢️ Registrar troca de óleo</button></div>
+    <div style="margin:4px 0 12px"><button type="button" class="btn" id="to-btn">🛢️ Registrar troca de óleo</button></div>
     ${primeira.length?`<div class="sec"><h3>🛢️ 1ª troca não registrada (${primeira.length})</h3>
       <p class="hint" style="margin:0 0 6px">Estes caminhões têm intervalo configurado, mas nenhuma troca registrada no app. Registre a última troca feita para o alerta começar a contar.</p>
       ${primeira.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span>${v.km_atual!=null?km(v.km_atual):'—'} · intervalo ${km(v.intervalo_oleo_km)}</span></div>`).join('')}</div>`:''}
@@ -2998,7 +3039,7 @@ PAGES.os=async el=>{
           <label>Data</label><input id="to-data" type="date" value="${hoje()}" style="width:100%">
           <label>Observação (opcional)</label><input id="to-obs" placeholder="ex.: filtro de óleo e ar trocados" style="width:100%">
           <div class="msg err" id="to-msg" style="display:none"></div>
-          <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="to-ok">Registrar</button></div>`;
+          <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="to-ok">Registrar</button></div>`;
         w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
         document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
         const syncKm=()=>{const v=(vs||[]).find(x=>x.id===document.getElementById('to-veic').value);if(v&&v.km_atual!=null)document.getElementById('to-km').value=v.km_atual};
@@ -3025,7 +3066,7 @@ PAGES.os=async el=>{
   const LBL={recebida:'▶ Iniciar análise',em_analise:'⏳ Aguardando peça',aguardando_peca:'🔨 Em execução',em_execucao:'✓ Concluir'};
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Aberta</th><th>Veículo</th><th>Descrição</th><th>Diagnóstico</th><th>Custos</th><th>Status</th><th></th></tr>
   ${lista.map(o=>`<tr><td>${fmtDT(o.aberta_em)}</td><td>${esc(o.veiculos?.placa)}</td><td>${esc(o.descricao)}</td><td>${esc(o.diagnostico||'—')}</td><td>${o.mao_obra||o.custos?fmtBRL(Number(o.mao_obra||0)+Number(o.custos||0)):'—'}</td><td>${tag(o.status)}</td>
-  <td>${['mecanico','gerencia'].includes(ME.perfil)&&o.status!=='concluida'?`<button class="btn mini" data-osd="${o.id}">✏️ Atualizar</button>`:''}</td></tr>`).join('')}</table></div>`;
+  <td>${['mecanico','gerencia'].includes(ME.perfil)&&o.status!=='concluida'?`<button type="button" class="btn mini" data-osd="${o.id}">✏️ Atualizar</button>`:''}</td></tr>`).join('')}</table></div>`;
   l.querySelectorAll('[data-osd]').forEach(b=>b.onclick=async()=>{
     const o=lista.find(x=>x.id===b.dataset.osd);
     openModal('Atualizar OS — '+(o.veiculos?.placa||''),[
@@ -3066,8 +3107,8 @@ PAGES.usuarios=async el=>{
           <select data-perfil="${u.id}" class="mini-sel">${opt(ME.master?[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']]:[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico']],u.perfil!=='pendente'?u.perfil:'motorista')}</select>
           <select data-emp="${u.id}" class="mini-sel">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','Ambas'],['TODAS','Todas (3)']],u.empresa&&u.empresa!=='OVOS'?u.empresa:'OVOS')}</select>
           <span data-veic-wrap="${u.id}" style="display:none"><select data-veic="${u.id}" class="mini-sel"><option value="">— sem veículo —</option></select></span>
-          <button class="btn mini" data-apr="${u.id}">✓ Aprovar</button>
-          <button class="btn mini" data-rec="${u.id}" style="border-color:#5c3a2e">✗ Recusar</button>
+          <button type="button" class="btn mini" data-apr="${u.id}">✓ Aprovar</button>
+          <button type="button" class="btn mini" data-rec="${u.id}" style="border-color:#5c3a2e">✗ Recusar</button>
         </div>
         <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;font-size:11px;color:var(--mut)">
           <span>CPF: <input data-cpf="${u.id}" value="${esc(u.cpf||'')}" style="width:110px;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:6px;padding:4px 6px;font-size:11px"></span>
@@ -3081,7 +3122,7 @@ PAGES.usuarios=async el=>{
   // ---- aprovados ----
   l.innerHTML=ativos.length?`<div class="sec"><h3>👥 Cadastrados (${ativos.length})</h3><div class="tblwrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresa</th><th></th></tr>
   ${ativos.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td>
-  <td>${ME.master?`<button class="btn mini" data-ued="${u.id}">✏️</button>`:''}</td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
+  <td>${ME.master?`<button type="button" class="btn mini" data-ued="${u.id}">✏️</button>`:''}</td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
   // ---- veículos para vínculo na aprovação ----
   (async()=>{
     const {data:vlist}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
@@ -3122,7 +3163,7 @@ PAGES.usuarios=async el=>{
     const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
     mm.innerHTML=`<h3>🚫 Recusar cadastro</h3>
       <p style="font-size:13px;color:#dddddd">Recusar o cadastro de <b>${esc(u?u.nome:'este usuário')}</b>? Ele fica sem acesso ao app. (Para apagar de vez: Supabase → Authentication)</p>
-      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Recusar</button></div>`;
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="m-ok" style="background:#8b3a3a">Recusar</button></div>`;
     w.classList.add('open');
     w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
@@ -3175,7 +3216,7 @@ PAGES.recebimentos=async el=>{
     const tot=lista.reduce((s,x)=>s+Number(x.valor),0);
     rc.innerHTML=`<div class="kpis"><div class="kpi"><div class="v">${fmtBRL(tot)}</div><div class="l">Total (${e==='GRUPO'?'grupo':EMPNOME[e]})</div></div><div class="kpi"><div class="v">${lista.length}</div><div class="l">Lançamentos</div></div></div>
     <div class="tblwrap"><table><tr><th>Data</th><th>Tipo</th><th>Veículo</th><th>Motorista</th><th>Valor</th><th>Lançado por</th><th>Extras</th><th></th></tr>
-    ${lista.map(x=>`<tr><td>${fmtDT(x.data)}</td><td><b>${esc(x.tipo)}</b></td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.motoristas?.nome||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${esc(x.usuarios?.nome||'—')}</td><td>${x.extras&&Object.keys(x.extras).length?esc(Object.entries(x.extras).map(([k,v])=>k+': '+v).join(' · ')):'—'}</td><td>${x.foto_path?`<button class="btn mini" data-foto="${x.foto_path}">👁</button>`:'—'}</td></tr>`).join('')}</table></div>`;
+    ${lista.map(x=>`<tr><td>${fmtDT(x.data)}</td><td><b>${esc(x.tipo)}</b></td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.motoristas?.nome||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${esc(x.usuarios?.nome||'—')}</td><td>${x.extras&&Object.keys(x.extras).length?esc(Object.entries(x.extras).map(([k,v])=>k+': '+v).join(' · ')):'—'}</td><td>${x.foto_path?`<button type="button" class="btn mini" data-foto="${x.foto_path}">👁</button>`:'—'}</td></tr>`).join('')}</table></div>`;
     rc.querySelectorAll('[data-foto]').forEach(b=>b.onclick=async()=>{const url=await assinar(b.dataset.foto);if(url)window.open(url,'_blank')});
   };
   carregar();
@@ -3194,7 +3235,7 @@ PAGES.recnovo=async el=>{
   <label>Veículo</label><select id="rn-veic">${(veics||[]).map(v=>`<option value="${v.veiculo_id}">${esc(v.veiculos.placa)}</option>`).join('')}</select>
   <label>Foto do comprovante *</label><input id="rn-foto" type="file" accept="image/*" capture="environment">
   <label>Observações</label><textarea id="rn-obs"></textarea>
-  <button class="btn" id="rn-btn">Lançar recebimento</button><div class="msg" id="rn-msg"></div>`;
+  <button type="button" class="btn" id="rn-btn">Lançar recebimento</button><div class="msg" id="rn-msg"></div>`;
   const renderCampos=()=>{
     const t=tps.find(x=>x.nome===$('rn-tipo').value);
     const cs=(t&&t.campos&&t.campos.length)?t.campos:[];
@@ -3224,15 +3265,15 @@ PAGES.tipos=async el=>{
     const {data:tr}=await sb.from('tipos_recebimento').select('*').eq('empresa',e).order('nome');
     tp.innerHTML=`
     <div class="sec"><h3>💸 Tipos de gasto — ${EMPNOME[e]}</h3>
-      <div id="td-list">${(td||[]).map(t=>`<div class="dynrow"><span style="flex:1"><b>${esc(t.nome)}</b>${t.campos&&t.campos.length?` <span class="hint">campos: ${esc(t.campos.map(c=>c.nome).join(', '))}</span>`:''}</span><button class="btn mini" data-deltd="${t.id}">🗑</button></div>`).join('')||empty('Nenhum tipo')}</div>
-      <div class="dynrow"><input id="td-nome" placeholder="novo tipo de gasto (ex.: LAVAGEM)"><button class="btn mini" id="td-add">＋</button></div>
+      <div id="td-list">${(td||[]).map(t=>`<div class="dynrow"><span style="flex:1"><b>${esc(t.nome)}</b>${t.campos&&t.campos.length?` <span class="hint">campos: ${esc(t.campos.map(c=>c.nome).join(', '))}</span>`:''}</span><button type="button" class="btn mini" data-deltd="${t.id}">🗑</button></div>`).join('')||empty('Nenhum tipo')}</div>
+      <div class="dynrow"><input id="td-nome" placeholder="novo tipo de gasto (ex.: LAVAGEM)"><button type="button" class="btn mini" id="td-add">＋</button></div>
       <div id="td-campos"></div><div class="msg" id="td-msg"></div></div>
     <div class="sec"><h3>📥 Tipos de recebimento — ${EMPNOME[e]}</h3>
-      <div id="tr-list">${(tr||[]).map(t=>`<div class="dynrow"><span style="flex:1"><b>${esc(t.nome)}</b>${t.campos&&t.campos.length?` <span class="hint">campos: ${esc(t.campos.map(c=>c.nome).join(', '))}</span>`:''}</span><button class="btn mini" data-deltr="${t.id}">🗑</button></div>`).join('')||empty('Nenhum tipo')}</div>
-      <div class="dynrow"><input id="tr-nome" placeholder="novo tipo de recebimento (ex.: CARGA EXTRA)"><button class="btn mini" id="tr-add">＋</button></div>
+      <div id="tr-list">${(tr||[]).map(t=>`<div class="dynrow"><span style="flex:1"><b>${esc(t.nome)}</b>${t.campos&&t.campos.length?` <span class="hint">campos: ${esc(t.campos.map(c=>c.nome).join(', '))}</span>`:''}</span><button type="button" class="btn mini" data-deltr="${t.id}">🗑</button></div>`).join('')||empty('Nenhum tipo')}</div>
+      <div class="dynrow"><input id="tr-nome" placeholder="novo tipo de recebimento (ex.: CARGA EXTRA)"><button type="button" class="btn mini" id="tr-add">＋</button></div>
       <div id="tr-campos"></div><div class="msg" id="tr-msg"></div></div>`;
     const readCampos=id=>Array.from(document.querySelectorAll('#'+id+' .dynrow input')).map(i=>({nome:i.value.trim()})).filter(c=>c.nome);
-    const addCampo=(id,label)=>{const d=document.getElementById(id);if(d&&!d.dataset.on){d.dataset.on='1';d.innerHTML=`<div class="dynrow"><input placeholder="${label}"><button class="btn mini" tabindex="-1">＋ campo</button></div>`;d.querySelector('button').onclick=()=>{const r=document.createElement('div');r.className='dynrow';r.innerHTML=`<input placeholder="${label}"><button class="btn mini" tabindex="-1">✕</button>`;r.querySelector('button').onclick=()=>r.remove();d.appendChild(r)}}};
+    const addCampo=(id,label)=>{const d=document.getElementById(id);if(d&&!d.dataset.on){d.dataset.on='1';d.innerHTML=`<div class="dynrow"><input placeholder="${label}"><button type="button" class="btn mini" tabindex="-1">＋ campo</button></div>`;d.querySelector('button').onclick=()=>{const r=document.createElement('div');r.className='dynrow';r.innerHTML=`<input placeholder="${label}"><button type="button" class="btn mini" tabindex="-1">✕</button>`;r.querySelector('button').onclick=()=>r.remove();d.appendChild(r)}}};
     addCampo('td-campos','campo obrigatório (ex.: POSTO)');
     addCampo('tr-campos','campo obrigatório (ex.: ORIGEM)');
     $('td-add').onclick=async()=>{
@@ -3256,10 +3297,10 @@ PAGES.tipos=async el=>{
 /* ============ DISTRIBUIDORA: produtos, clientes, rotas, entregas ============ */
 function haversine(a,b,c,d){const R=6371,t=Math.PI/180,dl=(c-a)*t,dg=(d-b)*t,x=Math.sin(dl/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(dg/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
 PAGES.produtos=async el=>{
-  el.innerHTML=`<h1 class="pg">Produtos</h1><div class="sec"><div class="dynrow"><input id="pr-nome" placeholder="Nome do produto"><input id="pr-sku" placeholder="SKU" style="max-width:110px"><input id="pr-un" placeholder="UN (CX, KG)" style="max-width:110px"><button class="btn mini" id="pr-add">➕</button></div><p class="hint">Nome + SKU + unidade — toque em ➕ para incluir</p></div><div id="pr-list">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Produtos</h1><div class="sec"><div class="dynrow"><input id="pr-nome" placeholder="Nome do produto"><input id="pr-sku" placeholder="SKU" style="max-width:110px"><input id="pr-un" placeholder="UN (CX, KG)" style="max-width:110px"><button type="button" class="btn mini" id="pr-add">➕</button></div><p class="hint">Nome + SKU + unidade — toque em ➕ para incluir</p></div><div id="pr-list">${empty('Carregando…')}</div>`;
   const carregar=async()=>{
     const {data:l}=await sb.from('produtos').select('*').order('nome');
-    $('pr-list').innerHTML=(l&&l.length)?`<div class="tblwrap"><table><tr><th>Produto</th><th>SKU</th><th>Un.</th><th></th></tr>`+l.map(p=>`<tr><td>${esc(p.nome)} ${p.ativo?'':'<span class="tag bad">inativo</span>'}</td><td>${esc(p.sku||'—')}</td><td>${esc(p.unidade)}</td><td style="white-space:nowrap"><button class="btn mini" data-edit="${p.id}">✏️</button> <button class="btn mini" data-pr="${p.id}" data-on="${p.ativo?1:0}">${p.ativo?'Desativar':'Ativar'}</button></td></tr>`).join('')+`</table></div>`:empty('Nenhum produto — inclua o primeiro acima');
+    $('pr-list').innerHTML=(l&&l.length)?`<div class="tblwrap"><table><tr><th>Produto</th><th>SKU</th><th>Un.</th><th></th></tr>`+l.map(p=>`<tr><td>${esc(p.nome)} ${p.ativo?'':'<span class="tag bad">inativo</span>'}</td><td>${esc(p.sku||'—')}</td><td>${esc(p.unidade)}</td><td style="white-space:nowrap"><button type="button" class="btn mini" data-edit="${p.id}">✏️</button> <button type="button" class="btn mini" data-pr="${p.id}" data-on="${p.ativo?1:0}">${p.ativo?'Desativar':'Ativar'}</button></td></tr>`).join('')+`</table></div>`:empty('Nenhum produto — inclua o primeiro acima');
     $('pr-list').querySelectorAll('[data-pr]').forEach(b=>b.onclick=async()=>{await sb.from('produtos').update({ativo:b.dataset.on!=='1'}).eq('id',b.dataset.pr);carregar()});
     $('pr-list').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
       const p=l.find(x=>x.id===b.dataset.edit);
@@ -3276,7 +3317,7 @@ PAGES.produtos=async el=>{
   carregar();
 };
 PAGES.clientes=async el=>{
-  el.innerHTML=`<h1 class="pg">Clientes</h1><div class="sec"><button class="btn" id="cl-add">➕ Novo cliente</button><input id="cl-busca" placeholder="🔎 Buscar por nome ou cidade" style="margin-top:10px"></div><div id="cl-list">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Clientes</h1><div class="sec"><button type="button" class="btn" id="cl-add">➕ Novo cliente</button><input id="cl-busca" placeholder="🔎 Buscar por nome ou cidade" style="margin-top:10px"></div><div id="cl-list">${empty('Carregando…')}</div>`;
   let todos=[];
   const render=q=>{const f=todos.filter(c=>!q||((c.nome||'')+' '+(c.cidade||'')).toLowerCase().includes(q.toLowerCase()));$('cl-list').innerHTML=f.length?f.map(c=>{
     const mapa=(c.lat&&c.lng)?` · <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" style="color:var(--acc)">🗺️ mapa</a>`:'';
@@ -3320,7 +3361,7 @@ async function novaRotaUI(){
     sb.from('veiculos').select('id,placa,modelo').eq('ativo',true).order('placa'),
     sb.from('clientes_dist').select('id,nome,cidade,lat,lng').eq('ativo',true).order('nome'),
     sb.from('notas_fiscais').select('id,numero,cliente_id,vendedor,comprador').order('numero')]);
-  $('main').innerHTML=`<button class="btn sec" id="nr-volt">← Voltar</button><h1 class="pg">Nova rota</h1>
+  $('main').innerHTML=`<button type="button" class="btn sec" id="nr-volt">← Voltar</button><h1 class="pg">Nova rota</h1>
   <div class="sec"><label>Data da operação</label><input id="nr-data" type="date" value="${hoje()}">
   <label>Motorista</label><select id="nr-mot">${opt((mots||[]).map(m=>[m.id,m.nome]),null)}</select>
   <label>Veículo (todos os caminhões do grupo)</label><select id="nr-veic">${opt((veics||[]).map(v=>[v.id,(v.placa||'')+' — '+(v.modelo||'')]),null)}</select></div>
@@ -3328,8 +3369,8 @@ async function novaRotaUI(){
   <div class="sec"><h3>2 · Notas fiscais</h3><div id="nr-nfs"><p class="hint">Selecione os clientes acima — depois toque em “+ NF” para lançar a nota de cada um (nº, vendedor, comprador).</p></div></div>
   <div class="sec" id="nr-seq-sec" style="display:none"><h3>3 · Sequência de visitas</h3>
   <p class="hint">Sugestão por distância (vizinho mais próximo) — ajuste com ▲▼</p>
-  <button class="btn sec" id="nr-otim">⚡ Otimizar sequência</button><div id="nr-seq" style="margin-top:8px"></div>
-  <button class="btn" id="nr-salvar" style="margin-top:12px">💾 Salvar e distribuir ao motorista</button><div class="msg" id="nr-msg"></div></div>`;
+  <button type="button" class="btn sec" id="nr-otim">⚡ Otimizar sequência</button><div id="nr-seq" style="margin-top:8px"></div>
+  <button type="button" class="btn" id="nr-salvar" style="margin-top:12px">💾 Salvar e distribuir ao motorista</button><div class="msg" id="nr-msg"></div></div>`;
   $('nr-volt').onclick=()=>go('rotas');
   const renderCls=q=>{
     const f=(cls||[]).filter(c=>!q||(c.nome+' '+(c.cidade||'')).toLowerCase().includes(q.toLowerCase()));
@@ -3342,8 +3383,8 @@ async function novaRotaUI(){
     $('nr-nfs').innerHTML=[...st.clientes].map(cid=>{
       const c=cls.find(x=>x.id===cid);const minhas=(nfs||[]).filter(n=>n.cliente_id===cid);
       return `<div style="padding:8px;background:var(--field);border:1px solid #333;border-radius:10px;margin-bottom:6px"><b style="font-size:13px">${esc(c.nome)}</b>
-      ${minhas.length?minhas.map(n=>`<p class="hint">NF ${esc(n.numero)} · ${esc(n.vendedor||'—')}${n.comprador?' · '+esc(n.comprador):''} <button class="btn mini" data-delnf="${n.id}">🗑</button></p>`).join(''):'<p class="hint">sem NF lançada</p>'}
-      <button class="btn mini" data-addnf="${cid}" style="margin-top:4px">➕ NF</button></div>`}).join('');
+      ${minhas.length?minhas.map(n=>`<p class="hint">NF ${esc(n.numero)} · ${esc(n.vendedor||'—')}${n.comprador?' · '+esc(n.comprador):''} <button type="button" class="btn mini" data-delnf="${n.id}">🗑</button></p>`).join(''):'<p class="hint">sem NF lançada</p>'}
+      <button type="button" class="btn mini" data-addnf="${cid}" style="margin-top:4px">➕ NF</button></div>`}).join('');
     $('nr-nfs').querySelectorAll('[data-addnf]').forEach(b=>b.onclick=()=>{
       const c=cls.find(x=>x.id===b.dataset.addnf);
       openModal('NF — '+c.nome,[{id:'nf-num',label:'Nº da NF *'},{id:'nf-vend',label:'Vendedor'},{id:'nf-comp',label:'Comprador'}],async v=>{
@@ -3363,7 +3404,7 @@ async function novaRotaUI(){
     const linha=()=>{
       $('nr-seq').innerHTML=st.seq.map((cid,i)=>{
         const c=cls.find(x=>x.id===cid);
-        return `<div style="display:flex;align-items:center;gap:8px;padding:7px;background:var(--field);border:1px solid #333;border-radius:10px;margin-bottom:5px"><b style="width:22px;color:var(--acc)">${i+1}</b><span style="flex:1;font-size:13px">${esc(c.nome)}</span><button class="btn mini" data-up="${i}" ${i===0?'disabled':''}>▲</button><button class="btn mini" data-dn="${i}" ${i===st.seq.length-1?'disabled':''}>▼</button></div>`}).join('');
+        return `<div style="display:flex;align-items:center;gap:8px;padding:7px;background:var(--field);border:1px solid #333;border-radius:10px;margin-bottom:5px"><b style="width:22px;color:var(--acc)">${i+1}</b><span style="flex:1;font-size:13px">${esc(c.nome)}</span><button type="button" class="btn mini" data-up="${i}" ${i===0?'disabled':''}>▲</button><button type="button" class="btn mini" data-dn="${i}" ${i===st.seq.length-1?'disabled':''}>▼</button></div>`}).join('');
       $('nr-seq').querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{const i=+b.dataset.up;[st.seq[i-1],st.seq[i]]=[st.seq[i],st.seq[i-1]];linha()});
       $('nr-seq').querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{const i=+b.dataset.dn;[st.seq[i+1],st.seq[i]]=[st.seq[i],st.seq[i+1]];linha()});
     };
@@ -3400,7 +3441,7 @@ async function novaRotaUI(){
   renderCls('');renderNfs();renderSeq();
 }
 PAGES.rotas=async el=>{
-  el.innerHTML=`<h1 class="pg">Rotas</h1><div class="sec"><button class="btn" id="rt-add">🗺️ Nova rota</button></div><div id="rt-list">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Rotas</h1><div class="sec"><button type="button" class="btn" id="rt-add">🗺️ Nova rota</button></div><div id="rt-list">${empty('Carregando…')}</div>`;
   $('rt-add').onclick=novaRotaUI;
   const carregar=async()=>{
     const {data:l}=await sb.from('rotas').select('*, motoristas(nome), veiculos(placa,modelo)').order('data',{ascending:false}).limit(60);
@@ -3424,7 +3465,7 @@ async function pagRotaDetalhe(id){
     const lista=(itens||[]).filter(i=>i.nf_id===e.nf_id);
     return `<div class="sec"><b>📦 Carga — NF ${esc(e.notas_fiscais?.numero||'')} · ${esc(e.clientes_dist?.nome||'')}</b> ${e.carga_ok?'<span class="tag ok">conferida pelo motorista</span>':'<span class="tag">pendente</span>'}
     ${lista.map((it,ix)=>{const m=(e.carga||[])[ix];return `<p class="hint" style="font-size:12px">${m&&m.ok?'✅':'⬜'} ${esc(it.descricao)} — <b style="color:var(--ink)">${fmtKm(it.qtd)} ${esc(it.unid)}</b></p>`}).join('')}</div>`}).join('');
-  let html=`<button class="btn sec" id="rd-volt">← Voltar</button><h1 class="pg">Rota ${fmtD(r.data)}</h1>
+  let html=`<button type="button" class="btn sec" id="rd-volt">← Voltar</button><h1 class="pg">Rota ${fmtD(r.data)}</h1>
   <div class="sec"><b>${esc(r.motoristas?.nome||'—')}</b> · ${esc(r.veiculos?.placa||'—')} <span class="tag">${({aberto:'ABERTO',aceito:'ACEITO',em_rota:'EM ROTA',finalizado:'FINALIZADO',cancelado:'CANCELADO'}[r.status])||r.status}</span>
   ${r.km_inicial!=null?`<p class="hint">Km ${fmtKm(r.km_inicial)}${r.km_final!=null?' → '+fmtKm(r.km_final)+' · percorrido '+fmtKm(Number(r.km_final)-Number(r.km_inicial)):''}</p>`:''}</div>
   ${cargaHtml}
@@ -3440,13 +3481,13 @@ async function pagRotaDetalhe(id){
     const pendentes=(ents||[]).filter(e=>e.status==='pendente'||e.status==='andamento');
     html+=`<div class="sec"><h3>Ações da gerência</h3>
       <div style="display:grid;gap:8px">
-        ${pendentes.length?`<button class="btn sec" id="rd-baixa" style="border-color:var(--acc);color:var(--acc)">📝 Dar baixa manual (${pendentes.length} pendente(s))</button>`:''}
-        <button class="btn sec" id="rd-cancel" style="border-color:#5c3a2e;color:#e88">❌ Cancelar roteiro</button>
+        ${pendentes.length?`<button type="button" class="btn sec" id="rd-baixa" style="border-color:var(--acc);color:var(--acc)">📝 Dar baixa manual (${pendentes.length} pendente(s))</button>`:''}
+        <button type="button" class="btn sec" id="rd-cancel" style="border-color:#5c3a2e;color:#e88">❌ Cancelar roteiro</button>
       </div>
       <p class="hint" style="margin:8px 0 0">Em rota, só o motorista mexe — a gerência fica de olho.</p></div>`;
   }
   if(ME.perfil==='gerencia'&&['cancelado','aberto','aceito'].includes(r.status)){
-    html+=`<div class="sec"><button class="btn sec" id="rd-excluir" style="border-color:#8b3a3a;color:#ff9b9b">🗑 Excluir roteiro (apaga de vez)</button></div>`;
+    html+=`<div class="sec"><button type="button" class="btn sec" id="rd-excluir" style="border-color:#8b3a3a;color:#ff9b9b">🗑 Excluir roteiro (apaga de vez)</button></div>`;
   }
   $('main').innerHTML=html;
   $('rd-volt').onclick=()=>go(PAGE==='roteiros'?'roteiros':'rotas');
@@ -3457,7 +3498,7 @@ async function pagRotaDetalhe(id){
     const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
     mm.innerHTML=`<h3>🗑 Excluir roteiro?</h3>
       <p style="font-size:13px;color:#dddddd">O roteiro e todas as entregas dele serão <b>apagados de vez</b> do banco. Não dá para desfazer.</p>
-      <div class="mrow"><button class="btn sec" id="m-cancel">Voltar</button><button class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="m-ok" style="background:#8b3a3a">Excluir</button></div>`;
     w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     document.getElementById('m-ok').onclick=async()=>{
@@ -3481,7 +3522,7 @@ async function pagRotaDetalhe(id){
           </div>
           <input class="bx-motivo" data-e="${e.id}" placeholder="Motivo (obrigatório se recusado)" style="width:100%;margin-top:6px;display:none;background:var(--field);color:var(--ink);border:1px solid #333;border-radius:8px;padding:8px 10px;font-size:13px">
         </div>`).join('')}</div>
-      <div class="mrow"><button class="btn sec" id="m-cancel">Cancelar</button><button class="btn" id="bx-ok">Dar baixa</button></div>`;
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="bx-ok">Dar baixa</button></div>`;
     w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     mm.querySelectorAll(`input[type=radio]`).forEach(r=>r.onchange=()=>{
@@ -3526,7 +3567,7 @@ PAGES['minha-rota']=async el=>{
   // a rota só abre depois da jornada iniciada
   const {data:aberta}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
   if(!aberta){
-    w.innerHTML=`<div class="sec" style="text-align:center;padding:28px 16px"><div style="font-size:42px">🛣️</div><h3 style="margin:10px 0 6px">Inicie a jornada primeiro</h3><p class="hint" style="margin:0 0 14px">Sua rota aparece aqui depois que você inicia a jornada (com o roteiro e o km inicial).</p><button class="btn" id="mr-irj">🛣️ Ir para minha jornada</button></div>`;
+    w.innerHTML=`<div class="sec" style="text-align:center;padding:28px 16px"><div style="font-size:42px">🛣️</div><h3 style="margin:10px 0 6px">Inicie a jornada primeiro</h3><p class="hint" style="margin:0 0 14px">Sua rota aparece aqui depois que você inicia a jornada (com o roteiro e o km inicial).</p><button type="button" class="btn" id="mr-irj">🛣️ Ir para minha jornada</button></div>`;
     const b=document.getElementById('mr-irj');if(b)b.onclick=()=>go('jornada');
     return;
   }
@@ -3544,8 +3585,8 @@ PAGES['minha-rota']=async el=>{
     const c=e.clientes_dist||{},nf=e.notas_fiscais||{};
     const mapa=(c.lat&&c.lng)?`<a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" style="color:var(--acc)">🗺️ Abrir no mapa</a>`:'';
     const st={pendente:['','Aguardando'],andamento:['info','Você chegou'],entregue:['ok','Entregue'],nao_realizada:['bad','Não realizada']}[e.status];
-    const acao=e.status==='pendente'?`<button class="btn" data-chega="${e.id}">🚶 Cheguei no cliente</button> <button class="btn sec" data-nao="${e.id}">❌ Não realizada</button>`
-      :e.status==='andamento'?`<button class="btn" data-ent="${e.id}">✅ Entregar (foto do comprovante)</button> <button class="btn sec" data-nao="${e.id}">❌ Não realizada</button>`:'';
+    const acao=e.status==='pendente'?`<button type="button" class="btn" data-chega="${e.id}">🚶 Cheguei no cliente</button> <button type="button" class="btn sec" data-nao="${e.id}">❌ Não realizada</button>`
+      :e.status==='andamento'?`<button type="button" class="btn" data-ent="${e.id}">✅ Entregar (foto do comprovante)</button> <button type="button" class="btn sec" data-nao="${e.id}">❌ Não realizada</button>`:'';
     const itensPed=(e.carga||[]).length?(e.carga||[]).map(it=>it.qtd+' '+(it.unid||'UN')+' '+it.descricao).join(' · '):'';
     return `<div class="sec" style="${prox&&prox.id===e.id?'border-left:3px solid var(--acc)':''}">
       <b>${e.ordem}. ${esc(c.nome||'—')}</b> <span class="tag ${st[0]}">${st[1]}</span>
@@ -3560,8 +3601,8 @@ PAGES['minha-rota']=async el=>{
   };
   // ABAS: A fazer / Entregas realizadas
   const abas=`<div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap">
-    <button class="btn mini mrab on" data-a="fazer">📋 A fazer (${pendentes.length})</button>
-    <button class="btn mini mrab" data-a="feitas">✅ Entregas realizadas (${concluidos.length})</button></div>`;
+    <button type="button" class="btn mini mrab on" data-a="fazer">📋 A fazer (${pendentes.length})</button>
+    <button type="button" class="btn mini mrab" data-a="feitas">✅ Entregas realizadas (${concluidos.length})</button></div>`;
   html+=abas;
   html+=`<div id="mr-fazer">`;
   html+=prox?card(prox):'';
@@ -3573,17 +3614,17 @@ PAGES['minha-rota']=async el=>{
     return `<div style="padding:10px 4px;border-bottom:1px solid #242424;font-size:13px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
         <span><b>${esc(c.nome||'—')}</b> ${st}</span>
-        <button class="btn mini" data-edit="${e.id}">✏️ Editar</button></div>
+        <button type="button" class="btn mini" data-edit="${e.id}">✏️ Editar</button></div>
       ${e.motivo_recusa?`<div class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo_recusa)}</div>`:''}
       ${e.foto_path?`<div id="mr-foto-${e.id}">${empty('comprovante…')}</div>`:''}
     </div>`}).join('')||empty('Nenhum cliente concluído ainda'))+`</div>`;
   html+=`</div>`;
   // Cliente fora do roteiro (visita extra) — só na aba A fazer
-  html+=`<div class="sec" id="mr-extra-sec"><button class="btn sec" id="mr-extra" style="width:100%">➕ Cliente fora do roteiro</button></div>`;
+  html+=`<div class="sec" id="mr-extra-sec"><button type="button" class="btn sec" id="mr-extra" style="width:100%">➕ Cliente fora do roteiro</button></div>`;
   // Roteiro concluído → botão FINALIZAR ROTA (leva para a jornada)
   const todasFeitas=(ents||[]).length>0&&(ents||[]).every(e=>e.status==='entregue'||e.status==='nao_realizada');
   if(rota.status==='em_rota'&&todasFeitas){
-    html+=`<div class="sec" style="text-align:center;border:2px solid var(--acc)"><div style="font-size:38px">🎉</div><h3 style="margin:8px 0">ROTEIRO FINALIZADO</h3><p class="hint">Todas as ${ents.length} paradas concluídas. Toque para encerrar a rota:</p><button class="btn" id="mr-finalizar">🏁 FINALIZAR ROTA</button><div class="msg" id="mr-msg"></div></div>`;
+    html+=`<div class="sec" style="text-align:center;border:2px solid var(--acc)"><div style="font-size:38px">🎉</div><h3 style="margin:8px 0">ROTEIRO FINALIZADO</h3><p class="hint">Todas as ${ents.length} paradas concluídas. Toque para encerrar a rota:</p><button type="button" class="btn" id="mr-finalizar">🏁 FINALIZAR ROTA</button><div class="msg" id="mr-msg"></div></div>`;
   }
   w.innerHTML=html;
   // abas: alternar
@@ -3605,7 +3646,7 @@ PAGES['minha-rota']=async el=>{
         <p class="hint" style="margin:0 0 8px">Adiciona o cliente como parada extra nesta rota (fica no fim da lista).</p>
         <input id="ex-busca" placeholder="🔍 buscar cliente..." style="width:100%">
         <div id="ex-lista" style="max-height:260px;overflow-y:auto;margin-top:8px"></div>
-        <div class="mrow"><button class="btn sec" id="m-cancel">Fechar</button></div>`;
+        <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Fechar</button></div>`;
       w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
       document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
       const render=q=>{
@@ -3640,7 +3681,7 @@ PAGES['minha-rota']=async el=>{
       mm.innerHTML=`<h3>✏️ Editar entrega — ${esc(e.clientes_dist?.nome||'')}</h3>
         <p class="hint" style="margin:0 0 8px">Tire a foto certa do comprovante — ela substitui a anterior.</p>`
         +blocoFoto('en-foto','Comprovante')
-        +`<div class="mrow"><button class="btn sec" id="en-cancel">Cancelar</button><button class="btn" id="en-ok">✅ Salvar</button></div>`;
+        +`<div class="mrow"><button type="button" class="btn sec" id="en-cancel">Cancelar</button><button type="button" class="btn" id="en-ok">✅ Salvar</button></div>`;
       w.classList.add('open');w.onclick=ev=>{if(ev.target===w)w.classList.remove('open')};
       $('en-cancel').onclick=()=>w.classList.remove('open');
       const getF=bindFoto('en-foto');
@@ -3660,7 +3701,7 @@ PAGES['minha-rota']=async el=>{
         <label>Novo motivo (obrigatório)</label><textarea id="er-mot" rows="3" style="width:100%">${esc(e.motivo_recusa||'')}</textarea>
         <p class="hint" style="margin:6px 0">Ou marque que a entrega foi feita (pede a foto):</p>`
         +blocoFoto('en-foto','Comprovante')
-        +`<div class="mrow"><button class="btn sec" id="en-cancel">Cancelar</button><button class="btn" id="er-ok">❌ Salvar recusa</button><button class="btn" id="er-ent">✅ Foi entregue</button></div>`;
+        +`<div class="mrow"><button type="button" class="btn sec" id="en-cancel">Cancelar</button><button type="button" class="btn" id="er-ok">❌ Salvar recusa</button><button type="button" class="btn" id="er-ent">✅ Foi entregue</button></div>`;
       w.classList.add('open');w.onclick=ev=>{if(ev.target===w)w.classList.remove('open')};
       $('en-cancel').onclick=()=>w.classList.remove('open');
       const getF=bindFoto('en-foto');
@@ -3696,7 +3737,7 @@ PAGES['minha-rota']=async el=>{
     openModal('Entrega — '+(e.clientes_dist?.nome||''),[],null);
     const wv=document.getElementById('modal');
     wv.innerHTML=`<h3>Entrega — ${esc(e.clientes_dist?.nome||'')}</h3>`+blocoFoto('en-foto','Comprovante')+
-      `<div class="mrow"><button class="btn sec" id="en-cancel">Cancelar</button><button class="btn" id="en-ok">✅ Confirmar entrega</button></div>`;
+      `<div class="mrow"><button type="button" class="btn sec" id="en-cancel">Cancelar</button><button type="button" class="btn" id="en-ok">✅ Confirmar entrega</button></div>`;
     $('en-cancel').onclick=()=>document.getElementById('modal-wrap').classList.remove('open');
     const getF=bindFoto('en-foto');
     $('en-ok').onclick=async()=>{
@@ -4005,10 +4046,10 @@ PAGES.nfs=async el=>{
         <span style="flex:1">${esc(it.descricao)}${falta?' <span class="tag">não estava no pedido</span>':''}${dif?` <b style="color:#e0a052">pedido: ${esc(pj.qtd)}</b>`:''}</span>
         <input data-q="${i}-${j}" type="number" step="0.001" inputmode="decimal" value="${it.qtd}" style="width:80px;background:var(--card);color:var(--ink);border:1px solid #444;border-radius:6px;padding:4px">
         <select data-u="${i}-${j}" style="background:var(--card);color:var(--ink);border:1px solid #444;border-radius:6px;padding:4px">${opt([['UN','UN'],['KG','KG']],it.unid)}</select>
-        <button class="btn mini" data-del="${i}-${j}">🗑</button></div>`}).join('')}
+        <button type="button" class="btn mini" data-del="${i}-${j}">🗑</button></div>`}).join('')}
       ${ped?ped.itens.filter(pj=>!r.itens.some(it=>it.codigo===pj.codigo)).map(pj=>`<div style="display:flex;gap:6px;padding:3px 0;font-size:12px;color:#e0a052"><span style="flex:1">${esc(pj.descricao)} — <b>no pedido (${esc(pj.qtd)}) mas NÃO veio na NF</b></span></div>`).join(''):''}
       </div></div>`}).join('')+
-      `<button class="btn" id="nf-salvar">💾 Salvar ${lote.length} NF(s) no sistema</button></div>`;
+      `<button type="button" class="btn" id="nf-salvar">💾 Salvar ${lote.length} NF(s) no sistema</button></div>`;
     $('nf-conf').querySelectorAll('[data-q]').forEach(inp=>inp.oninput=()=>{const [i,j]=inp.dataset.q.split('-').map(Number);lote[i].itens[j].qtd=numBR(inp.value)??0});
     $('nf-conf').querySelectorAll('[data-u]').forEach(sel=>sel.onchange=()=>{const [i,j]=sel.dataset.u.split('-').map(Number);lote[i].itens[j].unid=sel.value});
     $('nf-conf').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const [i,j]=b.dataset.del.split('-').map(Number);lote[i].itens.splice(j,1);if(!lote[i].itens.length)lote.splice(i,1);renderConf()});
@@ -4101,7 +4142,7 @@ PAGES.carga=async el=>{
         <input type="checkbox" data-ck="${k}-${ix}" ${marcado?'checked':''} style="width:18px;height:18px;accent-color:var(--acc)">
         <span style="flex:1;font-size:13px">${esc(it.descricao)}</span>
         <b style="color:var(--acc)">${fmtKm(it.qtd)} ${esc(it.unid)}</b></label>`}).join('')}</div>
-      <button class="btn ${g.ok?'sec':''}" data-ok="${k}" style="margin-top:6px">${g.ok?'↺ Reabrir':'✅ Conferi tudo'}</button></div>`;
+      <button type="button" class="btn ${g.ok?'sec':''}" data-ok="${k}" style="margin-top:6px">${g.ok?'↺ Reabrir':'✅ Conferi tudo'}</button></div>`;
     }
     w.innerHTML=html;
     w.querySelectorAll('[data-ck]').forEach(ch=>ch.onchange=()=>{
@@ -4205,7 +4246,7 @@ PAGES['pedidos-rota']=async el=>{
       <div style="margin-top:6px">${p.itens.map((it,j)=>`<div style="display:flex;gap:6px;align-items:center;padding:3px 0;font-size:12px">
         <span style="flex:1">${esc(it.descricao)}</span>
         <input data-q="${i}-${j}" type="number" step="0.001" inputmode="decimal" value="${it.qtd}" style="width:80px;background:var(--card);color:var(--ink);border:1px solid #444;border-radius:6px;padding:4px">
-        <button class="btn mini" data-del="${i}-${j}">🗑</button></div>`).join('')}</div></div>`}).join('')+'</div>';
+        <button type="button" class="btn mini" data-del="${i}-${j}">🗑</button></div>`).join('')}</div></div>`}).join('')+'</div>';
     $('pr-conf').querySelectorAll('[data-q]').forEach(inp=>inp.oninput=()=>{const [i,j]=inp.dataset.q.split('-').map(Number);ST.lote[i].itens[j].qtd=numBR(inp.value)??0});
     $('pr-conf').querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const [i,j]=b.dataset.del.split('-').map(Number);ST.lote[i].itens.splice(j,1);if(!ST.lote[i].itens.length)ST.lote.splice(i,1);renderConf()});
     renderGere();
@@ -4227,9 +4268,9 @@ PAGES['pedidos-rota']=async el=>{
     <label>Caminhão</label><select id="pr-veic">${opt((veics||[]).map(v=>[v.id,(v.placa||'')+' — '+(v.modelo||'')]),null)}</select>
     <label>Motorista</label><select id="pr-mot">${opt((mots||[]).map(m=>[m.id,m.nome]),null)}</select>
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-      <button class="btn" id="pr-btn-carga">📄 Relatório de carga</button>
-      <button class="btn" id="pr-btn-cargac">📋 Carga por cliente</button>
-      <button class="btn" id="pr-btn-rota">🗺️ Roteiro do motorista</button>
+      <button type="button" class="btn" id="pr-btn-carga">📄 Relatório de carga</button>
+      <button type="button" class="btn" id="pr-btn-cargac">📋 Carga por cliente</button>
+      <button type="button" class="btn" id="pr-btn-rota">🗺️ Roteiro do motorista</button>
     </div><div class="msg" id="pr-msg"></div></div>`;
     const salvarRota=async()=>{
       const num=parseInt($('pr-num').value),vid=$('pr-veic').value,mid=$('pr-mot').value;
