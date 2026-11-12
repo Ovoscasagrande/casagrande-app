@@ -698,6 +698,15 @@ function empty(t){return `<div class="empty">${t}</div>`}
 function err(e){return (e&&e.message)?e.message:'Erro inesperado'}
 /* ============ boot ============ */
 window.addEventListener('load',init);
+// forçar atualização do service worker (evita app preso em versão velha no celular)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(regs=>{
+    regs.forEach(r=>r.update().catch(()=>{}));
+  });
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!sessionStorage.getItem('sw-reloaded')){sessionStorage.setItem('sw-reloaded','1');location.reload()}
+  });
+}
 async function mostraSeloConvite(){
   if(!window.__convite)window.__convite=localStorage.getItem('cg-convite')||null;
   if(!window.__convite)return;
