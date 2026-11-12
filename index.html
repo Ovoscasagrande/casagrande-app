@@ -3941,11 +3941,13 @@ async function geraPdfCarga(rota,lote){
     return y+6.5;
   };
   let y=titulo(16);y=thead(y);
-  // somar por produto (código)
+  // somar por produto (código); descrição completa vem do cadastro de produtos (com a gramatura)
+  const {data:prods}=await sb.from('produtos').select('sku,nome');
+  const nomePorSku={};(prods||[]).forEach(p=>{if(p.sku)nomePorSku[p.sku]=p.nome});
   const tot={};
   for(const p of lote)for(const it of p.itens){
     const key=it.codigo||it.descricao.toUpperCase();
-    if(!tot[key])tot[key]={codigo:it.codigo||'',desc:(it.descricao||'').toUpperCase(),qtd:0,emb:'1,00',un:(it.unid||'UN')};
+    if(!tot[key])tot[key]={codigo:it.codigo||'',desc:(nomePorSku[it.codigo]||(it.descricao||'')).toUpperCase(),qtd:0,emb:'1,00',un:(it.unid||'UN')};
     tot[key].qtd+=Number(it.qtd)||0;
   }
   const linhas=Object.values(tot).sort((a,b)=>a.codigo.localeCompare(b.codigo));
@@ -3973,6 +3975,8 @@ async function geraPdfCarga(rota,lote){
 }
 async function geraPdfCargaCliente(rota,lote){
   // RELATÓRIO DE CARGA POR CLIENTE (modelo ERP): bloco por cliente + tabela de itens + Peso
+  const {data:prods}=await sb.from('produtos').select('sku,nome');
+  const nomePorSku={};(prods||[]).forEach(p=>{if(p.sku)nomePorSku[p.sku]=p.nome});
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF();
   const X0=12,W=186;
@@ -4018,7 +4022,7 @@ async function geraPdfCargaCliente(rota,lote){
     let peso=0;
     p.itens.forEach(it=>{
       if(y>278){doc.addPage();y=titulo()}
-      const desc=(it.descricao||'').toUpperCase().slice(0,52);
+      const desc=((nomePorSku[it.codigo]||it.descricao||'')).toUpperCase().slice(0,52);
       doc.text(String(it.codigo||'—'),X0+1.5,y);
       doc.text(desc,X0+16,y);
       doc.text(it.unid||'UN',X0+116,y);
