@@ -1617,7 +1617,10 @@ PAGES['com-pedido']=async el=>{
   let itens=[];
   const tabelaDo=()=>{
     const c=(clis||[]).find(x=>x.id===sel.value);
-    const t=c?(c.tabela||'Varejo'):'Varejo';
+    let t=c?(c.tabela||'Varejo'):'Varejo';
+    // normalizar: o seed grava 'redes'/'super'/'varejo' minúsculo; as chaves do jsonb são Capitalizadas
+    const map={varejo:'Varejo',super:'Supermercado',supermercado:'Supermercado',redes:'Redes'};
+    t=map[t.toLowerCase()]||t;
     $('sp-tabela').innerHTML=c?`Tabela: <b style="color:var(--primary-color)">${t}</b> · Curva: ${c.curva||'—'}`:'';
     return t;
   };
