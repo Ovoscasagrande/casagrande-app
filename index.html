@@ -843,6 +843,7 @@ async function afterLogin(){
     }
   }
   buildNav();applyEmpBtn();bindEmpMenu();$('login').classList.add('hide');$('app').classList.remove('hide');
+  if(ME.perfil==='vendedor'){go('com-rota')}
   atualizaBadgeOffline();filaProcessa();
   // sincronização do perfil: a cada 60s verifica se o perfil mudou no banco
   // (ex.: pendente aprovado pela gerência — o menu atualiza sozinho, sem reabrir o app)
@@ -869,7 +870,8 @@ function menusPara(){
     motorista:['home','manuais','jornada','gastos','meu-historico','recnovo','avisos','multas'],
     promotor:['home','manuais','pro-roteiro','pro-avulsa','jornada','gastos','meu-historico','avisos','multas'],
     conferente:['home','manuais','jornadas','conferencia','despesas','recebimentos','avisos','multas'],
-    mecanico:['home','manuais','os']
+    mecanico:['home','manuais','os'],
+    vendedor:['home','com-rota','com-pedido','com-curvac','promotoria','com-metas']
   };
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
@@ -883,6 +885,14 @@ function menusPara(){
     if(ex.includes('motorista')&&!m.includes('jornada'))m.push('jornada','gastos');
     if(ex.includes('promotor')&&!m.includes('pro-roteiro'))m.push('pro-roteiro','pro-avulsa');
     if((ex.includes('motorista')||ex.includes('promotor'))&&!m.includes('meu-historico'))m.push('meu-historico');
+    if(ex.includes('vendedor')&&!m.includes('com-rota'))m.push('com-rota','com-pedido','com-curvac','com-metas');
+  }
+  if(ME.perfil==='gerencia'&&(ME.extra||[]).includes('vendedor')){
+    const tb=document.getElementById('tabbar');
+    if(!tb){const t=document.createElement('nav');t.id='tabbar';t.className='tabbar';document.body.appendChild(t)}
+    document.getElementById('tabbar').innerHTML=[['com-rota','map-pin','Rota'],['com-pedido','calculator','Pedido'],['com-curvac','message-circle','Curva C'],['promotoria','store','Promotoria'],['com-metas','target','Metas']].map(t=>`<button type="button" data-tb="${t[0]}" class="${PAGE===t[0]?'on':''}"><i data-lucide="${t[1]}"></i>${t[2]}</button>`).join('');
+    document.getElementById('tabbar').querySelectorAll('[data-tb]').forEach(b=>b.onclick=()=>go(b.dataset.tb));
+    document.body.classList.remove('sem-tabbar');
   }
   if(!ME.master)m=m.filter(x=>x!=='convites');
   if(e!=='OVOS'&&ME.perfil!=='gerencia')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria'&&x!=='pro-avulsa');
@@ -892,7 +902,7 @@ function menusPara(){
   if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
   return m;
 }
-const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',convites:'Convites',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento','pedidos-rota':'Pedidos & Rota',roteiros:'Roteiros'};
+const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',convites:'Convites','com-rota':'Minha rota','com-pedido':'Pedido','com-curvac':'Curva C','com-metas':'Metas',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento','pedidos-rota':'Pedidos & Rota',roteiros:'Roteiros'};
 function buildNav(){
   if(window.lucide)lucide.createIcons();
   const items=menusPara();
@@ -904,7 +914,8 @@ function buildNav(){
       motorista:[['home','home','Início'],['minha-rota','route','Rota'],['jornada','truck','Jornada'],['gastos','wallet','Gastos'],['meu-historico','chart','Meus dados']],
       promotor:[['home','home','Início'],['pro-roteiro','route','Roteiro'],['jornada','truck','Jornada'],['gastos','wallet','Gastos'],['meu-historico','chart','Meus dados']],
       conferente:[['home','home','Início'],['jornadas','list','Jornadas'],['conferencia','clipboard-check','Conferir'],['despesas','wallet','Despesas']],
-      mecanico:[['home','home','Início'],['os','wrench','Oficina']]
+      mecanico:[['home','home','Início'],['os','wrench','Oficina']],
+      vendedor:[['com-rota','map-pin','Rota'],['com-pedido','calculator','Pedido'],['com-curvac','message-circle','Curva C'],['promotoria','store','Promotoria'],['com-metas','target','Metas']]
     }[ME.perfil]||[];
     const emps=ME.extra||[];
     if(ME.perfil==='motorista'&&emps.includes('promotor')){}
@@ -924,7 +935,7 @@ function buildNav(){
   $('nav').querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{go(b.dataset.pg);closeNav()});
   $('nv-out').onclick=logout;
 }
-const ICONS={hoje:'☀️',manuais:'📘',convites:'🎟️',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦','pedidos-rota':'📋',roteiros:'🧭'};
+const ICONS={hoje:'☀️',manuais:'📘',convites:'🎟️','com-rota':'📍','com-pedido':'🧮','com-curvac':'💬','com-metas':'🎯',promotoria:'🏪','pro-roteiro':'📍','pro-avulsa':'🚶','pro-cliente':'🏪','meu-historico':'📈',relatorios:'📊',home:'🏠',recebimentos:'📥',tipos:'🏷️',recnovo:'📥',veiculos:'🚚',motoristas:'🧑‍✈️',jornadas:'🛣️',conferencia:'📋',abastecimentos:'⛽',despesas:'💰',avisos:'📣',os:'🔧',multas:'🚨',documentos:'📄',usuarios:'👥',auditoria:'🧾',jornada:'🛣️',gastos:'💰',rotas:'🗺️',clientes:'👥',produtos:'📦','minha-rota':'📍',nfs:'📄',carga:'📦','pedidos-rota':'📋',roteiros:'🧭'};
 $('burger').onclick=()=>{$('nav').classList.add('open');$('scrim').classList.remove('hide')};
 $('scrim').onclick=closeNav;
 function closeNav(){$('nav').classList.remove('open');$('scrim').classList.add('hide')}
@@ -1506,6 +1517,255 @@ PAGES.convites=async el=>{
     carregar();
   };
   carregar();
+};
+/* ============ COMERCIAL — ABA CURVA C ============ */
+PAGES['com-curvac']=async el=>{
+  el.innerHTML=`<h1 class="pg">Curva C — reativação</h1>
+  <div class="sec"><h3>📞 Auditoria: clientes sem telefone</h3><div id="cc-sem">${empty('Carregando…')}</div></div>
+  <div class="sec"><h3>💬 Scripts prontos</h3>
+    <label>1. Reativação frios</label><textarea id="cc-t1" rows="3" style="width:100%">Olá [CLIENTE]! Aqui é [VENDEDOR] da Casagrande. Queijo ralado e manteiga Teixeira com preço especial essa semana. Posso separar seu pedido?</textarea>
+    <label>2. Pão de alho (Distribuidora)</label><textarea id="cc-t2" rows="3" style="width:100%">[CLIENTE], tudo bem? [VENDEDOR] da Casagrande! O Pão de Alho Reserva One está com condição especial. Quer reservar?</textarea>
+    <label>3. Ovos/caipira (OVOS)</label><textarea id="cc-t3" rows="3" style="width:100%">[CLIENTE], [VENDEDOR] da Casagrande! Ovos extras e caipira Natureggs com preço de atacado. Separamos pra você?</textarea></div>
+  <div class="sec"><h3>Lista de disparo</h3>
+    <div class="chips" id="cc-filtros">
+      <button type="button" class="chip on" data-f="">Todos</button>
+      <button type="button" class="chip" data-f="com">Com WhatsApp</button>
+      <button type="button" class="chip" data-f="sem">Sem telefone</button>
+    </div>
+    <div id="cc-lista">${empty('Carregando…')}</div></div>`;
+  const {data:clis}=await sb.from('clientes_dist').select('id,nome,cidade,bairro,telefone,fat_hist,produto_fav').order('fat_hist',{ascending:false});
+  const sem=(clis||[]).filter(c=>!c.telefone);
+  const com=(clis||[]).filter(c=>c.telefone);
+  document.getElementById('cc-sem').innerHTML=sem.length?sem.map(c=>`
+    <div style="padding:10px 4px;border-bottom:1px solid var(--divider);font-size:13px">
+      <b>${esc(c.nome)}</b> <span class="hint">${esc(c.cidade||'')} · ${c.fat_hist?'R$ '+Number(c.fat_hist).toLocaleString('pt-BR',{maximumFractionDigits:0}):''}</span>
+      <div style="display:flex;gap:6px;margin-top:6px"><input class="cc-tel" data-c="${c.id}" placeholder="(19) 99999-9999" style="flex:1;padding:8px;font-size:13px"><button type="button" class="btn mini" data-sv="${c.id}">Salvar</button></div>
+    </div>`).join(''):'<p class="hint">Todos os clientes têm telefone ✓</p>';
+  document.getElementById('cc-sem').querySelectorAll('[data-sv]').forEach(b=>b.onclick=async()=>{
+    const inp=document.querySelector(`.cc-tel[data-c="${b.dataset.sv}"]`);
+    const tel=(inp.value||'').trim();
+    if(tel.length<8){toast('Telefone inválido');return}
+    const {error}=await sb.from('clientes_dist').update({telefone:tel}).eq('id',b.dataset.sv);
+    if(error){toast(err(error));return}
+    toast('Telefone salvo ✓');PAGES['com-curvac'](el);
+  });
+  const renderLista=f=>{
+    let l=f==='com'?com:f==='sem'?sem:(clis||[]);
+    document.getElementById('cc-lista').innerHTML=l.map(c=>{
+      const nome=c.nome||'';
+      const zap=c.telefone?`<a class="btn mini" target="_blank" href="https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent('Olá '+nome+'! Aqui é '+ME.nome+' da Casagrande.')}"><i data-lucide="message-circle"></i> Disparar</a>`:'<span class="tag bad">sem telefone</span>';
+      return `<div class="listcard" style="padding:12px">
+      <div class="lc-main">
+        <div class="lc-title" style="font-size:14px"><span>${esc(nome)}</span><span class="tag neutral">${c.fat_hist?'R$ '+Number(c.fat_hist).toLocaleString('pt-BR',{maximumFractionDigits:0}):''}</span></div>
+        <div class="lc-sub">${esc(c.cidade||'')}${c.bairro?' · '+esc(c.bairro):''}</div>
+        <div class="lc-actions">${zap}</div>
+      </div></div>`}).join('')||empty('Nada aqui');
+    if(window.lucide)lucide.createIcons();
+  };
+  renderLista('');
+  document.getElementById('cc-filtros').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    document.getElementById('cc-filtros').querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');renderLista(b.dataset.f)});
+};
+/* ============ COMERCIAL — ABA METAS ============ */
+PAGES['com-metas']=async el=>{
+  el.innerHTML=`<h1 class="pg">🎯 Metas & comissão</h1>
+  <div class="sec"><h3>Simulador mensal</h3>
+    <label>Faturamento presencial (Curva A+B)</label><input id="mt-a" inputmode="numeric" value="40000" style="width:100%">
+    <label>Faturamento WhatsApp (Curva C)</label><input id="mt-c" inputmode="numeric" value="6000" style="width:100%">
+    <label>Margem média %</label><input id="mt-m" inputmode="decimal" value="18" style="width:100%">
+    <div id="mt-res" style="margin-top:12px"></div></div>
+  <div class="sec"><h3>Giro por canal (Distribuidora)</h3>
+    <div class="chips"><button type="button" class="chip on" data-c="0.8">Conservador</button><button type="button" class="chip" data-c="1">Moderado</button><button type="button" class="chip" data-c="1.3">Otimista</button></div>
+    <div id="mt-giro"></div></div>`;
+  const calc=()=>{
+    const a=parseFloat(document.getElementById('mt-a').value)||0;
+    const c=parseFloat(document.getElementById('mt-c').value)||0;
+    const m=(parseFloat(document.getElementById('mt-m').value)||0)/100;
+    const total=a+c, lucro=total*m, pct=comissaoDe(m), com=total*pct;
+    document.getElementById('mt-res').innerHTML=`<div class="kpis">
+      <div class="kpi"><div class="v">${fmtBRL(total)}</div><div class="l">Faturamento</div></div>
+      <div class="kpi"><div class="v">${fmtBRL(lucro)}</div><div class="l">Lucro gerado</div></div>
+      <div class="kpi"><div class="v">${(pct*100).toFixed(1).replace('.',',')}%</div><div class="l">Faixa de comissão</div></div>
+      <div class="kpi"><div class="v" style="color:var(--primary-color)">${fmtBRL(com)}</div><div class="l">Sua comissão/mês</div></div></div>`;
+  };
+  ['mt-a','mt-c','mt-m'].forEach(id=>document.getElementById(id).oninput=calc);
+  calc();
+  const giro=c=>{
+    const base={'Varejo':800,'Supermercado':2500,'Redes':6000};
+    document.getElementById('mt-giro').innerHTML=Object.entries(base).map(([k,v])=>`
+      <div class="lc-row" style="padding:6px 0"><span>${k}</span><b>${Math.round(v*c)} cx/mês</b></div>`).join('');
+  };
+  document.querySelectorAll('.chip[data-c]').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.chip[data-c]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');giro(parseFloat(b.dataset.c))});
+  giro(1);
+};
+/* ============ COMERCIAL — ABA PEDIDO (simulador) ============ */
+const FAIXAS=[[0.15,0],[0.16,0.005],[0.20,0.01],[0.25,0.015],[Infinity,0.02]];
+const comissaoDe=m=>{for(const [lim,pct] of FAIXAS){if(m<lim)return pct}return 0.02};
+PAGES['com-pedido']=async el=>{
+  el.innerHTML=`<h1 class="pg">Simulador de pedido</h1>
+  <div class="sec"><label>Cliente</label><select id="sp-cli" style="width:100%"></select>
+  <div id="sp-tabela" class="hint" style="margin-top:6px"></div></div>
+  <div id="sp-itens">${empty('Escolha o cliente para carregar a tabela')}</div>
+  <div id="sp-resumo"></div>`;
+  const {data:clis}=await sb.from('clientes_dist').select('id,nome,tabela,curva').order('nome');
+  const {data:prods}=await sb.from('produtos').select('sku,nome,un,custo,tabelas,queima').eq('empresa','DISTRIBUIDORA').order('nome');
+  const sel=$('sp-cli');
+  sel.innerHTML='<option value="">— escolha o cliente —</option>'+(clis||[]).map(c=>`<option value="${c.id}" ${window.__pedCliente===c.id?'selected':''}>${esc(c.nome)}</option>`).join('');
+  let itens=[];
+  const tabelaDo=()=>{
+    const c=(clis||[]).find(x=>x.id===sel.value);
+    const t=c?(c.tabela||'Varejo'):'Varejo';
+    $('sp-tabela').innerHTML=c?`Tabela: <b style="color:var(--primary-color)">${t}</b> · Curva: ${c.curva||'—'}`:'';
+    return t;
+  };
+  const calc=()=>{
+    let rec=0,cmv=0;
+    for(const it of itens){rec+=it.qtd*it.preco;cmv+=it.qtd*(it.custo||0)}
+    const lucro=rec-cmv;
+    const margem=rec>0?lucro/rec:0;
+    const pct=comissaoDe(margem);
+    const comissao=rec*pct;
+    const faixa=margem<0.15?'<span class="tag bad">Aguardando aprovação</span>':margem<0.16?'<span class="tag neutral">0,5%</span>':margem<0.20?'<span class="tag info">1,0%</span>':margem<0.25?'<span class="tag warn">1,5%</span>':'<span class="tag ok">2,0% (teto)</span>';
+    $('sp-resumo').innerHTML=itens.length?`<div class="card">
+      <div class="kpis" style="margin-bottom:8px">
+        <div class="kpi"><div class="v">${fmtBRL(rec)}</div><div class="l">Receita</div></div>
+        <div class="kpi"><div class="v" style="color:${margem>=0.15?'var(--ok)':'var(--bad)'}">${(margem*100).toFixed(2).replace('.',',')}%</div><div class="l">Margem</div></div>
+      </div>
+      <div class="lc-rows">
+        <div class="lc-row"><span>Comissão</span><b>${faixa} ${(pct*100).toFixed(1).replace('.',',')}% = ${fmtBRL(comissao)}</b></div>
+      </div>
+      ${margem<0.25?upsellHtml(rec,lucro,margem):''}
+      <button type="button" class="btn" id="sp-salvar" style="margin-top:12px"><i data-lucide="save"></i> Salvar pedido</button>
+      <button type="button" class="btn sec" id="sp-zap" style="margin-top:8px"><i data-lucide="message-circle"></i> Copiar resumo WhatsApp</button>
+    </div>`:'';
+    $('sp-resumo').querySelectorAll('.sp-qtd').forEach(inp=>inp.onchange=()=>{
+      const i=+inp.dataset.i;itens[i].qtd=parseFloat(inp.value)||0;calc()});
+    $('sp-resumo').querySelectorAll('.sp-preco').forEach(inp=>inp.onchange=()=>{
+      const i=+inp.dataset.i;itens[i].preco=parseFloat(inp.value)||0;calc()});
+    const sv=document.getElementById('sp-salvar');
+    if(sv)sv.onclick=async()=>{
+      const recT=itens.reduce((s,x)=>s+x.qtd*x.preco,0);
+      const cmvT=itens.reduce((s,x)=>s+x.qtd*(x.custo||0),0);
+      const lucroT=recT-cmvT,mg=recT>0?lucroT/recT:0,pct=comissaoDe(mg);
+      const {error}=await sb.from('pedidos').insert({empresa:'DISTRIBUIDORA',vendedor_id:ME.id,cliente_id:sel.value,cliente_nome:(clis||[]).find(c=>c.id===sel.value)?.nome,receita:recT,cmv:cmvT,lucro:lucroT,margem:mg,comissao_pct:pct,comissao_rs:recT*pct,status:mg<0.15?'aguardando_aprovacao':'salvo',itens});
+      if(error){toast(err(error));return}
+      if(mg<0.15){
+        const {data:gers}=await sb.from('usuarios').select('id').eq('perfil','gerencia');
+        for(const g of (gers||[]))await sb.from('notificacoes').insert({usuario_id:g.id,titulo:'⚠️ Pedido abaixo da margem',corpo:`${(clis||[]).find(c=>c.id===sel.value)?.nome||''} · margem ${(mg*100).toFixed(1)}% · ${fmtBRL(recT)}`,link:'com-pedido'});
+      }
+      toast(mg<0.15?'Pedido salvo — aguardando sua aprovação':'Pedido salvo ✓');itens=[];calc();
+    };
+    const zp=document.getElementById('sp-zap');
+    if(zp)zp.onclick=async()=>{
+      const txt='*PEDIDO*\n'+itens.map(x=>`• ${x.qtd} ${x.un} ${x.nome} — ${fmtBRL(x.qtd*x.preco)}`).join('\n')+'\n\nTotal: '+fmtBRL(itens.reduce((s,x)=>s+x.qtd*x.preco,0));
+      try{await navigator.clipboard.writeText(txt);toast('Resumo copiado ✓')}catch(e){toast('Não consegui copiar')}
+    };
+    if(window.lucide)lucide.createIcons();
+  };
+  const upsellHtml=(rec,lucro,m)=>{
+    const alvo=[0.16,0.20,0.25].find(a=>m<a);
+    if(!alvo)return '';
+    const ancora=prods.find(p=>p.nome&&p.nome.includes('Pão de Alho Reserva One')&&p.nome.includes('Tradicional'));
+    if(!ancora)return '';
+    const L=(ancora.tabelas?.Varejo||0)-(ancora.custo||0);
+    const G=L-(alvo*(ancora.tabelas?.Varejo||0));
+    if(G<=0)return '';
+    const dl=alvo*rec-lucro;
+    const qtd=Math.ceil(dl/G);
+    return `<div class="card" style="border-color:var(--primary-color);background:var(--primary-soft)">
+      <b style="font-size:14px"><i data-lucide="trending-up" style="width:16px;height:16px;vertical-align:-3px"></i> Smart Upsell</b>
+      <p class="hint" style="margin:6px 0">Adicione <b>${qtd} un</b> de <b>Pão de Alho Reserva One</b> para subir para a faixa de ${(alvo*100).toFixed(0)}% e ganhar <b style="color:var(--primary-color)">${fmtBRL(qtd*G)}</b> a mais de comissão.</p>
+      <button type="button" class="btn mini" id="sp-upsell">+ Adicionar</button></div>`;
+  };
+  const renderItens=()=>{
+    const t=tabelaDo();
+    $('sp-itens').innerHTML=`<div class="sec"><h3>Produtos (tabela ${t})</h3>
+      <input id="sp-busca" placeholder="🔍 buscar produto..." style="width:100%;margin-bottom:8px">
+      <div id="sp-cats" style="max-height:300px;overflow-y:auto">${(prods||[]).map((p,i)=>{
+        const preco=(p.tabelas||{})[t];
+        if(preco==null)return '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--divider);font-size:13px">
+          <span>${esc(p.nome)}<div class="hint">${fmtBRL(preco)} / ${esc(p.un||'UN')}</div></span>
+          <button type="button" class="btn mini" data-add="${p.sku}">+ Add</button></div>`}).join('')}</div></div>`;
+    $('sp-cats').querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+      const p=prods.find(x=>String(x.sku)===b.dataset.add);
+      if(!p)return;
+      const t2=tabelaDo();
+      itens.push({sku:String(p.sku),nome:p.nome,un:p.un||'UN',custo:p.custo||0,qtd:1,preco:(p.tabelas||{})[t2]||0});
+      calc();
+    });
+    $('sp-cats').querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+      const p=prods.find(x=>String(x.sku)===b.dataset.add);
+      const t2=tabelaDo();
+      itens.push({sku:String(p.sku),nome:p.nome,un:p.un||'UN',custo:p.custo||0,qtd:1,preco:(p.tabelas||{})[t2]||0});
+      calc();
+    });
+    if(window.lucide)lucide.createIcons();
+  };
+  sel.onchange=()=>{itens=[];renderItens();calc()};
+  if(window.__pedCliente){renderItens();calc()}
+};
+/* ============ COMERCIAL — ABA ROTA (vendedor) ============ */
+PAGES['com-rota']=async el=>{
+  el.innerHTML=`<h1 class="pg">Minha rota</h1>
+  <div class="chips" id="cr-chips"><button type="button" class="chip on" data-d="">Todos os dias</button></div>
+  <div id="cr-banner"></div>
+  <input id="cr-busca" placeholder="🔍 buscar cliente, bairro ou cidade..." style="width:100%;margin-bottom:10px">
+  <div class="chips" id="cr-curva">
+    <button type="button" class="chip on" data-c="">Curva A + B</button>
+    <button type="button" class="chip" data-c="Curva A">Apenas A</button>
+    <button type="button" class="chip" data-c="Curva B">Apenas B</button>
+    <button type="button" class="chip" data-c="Quinzenal">Quinzenal 2x</button>
+  </div>
+  <div id="cr-lista">${empty('Carregando…')}</div>`;
+  const {data:clis}=await sb.from('clientes_dist').select('*').order('nome');
+  const DAY_CAP={}; // capacidade por dia (da especificação)
+  const filtros={dia:'',curva:'',busca:''};
+  const render=()=>{
+    let l=(clis||[]);
+    if(filtros.dia)l=l.filter(c=>c.dia_rota===filtros.dia);
+    if(filtros.curva==='Quinzenal')l=l.filter(c=>c.freq==='Quinzenal');
+    else if(filtros.curva)l=l.filter(c=>c.curva===filtros.curva);
+    if(filtros.busca){const t=filtros.busca.toLowerCase();
+      l=l.filter(c=>(c.nome||'').toLowerCase().includes(t)||(c.bairro||'').toLowerCase().includes(t)||(c.cidade||'').toLowerCase().includes(t))}
+    const tagC=c=>c.curva==='Curva A'?'<span class="tag primary">Curva A</span>':c.curva==='Curva B'?'<span class="tag info">Curva B</span>':'<span class="tag neutral">Curva C</span>';
+    document.getElementById('cr-lista').innerHTML=l.map(c=>{
+      const gps=(c.lat&&c.lng)?`<a class="btn mini sec" target="_blank" href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}"><i data-lucide="navigation"></i> GPS</a>`:'';
+      const tel=c.telefone?`<a class="btn mini sec" href="tel:${esc(c.telefone)}"><i data-lucide="phone"></i> Ligar</a>`:'';
+      return `<div class="listcard">
+      <div class="lc-ico"><i data-lucide="store"></i></div>
+      <div class="lc-main">
+        <div class="lc-title"><span>${esc(c.nome)}</span>${tagC(c)}</div>
+        <div class="lc-sub">${esc(c.endereco||'')}${c.bairro?' · '+esc(c.bairro):''}${c.cidade?' · '+esc(c.cidade):''}</div>
+        <div class="lc-rows">
+          <div class="lc-row"><span>Faturamento</span><b>${c.fat_hist?'R$ '+Number(c.fat_hist).toLocaleString('pt-BR',{maximumFractionDigits:0}):'—'}</b></div>
+          <div class="lc-row"><span>Tabela</span><b>${esc(c.tabela||'—')}</b></div>
+          <div class="lc-row"><span>Dia da rota</span><b>${esc(c.dia_rota||'—')}${c.freq?' · '+esc(c.freq):''}</b></div>
+          ${c.telefone?`<div class="lc-row"><span>Telefone</span><b>${esc(c.telefone)}</b></div>`:''}
+        </div>
+        <div class="lc-actions">
+          <button type="button" class="btn mini" data-ped="${c.id}" data-nome="${esc(c.nome)}"><i data-lucide="calculator"></i> Simular pedido</button>
+          ${gps}${tel}
+        </div>
+      </div></div>`}).join('')||empty('Nenhum cliente encontrado');
+    document.getElementById('cr-lista').querySelectorAll('[data-ped]').forEach(b=>b.onclick=()=>{
+      window.__pedCliente=b.dataset.ped;window.__pedNome=b.dataset.nome;go('com-pedido')});
+    if(window.lucide)lucide.createIcons();
+  };
+  // chips de dia (dos clientes)
+  const dias=[...new Set((clis||[]).map(c=>c.dia_rota).filter(Boolean))].sort();
+  const chipsD=document.getElementById('cr-chips');
+  dias.forEach(d=>{const b=document.createElement('button');b.type='button';b.className='chip';b.dataset.d=d;b.textContent=d;b.onclick=()=>{
+    chipsD.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));b.classList.add('on');filtros.dia=d;render()};
+    chipsD.appendChild(b)});
+  document.getElementById('cr-curva').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{
+    document.getElementById('cr-curva').querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');filtros.curva=b.dataset.c;render()});
+  document.getElementById('cr-busca').oninput=e=>{filtros.busca=e.target.value;render()};
+  render();
 };
 /* ============ MANUAIS (só gerência) ============ */
 PAGES.manuais=async el=>{
