@@ -1582,6 +1582,26 @@ PAGES['pro-avulsa']=async el=>{
       if(!nome){m.className='msg err';m.textContent='Digite o nome do cliente';return}
       m.className='msg';m.textContent='Pegando GPS...';
       navigator.geolocation.getCurrentPosition(async pos=>{
+        // trava de duplicidade: cliente num raio de 100 m?
+        const {data:vizinhos}=await sb.from('clientes_promotoria').select('id,nome,latitude,longitude').eq('ativo',true);
+        const R=6371000,lat=pos.coords.latitude,lon=pos.coords.longitude;
+        const perto=(vizinhos||[]).filter(v=>v.latitude!=null&&v.longitude!=null).map(v=>{
+          const dLat=(lat-v.latitude)*Math.PI/180,dLon=(lon-v.longitude)*Math.PI/180;
+          const a=Math.sin(dLat/2)**2+Math.cos(lat*Math.PI/180)*Math.cos(v.latitude*Math.PI/180)*Math.sin(dLon/2)**2;
+          return {nome:v.nome,d:Math.round(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)))}
+        }).filter(x=>x.d<=100).sort((a,b)=>a.d-b.d);
+        if(perto.length){
+          m.className='msg err';
+          m.innerHTML=`⚠️ Já existe cliente a ${perto[0].d} m daqui: <b>${esc(perto[0].nome)}</b><br><button type="button" class="btn mini" id="nv-force" style="margin-top:8px">Cadastrar mesmo assim</button>`;
+          document.getElementById('nv-force').onclick=()=>salvarClienteNovo(pos,nome);
+          return;
+        }
+        salvarClienteNovo(pos,nome);
+      },()=>{m.className='msg err';m.textContent='GPS não disponível — ligue o GPS e tente de novo'},{enableHighAccuracy:true,timeout:15000});
+    };
+    async function salvarClienteNovo(pos,nome){
+      const m=document.getElementById('nv-msg');
+      {
         const {data:novo,error}=await sb.from('clientes_promotoria').insert({
           nome,endereco:document.getElementById('nv-end').value||null,
           cnpj:document.getElementById('nv-cnpj').value||null,
@@ -1590,10 +1610,8 @@ PAGES['pro-avulsa']=async el=>{
         if(error){m.className='msg err';m.textContent=err(error);return}
         w.classList.remove('open');toast('Cliente cadastrado: '+nome);
         window.__avulsaCliente=novo.id; go('pro-avulsa-visita');
-      },()=>{
-        m.className='msg err';m.textContent='GPS não disponível — ligue o GPS e tente de novo';
-      },{enableHighAccuracy:true,timeout:15000});
-    };
+      }
+    }
   };
 };
 PAGES['pro-avulsa-visita']=async el=>{
@@ -1601,7 +1619,10 @@ PAGES['pro-avulsa-visita']=async el=>{
   el.innerHTML=`<h1 class="pg">Visita avulsa</h1><div id="pc">${empty('Carregando…')}</div>`;
   const {data:c}=await sb.from('clientes_promotoria').select('*').eq('id',cid).maybeSingle();
   if(!c){$('pc').innerHTML=empty('Cliente não encontrado');return}
+  const {data:ult}=await sb.from('visitas').select('visitado_em,pedido').eq('cliente_id',cid).order('visitado_em',{ascending:false}).limit(1);
+  const ultima=ult&&ult.length?ult[0]:null;
   $('pc').innerHTML=`
+  ${ultima?`<div class="sec" style="background:var(--primary-soft);border:1px solid var(--primary-color);padding:10px 14px;font-size:13px">🕘 <b>Última visita:</b> ${fmtDT(ultima.visitado_em)}${ultima.pedido?`<br>📝 Pedido: ${esc(ultima.pedido.slice(0,100))}`:''}</div>`:''}
   <div class="sec"><span class="tag conferencia">🚶 visita avulsa — sem roteiro</span>
     <b style="font-size:16px;display:block;margin-top:8px">${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}</div>
     <div id="pc-gps" style="margin-top:10px"><button type="button" class="btn" id="pc-gpsbtn">📍 Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
@@ -1684,15 +1705,29 @@ PAGES.promotoria=async el=>{
     <button type="button" class="btn mini" id="pm-ncli">+ Cliente</button>
   </div>
   <div id="pm">${empty('Carregando…')}</div>
-  <div id="pm-avulsas"></div>`;
+  <div id="pm-avulsas"></div>
+  <div id="pm-pedidos"></div>`;
   let carregar=async()=>{
     const data=$('pm-data').value||hoje();
     $('pm').innerHTML=empty('Carregando…');
     await limparFotosVelhas();
     const {data:rots}=await sb.from('roteiros_promotoria').select('*, motoristas(nome), roteiro_clientes(ordem, cliente_id, clientes_promotoria(id,nome,endereco)), visitas(cliente_id,fotos,gps_ok,distancia_m,pedido,visitado_em)').eq('data',data).order('criado_em');
     const box=$('pm');
-    if(!rots||!rots.length){box.innerHTML=empty('Nenhum roteiro nesta data — toque em "+ Criar roteiro"');return}
-    box.innerHTML=rots.map(r=>{
+    // alertas por exceção (GPS longe, sem GPS, ruptura na gôndola)
+    const excecoes=[];
+    (rots||[]).forEach(r=>(r.visitas||[]).forEach(v=>{
+      if(v.gps_ok===false)excecoes.push({tipo:'GPS longe',txt:`${v.clientes_promotoria?.nome||'Cliente'} — ${v.distancia_m} m do ponto${v.justificativa?' · '+v.justificativa.slice(0,40):''}`});
+      else if(v.gps_ok===null)excecoes.push({tipo:'Sem GPS',txt:`${v.clientes_promotoria?.nome||'Cliente'}${v.justificativa?' · '+v.justificativa.slice(0,40):''}`});
+      if(v.gondola_abastecida===false)excecoes.push({tipo:'Ruptura',txt:`${v.clientes_promotoria?.nome||'Cliente'} — gôndola NÃO abastecida`});
+    }));
+    let alertasHtml='';
+    if(excecoes.length){
+      alertasHtml=`<div class="sec" style="border:1px solid var(--bad)"><h3 style="color:var(--bad)">⚠️ Atenção (${excecoes.length})</h3>`+
+        excecoes.slice(0,8).map(x=>`<div style="padding:8px 0;border-bottom:1px solid var(--divider);font-size:13px"><span class="tag bad">${x.tipo}</span> ${esc(x.txt)}</div>`).join('')+
+        `${excecoes.length>8?`<div class="hint">+${excecoes.length-8} outro(s)</div>`:''}</div>`;
+    }
+    if(!rots||!rots.length){box.innerHTML=alertasHtml+empty('Nenhum roteiro nesta data — toque em "+ Criar roteiro"');return}
+    box.innerHTML=alertasHtml+rots.map(r=>{
       const cli=(r.roteiro_clientes||[]).slice().sort((a,b)=>a.ordem-b.ordem);
       const vmap={};(r.visitas||[]).forEach(v=>vmap[v.cliente_id]=v);
       const feitos=cli.filter(c=>vmap[c.cliente_id]).length;
@@ -1715,7 +1750,10 @@ PAGES.promotoria=async el=>{
       const cid=d.dataset.cid,rid=d.dataset.rot;
       const r=rots.find(x=>x.id===rid);
       const c=(r.roteiro_clientes||[]).find(x=>x.cliente_id===cid)?.clientes_promotoria;
-      const v=(r.visitas||[]).find(x=>x.cliente_id===cid);
+      let v=(r.visitas||[]).find(x=>x.cliente_id===cid);
+      // recarregar a visita completa (com checklist, estoque, checkin)
+      if(v){const {data:vv}=await sb.from('visitas').select('*').eq('id',v.id).maybeSingle();if(vv)v=vv}
+      const tempoMin=(v&&v.checkin_em&&v.visitado_em)?Math.max(1,Math.round((new Date(v.visitado_em)-new Date(v.checkin_em))/60000)):null;
       const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
       let fotosHtml='<p class="hint">Sem fotos ainda.</p>';
       if(v&&v.fotos&&v.fotos.length){
@@ -1723,17 +1761,33 @@ PAGES.promotoria=async el=>{
         for(const f of v.fotos){const u=await assinar(f,'fotos');if(u)urls.push(u)}
         fotosHtml=urls.length?`<div style="display:flex;gap:6px;flex-wrap:wrap">${urls.map(u=>`<img src="${u}" style="width:96px;height:96px;object-fit:cover;border-radius:10px">`).join('')}</div>`:'<p class="hint">Fotos expiradas (apagadas após 60 dias).</p>';
       }
-      mm.innerHTML=`<h3>🏪 ${esc(c?.nome||'')}</h3>
+      let estoqueHtml='';
+      if(v&&(v.estoque_fotos||[]).length){
+        const urls=[];
+        for(const f of v.estoque_fotos){const u=await assinar(f,'fotos');if(u)urls.push(u)}
+        estoqueHtml=`<div style="margin-top:10px"><b>📦 Estoque: ${v.estoque_caixas!=null?v.estoque_caixas+' cx':'—'}</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${urls.map(u=>`<img src="${u}" onclick="lightbox('${u}')" style="width:84px;height:84px;object-fit:cover;border-radius:10px;cursor:zoom-in">`).join('')}</div></div>`;
+      }
+      const chkHtml=v?`<div style="margin-top:10px;font-size:13px">
+        <b>📋 Gôndola:</b>
+        <div style="margin-top:4px">Abastecida: ${v.gondola_abastecida===true?'<span class="tag ok">Sim</span>':v.gondola_abastecida===false?'<span class="tag bad">Não — ruptura</span>':'—'}</div>
+        <div>Preço visível: ${v.preco_visivel===true?'<span class="tag ok">Sim</span>':v.preco_visivel===false?'<span class="tag bad">Não</span>':'—'}</div>
+        <div>Validade OK: ${v.validade_ok===true?'<span class="tag ok">Sim</span>':v.validade_ok===false?'<span class="tag bad">Não</span>':'—'}</div>
+      </div>`:'';
+      mm.innerHTML=`<div class="grab"></div><h3>🏪 ${esc(c?.nome||'')}</h3>
         <p class="hint" style="margin:0">${esc(c?.endereco||'')}${c?.cnpj?' · CNPJ '+esc(c.cnpj):''}</p>
         ${v?`
         <div style="margin-top:10px;font-size:13px">
-          <div>${v.gps_ok===true?'✅ Localização confirmada':v.gps_ok===false?'⚠️ Confirmado longe do ponto'+(v.distancia_m?` (${v.distancia_m} m)`:''):'⚠️ Sem GPS'}${v.justificativa?`<div class="hint">Justificativa: ${esc(v.justificativa)}</div>`:''}</div>
-          <div style="margin-top:6px">🕒 ${fmtDT(v.visitado_em)}</div>
-          ${v.pedido?`<div style="margin-top:8px"><b>Pedido/observação:</b><br>${esc(v.pedido)}</div>`:'<div class="hint" style="margin-top:8px">Sem pedido/observação</div>'}
+          <div>${v.gps_ok===true?'<span class="tag ok">GPS ok</span>':v.gps_ok===false?`<span class="tag bad">GPS longe (${v.distancia_m||'?'} m)</span>`:'<span class="tag warn">Sem GPS</span>'}${v.justificativa?`<div class="hint">Justificativa: ${esc(v.justificativa)}</div>`:''}</div>
+          <div style="margin-top:6px">🕒 ${fmtDT(v.visitado_em)}${tempoMin?` · <b>${tempoMin} min</b> na visita`:''}</div>
+          ${v.pedido?`<div style="margin-top:8px"><b>📋 Pedido:</b><br>${esc(v.pedido)} <button type="button" class="btn mini sec" id="cp-ped" style="margin-left:6px">Copiar</button></div>`:'<div class="hint" style="margin-top:8px">Sem pedido nesta visita</div>'}
         </div>
-        <div style="margin-top:10px">${fotosHtml}</div>`
+        ${chkHtml}
+        ${estoqueHtml}
+        <div style="margin-top:10px"><b>📸 Gôndola:</b>${fotosHtml}</div>`
         :'<p class="hint" style="margin-top:10px">Visita ainda não feita.</p>'}
         <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Fechar</button></div>`;
+      const cpB=document.getElementById('cp-ped');
+      if(cpB)cpB.onclick=async()=>{try{await navigator.clipboard.writeText(v.pedido);toast('Pedido copiado ✓')}catch(e){toast('Não consegui copiar')}};
       w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
       document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     });
@@ -1761,7 +1815,25 @@ PAGES.promotoria=async el=>{
         <div class="hint">${fmtDT(v.visitado_em)}${v.pedido?' · 📝 '+esc(v.pedido.slice(0,50)):''}${v.gps_ok===false?' · ⚠️ longe/sem GPS':''}</div></div>`).join('')}</div>`;
   };
   const oldCarregar=carregar;
-  carregar=async()=>{await oldCarregar();await carregarAvulsas()};
+  carregar=async()=>{await oldCarregar();await carregarAvulsas();await carregarPedidos()};
+  const carregarPedidos=async()=>{
+    const old2=document.getElementById('pm-pedidos');if(!old2)return;
+    const data=$('pm-data').value||hoje();
+    const {data:peds}=await sb.from('visitas').select('pedido,visitado_em,clientes_promotoria(nome),motoristas(nome)').not('pedido','is',null).neq('pedido','').gte('visitado_em',data+'T00:00:00').lte('visitado_em',data+'T23:59:59').order('visitado_em',{ascending:false}).limit(50);
+    const el=document.getElementById('pm-pedidos');
+    if(!el)return;
+    const lista=(peds||[]).filter(x=>x.pedido&&x.pedido.trim());
+    el.innerHTML=`<div class="sec"><h3>📋 Pedidos do dia (${lista.length})</h3>`+
+      (lista.length?lista.map(v=>`<div class="listcard" style="padding:12px;margin-bottom:8px">
+        <div class="lc-main">
+          <div class="lc-title" style="font-size:14px"><span>${esc(v.clientes_promotoria?.nome||'—')}</span><span class="tag primary">Pedido</span></div>
+          <div class="lc-sub">${esc(v.motoristas?.nome||'')} · ${fmtDT(v.visitado_em)}</div>
+          <div class="lc-rows"><div class="lc-row"><span style="white-space:normal;color:var(--ink)">${esc(v.pedido)}</span></div></div>
+          <div class="lc-actions"><button type="button" class="btn mini sec" data-cp="${esc(v.pedido)}"><i data-lucide="copy"></i> Copiar pedido</button></div>
+        </div></div>`).join(''):empty('Nenhum pedido hoje'))+`</div>`;
+    el.querySelectorAll('[data-cp]').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.cp);toast('Pedido copiado ✓')}catch(e){toast('Não consegui copiar')}});
+    if(window.lucide)lucide.createIcons();
+  };
   $('pm-ver').onclick=carregar;
   $('pm-data').onchange=carregar;
   $('pm-novo').onclick=()=>criarRoteiroUI(carregar);
@@ -1886,43 +1958,77 @@ PAGES['pro-roteiro']=async el=>{
   const deHoje=rot.find(r=>r.data===hoje)||rot[0];
   const visitas=await sb.from('visitas').select('*').eq('roteiro_id',deHoje.id);
   const vmap={};(visitas.data||[]).forEach(v=>vmap[v.cliente_id]=v);
-  const cli=(deHoje.roteiro_clientes||[]).slice().sort((a,b)=>a.ordem-b.ordem);
+  let cli=(deHoje.roteiro_clientes||[]).slice().sort((a,b)=>a.ordem-b.ordem);
+  if(window.__ordemGPS&&window.__ordemGPS.length){cli=cli.slice().sort((a,b)=>(window.__ordemGPS.indexOf(a.cliente_id)+1||999)-(window.__ordemGPS.indexOf(b.cliente_id)+1||999))}
   const feitos=cli.filter(c=>vmap[c.cliente_id]).length;
   box.innerHTML=`
   <div class="row" style="gap:6px;overflow-x:auto;padding-bottom:6px">${rot.map(r=>`<button type="button" class="btn mini prd ${r.id===deHoje.id?'on':''}" data-d="${r.id}">${r.data===hoje?'HOJE':r.data.slice(8,10)+'/'+r.data.slice(5,7)} · ${(r.roteiro_clientes||[]).length}</button>`).join('')}</div>
+  <div class="row" style="gap:6px;margin-bottom:8px"><button type="button" class="btn mini sec" id="pr-ordenar"><i data-lucide="navigation"></i> Ordenar por proximidade</button></div>
   <div class="sec"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:15px">${deHoje.data===hoje?'Hoje':deHoje.data.slice(8,10)+'/'+deHoje.data.slice(5,7)} — ${cli.length} clientes</b><span class="tag ${feitos===cli.length?'aprovada':'conferencia'}">${feitos}/${cli.length}</span></div>
   <div style="background:#262626;border-radius:8px;height:6px;margin-top:8px;overflow:hidden"><div style="width:${cli.length?Math.round(feitos/cli.length*100):0}%;height:100%;background:var(--acc)"></div></div></div>
   <div id="pr-lista">${cli.map((c,i)=>{
     const v=vmap[c.cliente_id];
-    return `<div class="sec" style="padding:12px">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
-        <div><b style="font-size:14px">${i+1}. ${esc(c.clientes_promotoria?.nome||'')}</b>
-        <div class="hint">${esc(c.clientes_promotoria?.endereco||'')}</div></div>
-        ${v?'<span style="font-size:22px">✅</span>':`<button type="button" class="btn mini" data-vis="${c.cliente_id}">Visitar</button>`}
+    const cl=c.clientes_promotoria||{};
+    const gpsBtn=(cl.latitude!=null&&cl.longitude!=null)?`<a class="btn mini sec" style="text-decoration:none" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=${cl.latitude},${cl.longitude}"><i data-lucide="navigation"></i> GPS</a>`:'';
+    return `<div class="listcard ${v?'':'highlight'}" style="padding:12px">
+      <div class="lc-main">
+        <div class="lc-title" style="font-size:14px"><span>${i+1}. ${esc(cl.nome||'')}</span>${v?'<span class="tag ok">Feito</span>':''}</div>
+        <div class="lc-sub">${esc(cl.endereco||'')}</div>
+        <div class="lc-actions" style="margin-top:8px">
+          ${v?'':`<button type="button" class="btn mini" data-vis="${c.cliente_id}"><i data-lucide="store"></i> Visitar</button>`}
+          ${v&&v.editavel_ate&&new Date(v.editavel_ate)>new Date()?`<button type="button" class="btn mini sec" data-vis="${c.cliente_id}"><i data-lucide="pencil"></i> Editar visita</button>`:''}
+          ${gpsBtn}
+        </div>
       </div></div>`}).join('')}</div>`;
   box.querySelectorAll('.prd').forEach(b=>b.onclick=()=>{go('pro-roteiro');window.__roteiroSel=b.dataset.d});
   box.querySelectorAll('[data-vis]').forEach(b=>b.onclick=()=>{window.__clienteVis=b.dataset.vis;window.__roteiroVis=deHoje.id;go('pro-cliente')});
+  const ordBtn=document.getElementById('pr-ordenar');
+  if(ordBtn)ordBtn.onclick=()=>{
+    if(!navigator.geolocation){toast('GPS não disponível neste aparelho');return}
+    toast('Pegando sua posição…');
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=pos.coords.latitude,lon=pos.coords.longitude;
+      const R=6371000;
+      const dist=c=>{if(c.clientes_promotoria?.latitude==null)return Infinity;
+        const dLat=(lat-c.clientes_promotoria.latitude)*Math.PI/180,dLon=(lon-c.clientes_promotoria.longitude)*Math.PI/180;
+        const a=Math.sin(dLat/2)**2+Math.cos(lat*Math.PI/180)*Math.cos(c.clientes_promotoria.latitude*Math.PI/180)*Math.sin(dLon/2)**2;
+        return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))};
+      window.__ordemGPS=cli.slice().sort((a,b)=>dist(a)-dist(b)).map(c=>c.cliente_id);
+      toast('Roteiro ordenado: loja mais próxima primeiro ✓');go('pro-roteiro');
+    },()=>toast('Não consegui pegar o GPS'),{enableHighAccuracy:true,timeout:12000});
+  };
 };
 PAGES['pro-cliente']=async el=>{
   const cid=window.__clienteVis,rid=window.__roteiroVis;
   el.innerHTML=`<h1 class="pg">Visita ao cliente</h1><div id="pc">${empty('Carregando…')}</div>`;
   const {data:c}=await sb.from('clientes_promotoria').select('*').eq('id',cid).maybeSingle();
   if(!c){$('pc').innerHTML=empty('Cliente não encontrado');return}
+  const {data:ult}=await sb.from('visitas').select('visitado_em,pedido').eq('cliente_id',cid).order('visitado_em',{ascending:false}).limit(1);
+  const ultima=ult&&ult.length?ult[0]:null;
   $('pc').innerHTML=`
+  ${ultima?`<div class="sec" style="background:var(--primary-soft);border:1px solid var(--primary-color);padding:10px 14px;font-size:13px">🕘 <b>Última visita:</b> ${fmtDT(ultima.visitado_em)}${ultima.pedido?`<br>📝 Pedido: ${esc(ultima.pedido.slice(0,100))}`:''}</div>`:''}
   <div class="sec"><b style="font-size:16px">${esc(c.nome)}</b><div class="hint">${esc(c.endereco||'')}${c.cnpj?' · CNPJ '+esc(c.cnpj):''}</div>
-    <div id="pc-gps" style="margin-top:10px"><button type="button" class="btn" id="pc-gpsbtn">📍 Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
-  <div class="sec" id="pc-fotos-sec" style="display:none"><h3>Fotos da loja (mínimo 3)</h3>
+    <div id="pc-gps" style="margin-top:10px"><button type="button" class="btn" id="pc-gpsbtn"><i data-lucide="map-pin"></i> Conferir localização</button><div class="msg" id="pc-gpsmsg"></div></div></div>
+  <div class="sec" id="pc-check-sec" style="display:none"><h3>📋 Gôndola — 3 toques</h3>
+    <div id="pc-checks"></div></div>
+  <div class="sec" id="pc-fotos-sec" style="display:none"><h3>📸 Fotos da gôndola (mínimo 3)</h3>
+    <div class="hint" style="margin:0 0 8px">1. Gôndola geral · 2. Etiqueta de preço · 3. Validade/Exposição — depois, quantas quiser (até 10)</div>
     <div id="pc-fotos" style="display:flex;gap:8px;flex-wrap:wrap"></div>
     <div class="fotobtns" style="margin-top:8px">
-      <label class="fotobtn" for="pc-cam">📷<span class="ic"></span><span class="tt">Tirar foto</span><span class="sub">usar a câmera</span></label>
-      <label class="fotobtn" for="pc-gal">🖼️<span class="ic"></span><span class="tt">Enviar foto</span><span class="sub">da galeria</span></label>
+      <label class="fotobtn" for="pc-cam"><i data-lucide="camera"></i><span class="tt">Tirar foto</span></label>
+      <label class="fotobtn" for="pc-gal"><i data-lucide="image"></i><span class="tt">Enviar foto</span></label>
     </div>
     <input type="file" id="pc-cam" accept="image/*" capture="environment" hidden><input type="file" id="pc-gal" accept="image/*" hidden>
     <div class="hint" id="pc-fcount" style="margin-top:6px"></div></div>
-  <div class="sec" id="pc-ped-sec" style="display:none"><h3>Pedido ou observação</h3>
-    <textarea id="pc-ped" rows="3" placeholder="ex.: pediu 10 caixas de extra para sexta"></textarea></div>
-  <div class="sec" id="pc-fin-sec" style="display:none"><button type="button" class="btn" id="pc-fin">✓ Concluir visita</button><div class="msg" id="pc-msg"></div></div>`;
-  const estado={gps:null,fotos:[]};
+  <div class="sec" id="pc-extra-sec" style="display:none">
+    <div class="row" style="gap:8px">
+      <button type="button" class="btn sec" id="pc-estoque-btn" style="margin-top:0"><i data-lucide="package"></i> Estoque <span id="pc-estoque-ok"></span></button>
+      <button type="button" class="btn sec" id="pc-pedido-btn" style="margin-top:0"><i data-lucide="clipboard-list"></i> Pedido <span id="pc-pedido-ok"></span></button>
+    </div>
+    <p class="hint" style="margin:8px 0 0">📦 Estoque é <b>obrigatório</b> · 📋 Pedido é opcional</p></div>
+  <div class="sec" id="pc-fin-sec" style="display:none"><button type="button" class="btn" id="pc-fin"><i data-lucide="check"></i> Concluir visita</button><div class="msg" id="pc-msg"></div></div>`;
+  if(window.lucide)lucide.createIcons();
+  const estado={gps:null,fotos:[],estoque:{fotos:[],caixas:null},checks:{abastecida:null,preco:null,validade:null}};
   $('pc-gpsbtn').onclick=()=>{
     $('pc-gpsmsg').className='msg';$('pc-gpsmsg').textContent='Pegando GPS…';
     if(!navigator.geolocation){$('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Este aparelho não tem GPS';return}
@@ -1979,9 +2085,72 @@ PAGES['pro-cliente']=async el=>{
   };
   $('pc-cam').onchange=e=>addFoto(e.target.files[0]);
   $('pc-gal').onchange=e=>addFoto(e.target.files[0]);
+  // botão ESTOQUE (bottom-sheet)
+  $('pc-estoque-btn').onclick=()=>{
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<div class="grab"></div><h3><i data-lucide="package" style="width:18px;height:18px;vertical-align:-3px;color:var(--primary-color)"></i> Estoque do cliente</h3>
+      <label>Quantas caixas (cx) tem no estoque? *</label>
+      <input id="est-caixas" inputmode="numeric" placeholder="ex.: 12" value="${estado.estoque.caixas??''}" style="width:100%">
+      <label style="margin-top:10px">Foto do estoque (mínimo 1) *</label>
+      <div id="est-fotos" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0"></div>
+      <div class="fotobtns">
+        <label class="fotobtn" for="est-cam"><i data-lucide="camera"></i><span class="tt">Tirar foto</span></label>
+        <label class="fotobtn" for="est-gal"><i data-lucide="image"></i><span class="tt">Da galeria</span></label>
+      </div>
+      <input type="file" id="est-cam" accept="image/*" capture="environment" hidden><input type="file" id="est-gal" accept="image/*" hidden>
+      <div class="msg" id="est-msg"></div>
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="est-ok">Salvar estoque</button></div>`;
+    w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    if(window.lucide)lucide.createIcons();
+    const renderEst=()=>{
+      document.getElementById('est-fotos').innerHTML=estado.estoque.fotos.map((f,i)=>`<div style="position:relative;width:76px;height:76px"><img src="${f.url}" onclick="lightbox('${f.url}')" style="width:100%;height:100%;object-fit:cover;border-radius:10px;cursor:zoom-in"><button type="button" data-erm="${i}" style="position:absolute;top:-6px;right:-6px;background:#8b3a3a;color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:11px">✕</button></div>`).join('');
+      document.getElementById('est-fotos').querySelectorAll('[data-erm]').forEach(b=>b.onclick=()=>{estado.estoque.fotos.splice(+b.dataset.erm,1);renderEst()});
+    };
+    renderEst();
+    const addEst=async file=>{
+      if(!file)return;
+      const path=`${ME.id}/promotoria-est-${Date.now()}-${estado.estoque.fotos.length}.jpg`;
+      const p=await uploadFoto(file,path);if(!p)return;
+      const url=await assinar(p,'fotos');
+      estado.estoque.fotos.push({path,url});renderEst();
+    };
+    document.getElementById('est-cam').onchange=e=>addEst(e.target.files[0]);
+    document.getElementById('est-gal').onchange=e=>addEst(e.target.files[0]);
+    document.getElementById('est-ok').onclick=()=>{
+      const cx=parseFloat(document.getElementById('est-caixas').value);
+      const m=document.getElementById('est-msg');
+      if(!cx&&cx!==0){m.className='msg err';m.textContent='Informe quantas caixas tem no estoque';return}
+      if(estado.estoque.fotos.length<1){m.className='msg err';m.textContent='Anexe pelo menos 1 foto do estoque';return}
+      estado.estoque.caixas=cx;
+      w.classList.remove('open');
+      document.getElementById('pc-estoque-ok').innerHTML='<span class="tag ok">✓</span>';
+      toast('Estoque salvo ✓');
+    };
+  };
+  // botão PEDIDO (bottom-sheet)
+  $('pc-pedido-btn').onclick=()=>{
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<div class="grab"></div><h3><i data-lucide="clipboard-list" style="width:18px;height:18px;vertical-align:-3px;color:var(--primary-color)"></i> Pedido do cliente</h3>
+      <label>O que o cliente pediu? (opcional)</label>
+      <textarea id="ped-txt" rows="4" placeholder="ex.: 10 caixas de extra + 2 manteigas 500g para sexta" style="width:100%">${esc(estado.pedido||'')}</textarea>
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="ped-ok">Salvar pedido</button></div>`;
+    w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    if(window.lucide)lucide.createIcons();
+    document.getElementById('ped-ok').onclick=()=>{
+      estado.pedido=document.getElementById('ped-txt').value.trim();
+      w.classList.remove('open');
+      document.getElementById('pc-pedido-ok').innerHTML=estado.pedido?'<span class="tag ok">✓</span>':'';
+      toast(estado.pedido?'Pedido salvo ✓':'Pedido vazio');
+    };
+  };
   $('pc-fin').onclick=async()=>{
-    if(estado.fotos.length<3){$('pc-msg').className='msg err';$('pc-msg').textContent='São necessárias pelo menos 3 fotos';return}
-    const {error}=await sb.from('visitas').upsert({roteiro_id:rid,cliente_id:cid,promotor_id:ME.motorista.id,gps_ok:estado.gps.ok,distancia_m:estado.gps.dist,justificativa:estado.gps.just||null,fotos:estado.fotos.map(f=>f.path),pedido:$('pc-ped').value||null,visitado_em:new Date().toISOString()},{onConflict:'roteiro_id,cliente_id'});
+    if(estado.fotos.length<3){$('pc-msg').className='msg err';$('pc-msg').textContent='São necessárias pelo menos 3 fotos da gôndola';return}
+    if(estado.estoque.caixas==null){$('pc-msg').className='msg err';$('pc-msg').textContent='Preencha o ESTOQUE (botão 📦) antes de concluir';return}
+    if(estado.estoque.fotos.length<1){$('pc-msg').className='msg err';$('pc-msg').textContent='Anexe 1 foto do estoque (botão 📦)';return}
+    const agora=new Date();
+    const {error}=await sb.from('visitas').upsert({roteiro_id:rid,cliente_id:cid,promotor_id:ME.motorista.id,gps_ok:estado.gps.ok,distancia_m:estado.gps.dist,justificativa:estado.gps.just||null,checkin_em:estado.gps.checkin||null,visitado_em:agora.toISOString(),editavel_ate:new Date(agora.getTime()+15*60e3).toISOString(),gondola_abastecida:estado.checks.abastecida,preco_visivel:estado.checks.preco,validade_ok:estado.checks.validade,fotos:estado.fotos.map(f=>f.path),estoque_fotos:estado.estoque.fotos.map(f=>f.path),estoque_caixas:estado.estoque.caixas,pedido:estado.pedido||null},{onConflict:'roteiro_id,cliente_id'});
     if(error){$('pc-msg').className='msg err';$('pc-msg').textContent=err(error);return}
     toast('Visita concluída ✓');go('pro-roteiro');
   };
