@@ -3145,9 +3145,9 @@ PAGES['minha-rota']=async el=>{
     const b=document.getElementById('mr-irj');if(b)b.onclick=()=>go('jornada');
     return;
   }
-  const {data:rotas}=await sb.from('rotas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).in('status',['aberto','aceito','em_rota','planejada','distribuida']).order('data').limit(5);
+  const {data:rotas}=await sb.from('rotas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).in('status',['aberto','aceito','em_rota','planejada','distribuida']).order('data',{ascending:false}).order('criado_em',{ascending:false}).limit(5);
   if(!rotas||!rotas.length){w.innerHTML=`<div class="sec" style="text-align:center;padding:28px 16px"><div style="font-size:42px">🗺️</div><h3 style="margin:10px 0 6px">Nenhuma rota distribuída</h3><p class="hint" style="margin:0">A gerência monta sua rota e ela aparece aqui.</p></div>`;return}
-  const rota=rotas.find(r=>r.data<=hoje())||rotas[0];
+  const rota=rotas.find(r=>r.status==='em_rota')||rotas.find(r=>r.data<=hoje())||rotas[0];
   const {data:ents}=await sb.from('entregas').select('*, clientes_dist(nome,endereco,cidade,uf,lat,lng,telefone), notas_fiscais(numero,vendedor,comprador)').eq('rota_id',rota.id).order('ordem');
   const feitas=(ents||[]).filter(e=>e.status==='entregue'||e.status==='nao_realizada').length;
   const stLbl={aberto:'ABERTO',em_rota:'EM ROTA',finalizado:'FINALIZADO',distribuida:'ABERTO',planejada:'ABERTO'}[rota.status]||rota.status;
