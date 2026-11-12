@@ -2053,6 +2053,32 @@ PAGES['pro-cliente']=async el=>{
   <div class="sec" id="pc-fin-sec" style="display:none"><button type="button" class="btn" id="pc-fin"><i data-lucide="check"></i> Concluir visita</button><div class="msg" id="pc-msg"></div></div>`;
   if(window.lucide)lucide.createIcons();
   const estado={gps:null,fotos:[],estoque:{fotos:[],caixas:null},checks:{abastecida:null,preco:null,validade:null}};
+  const gpsOk=(msg)=>{ $('pc-gpsmsg').className='msg ok';$('pc-gpsmsg').textContent=msg||'Localização confirmada ✓';
+    estado.gps.checkin=new Date().toISOString();
+    $('pc-check-sec').style.display='';renderChecks();
+    if(window.lucide)lucide.createIcons()};
+  const CHECKS=[['abastecida','Gôndola abastecida?','package'],['preco','Preço visível?','tag'],['validade','Validade OK?','calendar-check']];
+  const renderChecks=()=>{
+    $('pc-checks').innerHTML=CHECKS.map(([k,t,ic])=>{
+      const v=estado.checks[k];
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--divider)">
+        <span style="font-size:14px;font-weight:600"><i data-lucide="${ic}" style="width:18px;height:18px;vertical-align:-3px;color:var(--primary-color)"></i> ${t}</span>
+        <span style="display:flex;gap:6px">
+          <button type="button" class="btn mini ${v===true?'':'sec'}" data-ck="${k}" data-v="1" style="min-height:44px;padding:8px 20px">${v===true?'✓ ':''}Sim</button>
+          <button type="button" class="btn mini ${v===false?'danger':'sec'}" data-ck="${k}" data-v="0" style="min-height:44px;padding:8px 20px">${v===false?'✕ ':''}Não</button>
+        </span></div>`}).join('');
+    $('pc-checks').querySelectorAll('[data-ck]').forEach(b=>b.onclick=()=>{
+      estado.checks[b.dataset.ck]=b.dataset.v==='1';
+      renderChecks();
+      const todos=CHECKS.every(([k])=>estado.checks[k]!=null);
+      if(todos){
+        $('pc-fotos-sec').style.display='';$('pc-extra-sec').style.display='';$('pc-fin-sec').style.display='';
+        if(estado.checks.abastecida===false)toast('⚠️ Ruptura registrada — a gerência vai ver');
+        if(window.lucide)lucide.createIcons();
+      }
+    });
+    if(window.lucide)lucide.createIcons();
+  };
   $('pc-gpsbtn').onclick=()=>{
     $('pc-gpsmsg').className='msg';$('pc-gpsmsg').textContent='Pegando GPS…';
     if(!navigator.geolocation){$('pc-gpsmsg').className='msg err';$('pc-gpsmsg').textContent='Este aparelho não tem GPS';return}
