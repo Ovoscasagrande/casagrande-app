@@ -2068,8 +2068,6 @@ PAGES['pro-cliente']=async el=>{
       document.getElementById('gj-ok').onclick=()=>{estado.gps={ok:null,dist:null,just:'sem GPS'};w.classList.remove('open');gpsOk('Visita confirmada (sem GPS — gerência avisada)')};
     },{enableHighAccuracy:true,timeout:15000});
   };
-  const gpsOk=(msg)=>{ $('pc-gpsmsg').className='msg ok';$('pc-gpsmsg').textContent=msg||'Localização confirmada ✓';
-    $('pc-fotos-sec').style.display='';$('pc-ped-sec').style.display='';$('pc-fin-sec').style.display='';renderFotos();};
   const renderFotos=()=>{
     $('pc-fotos').innerHTML=estado.fotos.map((f,i)=>`<div style="position:relative;width:86px;height:86px"><img src="${f.url}" style="width:86px;height:86px;object-fit:cover;border-radius:10px"><button type="button" data-rm="${i}" style="position:absolute;top:-6px;right:-6px;background:#8b3a3a;color:#fff;border:none;border-radius:50%;width:24px;height:24px;font-size:12px">✕</button></div>`).join('');
     $('pc-fcount').textContent=estado.fotos.length+' foto(s)'+(estado.fotos.length<3?` — faltam ${3-estado.fotos.length}`:' ✓');
