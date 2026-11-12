@@ -98,6 +98,7 @@ main>*{position:relative;z-index:1}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#2e2e2e;color:#fff;padding:11px 18px;border-radius:12px;font-size:14px;z-index:60;opacity:0;transition:opacity .25s;pointer-events:none;max-width:88vw}
 #toast.on{opacity:1}
 .mhab.on{background:var(--acc);color:#111;border-color:var(--acc)}
+.mrab.on{background:var(--acc);color:#111;border-color:var(--acc)}
 .empty{color:var(--mut);font-size:13px;padding:18px;text-align:center}
 .photo{max-width:140px;border-radius:10px;display:block;margin-top:6px}
 .cfitem{border:1px solid #2c2c2c;border-radius:12px;padding:12px;margin:8px 0}
@@ -803,12 +804,18 @@ PAGES.jornada=async el=>{
         if(empAtiva()==='DISTRIBUIDORA'&&!carga&&rots[0]){
           await sb.from('rotas').update({status:'em_rota',inicio:new Date().toISOString(),km_inicial:kmv}).eq('roteiro',rots[0]).in('status',['aberto','aceito','planejada','distribuida']);
         }
-        toast('Jornada iniciada! CRLV-e liberado na aba Multas e documentos');go('jornada')
+        if(empAtiva()==='DISTRIBUIDORA'&&!carga){toast('Jornada iniciada ✓');go('minha-rota')}
+        else{toast('Jornada iniciada! CRLV-e liberado na aba Multas e documentos');go('jornada')}
       }
     };
   }else{
+    let avisoRota='';
+    if(empAtiva()==='DISTRIBUIDORA'&&aberta.roteiro){
+      avisoRota=`<div style="margin-top:10px;background:rgba(252,200,92,.12);border:1px solid rgba(252,200,92,.4);border-radius:10px;padding:10px;font-size:13px">📋 <b>Termine o roteiro nº ${aberta.roteiro} para iniciar outro roteiro.</b></div>`;
+    }
     w.innerHTML=`<div class="sec"><h3>Jornada aberta — ${esc(aberta.veiculos?.placa||'')} · ${rotTxt(aberta)}</h3>
       <p class="hint">Início: ${fmtDT(aberta.inicio)} · Km inicial: ${km(aberta.km_inicial)}</p>
+      ${avisoRota}
       <div id="j-crlv" style="margin:8px 0">${empty('Carregando documento…')}</div>
       ${empAtiva()==='OVOS'?`<div style="display:flex;gap:8px;align-items:center;margin:10px 0">
         <button class="btn mini" id="j-carga" type="button">📦 Registrar carregamento</button>
@@ -3166,9 +3173,16 @@ PAGES['minha-rota']=async el=>{
       ${e.status==='entregue'&&e.foto_path?`<div id="mr-foto-${e.id}">${empty('comprovante…')}</div>`:''}
       ${acao?`<div style="margin-top:8px">${acao}</div>`:''}</div>`;
   };
+  // ABAS: A fazer / Entregas realizadas
+  const abas=`<div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn mini mrab on" data-a="fazer">📋 A fazer (${pendentes.length})</button>
+    <button class="btn mini mrab" data-a="feitas">✅ Entregas realizadas (${concluidos.length})</button></div>`;
+  html+=abas;
+  html+=`<div id="mr-abas">`;
   html+=prox?card(prox):'';
-  html+=`<div class="sec"><h3>Próximas paradas (${pendentes.length})</h3>`+((pendentes||[]).filter(e=>!prox||e.id!==prox.id).map(card).join('')||empty('Nenhuma — você está no fim da rota'))+`</div>`;
-  html+=`<div class="sec"><h3>✅ Clientes já entregues (${concluidos.length})</h3>`+((concluidos||[]).map(e=>{
+  html+=`<div class="sec"><h3>Próximas paradas</h3>`+((pendentes||[]).filter(e=>!prox||e.id!==prox.id).map(card).join('')||empty('Nenhuma — você está no fim da rota'))+`</div>`;
+  html+=`</div><div id="mr-abas2" style="display:none">`;
+  html+=`<div class="sec"><h3>✅ Entregas realizadas (${concluidos.length})</h3>`+((concluidos||[]).map(e=>{
     const c=e.clientes_dist||{};
     const st=e.status==='entregue'?'<span class="tag ok">entregue</span>':'<span class="tag bad">recusado</span>';
     return `<div style="padding:10px 4px;border-bottom:1px solid #242424;font-size:13px">
@@ -3178,14 +3192,25 @@ PAGES['minha-rota']=async el=>{
       ${e.motivo_recusa?`<div class="hint" style="color:var(--bad)">Motivo: ${esc(e.motivo_recusa)}</div>`:''}
       ${e.foto_path?`<div id="mr-foto-${e.id}">${empty('comprovante…')}</div>`:''}
     </div>`}).join('')||empty('Nenhum cliente concluído ainda'))+`</div>`;
-  // Cliente fora do roteiro (visita extra)
-  html+=`<div class="sec"><button class="btn sec" id="mr-extra" style="width:100%">➕ Cliente fora do roteiro</button></div>`;
-  // Roteiro finalizado → botão finalizar jornada
+  html+=`</div>`;
+  // Cliente fora do roteiro (visita extra) — só na aba A fazer
+  html+=`<div class="sec" id="mr-extra-sec"><button class="btn sec" id="mr-extra" style="width:100%">➕ Cliente fora do roteiro</button></div>`;
+  // Roteiro concluído → botão FINALIZAR ROTA (leva para a jornada)
   const todasFeitas=(ents||[]).length>0&&(ents||[]).every(e=>e.status==='entregue'||e.status==='nao_realizada');
   if(rota.status==='em_rota'&&todasFeitas){
-    html+=`<div class="sec" style="text-align:center;border:2px solid var(--acc)"><div style="font-size:38px">🎉</div><h3 style="margin:8px 0">ROTEIRO FINALIZADO</h3><p class="hint">Todas as ${ents.length} paradas concluídas. Toque para encerrar o dia:</p><button class="btn" id="mr-finalizar">🏁 FINALIZAR JORNADA</button><div class="msg" id="mr-msg"></div></div>`;
+    html+=`<div class="sec" style="text-align:center;border:2px solid var(--acc)"><div style="font-size:38px">🎉</div><h3 style="margin:8px 0">ROTEIRO FINALIZADO</h3><p class="hint">Todas as ${ents.length} paradas concluídas. Toque para encerrar a rota:</p><button class="btn" id="mr-finalizar">🏁 FINALIZAR ROTA</button><div class="msg" id="mr-msg"></div></div>`;
   }
   w.innerHTML=html;
+  // abas: alternar
+  document.querySelectorAll('#mr-abas .mrab').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#mr-abas .mrab').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    const fazer=b.dataset.a==='fazer';
+    const a1=document.getElementById('mr-abas'),a2=document.getElementById('mr-abas2');
+    if(a1)a1.style.display=fazer?'':'none';
+    if(a2)a2.style.display=fazer?'none':'';
+    const ex=document.getElementById('mr-extra-sec');if(ex)ex.style.display=fazer?'':'none';
+  });
   // handler do cliente extra
   const btnExtra=document.getElementById('mr-extra');
   if(btnExtra)btnExtra.onclick=()=>{
@@ -3216,19 +3241,9 @@ PAGES['minha-rota']=async el=>{
   };
   // handler do finalizar jornada
   const btnFin=document.getElementById('mr-finalizar');
-  if(btnFin)btnFin.onclick=async()=>{
-    const {data:ab}=await sb.from('jornadas').select('id,km_inicial').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
-    if(!ab){toast('Nenhuma jornada aberta');return}
-    openModal('🏁 Finalizar jornada',[
-      {id:'fj-km',label:'KM final do veículo *',inputmode:'numeric'}
-    ],async v=>{
-      const kmf=parseFloat(v['fj-km']);
-      if(!kmf&&kmf!==0){toast('Informe o km final');return false}
-      if(kmf<ab.km_inicial){toast('Km final não pode ser menor que o inicial');return false}
-      const r=await upd('jornadas',ab.id,{km_final:kmf,fim:new Date().toISOString(),status:'conferencia'});
-      if(r){toast('Jornada enviada para conferência ✓');go('jornada')}
-      return !!r;
-    });
+  if(btnFin)btnFin.onclick=()=>{
+    // finalizar rota → vai para a jornada (lá o motorista confere os gastos e coloca o km final)
+    toast('Rota finalizada — revise os gastos e finalize a jornada');go('jornada');
   };
   const re=()=>PAGES['minha-rota'](el);
   w.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
