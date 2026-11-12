@@ -722,6 +722,17 @@ async function mostraSeloConvite(){
 }
 async function init(){
   readParams();
+  // kill switch: ?reset=1 limpa caches+SW e recarrega limpo (para casos de app travado)
+  if(new URLSearchParams(location.search).get('reset')==='1'){
+    (async()=>{
+      try{
+        if('caches' in window){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}
+        if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()))}
+      }catch(e){}
+      location.replace(location.pathname);
+    })();
+    return;
+  }
   if(!ensureClient()){showCfg();mostraSeloConvite();return}
   mostraSeloConvite();
   let data;
