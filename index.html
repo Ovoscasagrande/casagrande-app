@@ -503,6 +503,7 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
     <label>Senha</label>
     <input id="li-pass" type="password" placeholder="••••••••" autocomplete="current-password">
     <button type="button" class="btn" id="li-btn">Entrar</button>
+    <button type="button" class="btn sec" id="li-fix" style="margin-top:10px"><i data-lucide="refresh-cw"></i> App desatualizado? Toque aqui para corrigir</button>
     <div class="msg" id="li-msg"></div>
     <div class="hint" style="font-size:11px;color:var(--mut);margin-top:8px">Conta nova passa pela aprovação da gerência</div>
     <button type="button" class="btn sec" id="li-esqueci" style="margin-top:10px">🔑 Esqueci minha senha</button>
@@ -554,7 +555,7 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'))}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js?v='+Date.now()))}
 </script>
 <script>
 'use strict';
@@ -805,7 +806,17 @@ $('cr-btn').onclick=async()=>{
 async function login(){
   const email=$('li-email').value.trim(), pass=$('li-pass').value;
   if(!email||!pass){$('li-msg').className='msg err';$('li-msg').textContent='Preencha usuário e senha';return}
-  $('li-btn').disabled=true;$('li-msg').textContent='';
+  $('li-fix').onclick=async()=>{
+  $('li-fix').disabled=true;$('li-fix').textContent='Limpando…';
+  try{
+    if('caches' in window){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}
+    if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()))}
+    localStorage.removeItem('sw-reloaded');
+    toast('App atualizado — entrando de novo…');
+    setTimeout(()=>location.reload(),1200);
+  }catch(e){location.reload()}
+};
+$('li-btn').disabled=true;$('li-msg').textContent='';
   try{
     const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
     if(error)throw error;
