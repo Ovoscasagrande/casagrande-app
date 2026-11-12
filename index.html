@@ -903,6 +903,8 @@ function buildNav(){
     if(window.lucide)lucide.createIcons();
   } else if(tb){tb.remove()}
   document.body.classList.toggle('sem-tabbar',!operacional);
+  const burger=document.querySelector('.burger');
+  if(burger)burger.style.display=operacional?'none':'';
   NAV=items;
   $('nav').innerHTML=`<div class="who">${esc(ME.nome)}<br><span style="color:var(--acc)">${esc(ME.perfil)}${['AMBAS','TODAS','MULTI'].includes(ME.empresa)?' · '+empAtiva():''}</span></div>`+
     items.map(p=>`<button type="button" data-pg="${p}" class="${p===PAGE?'on':''}">${ICONS[p]||'•'} ${TITLES[p]||p}</button>`).join('')+
