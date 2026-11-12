@@ -1696,7 +1696,8 @@ PAGES['com-pedido']=async el=>{
   const {data:prods}=await sb.from('produtos').select('sku,nome,un,custo,tabelas,queima').eq('empresa','DISTRIBUIDORA').order('nome');
   const sel=$('sp-cli');
   sel.innerHTML='<option value="">— escolha o cliente —</option>'+(clis||[]).map(c=>`<option value="${c.id}" ${window.__pedCliente===c.id?'selected':''}>${esc(c.nome)}</option>`).join('');
-  let itens=__vendasPedido.itens||[];
+  window.__pedItens=__vendasPedido.itens||[];
+  let itens=window.__pedItens;
   window.__vendasPedido={itens,cliente:sel.value||null,tabela:'Varejo'};
   const tabelaDo=()=>{
     const c=(clis||[]).find(x=>x.id===sel.value);
@@ -1779,17 +1780,19 @@ PAGES['com-pedido']=async el=>{
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--divider);font-size:13px">
           <span>${esc(p.nome)}<div class="hint">${fmtBRL(preco)} / ${esc(p.un||'UN')}</div></span>
           <button type="button" class="btn mini" data-add="${p.sku}">+ Add</button></div>`}).join('')}</div></div>`;
-    // event delegation: o handler vive no container (nunca perde o bind em re-render)
-    if(!$('sp-cats').dataset.bound){
-      $('sp-cats').dataset.bound='1';
-      $('sp-cats').addEventListener('click',e=>{
+    // event delegation no document (o handler sobrevive a qualquer re-render)
+    if(!window.__pedBound){
+      window.__pedBound=true;
+      document.addEventListener('click',e=>{
         const b=e.target.closest('[data-add]');if(!b)return;
-        const p=prods.find(x=>String(x.sku)===b.dataset.add);
-        const t2=tabelaDo();
-        itens.push({sku:String(p.sku),nome:p.nome,un:p.un||'UN',custo:p.custo||0,qtd:1,preco:(p.tabelas||{})[t2]||0});
-        calc();
+        const p=(window.__pedProds||[]).find(x=>String(x.sku)===b.dataset.add);if(!p)return;
+        const t2=window.__pedTabela||'Varejo';
+        window.__pedItens=window.__pedItens||[];
+        window.__pedItens.push({sku:String(p.sku),nome:p.nome,un:p.un||'UN',custo:p.custo||0,qtd:1,preco:(p.tabelas||{})[t2]||0});
+        if(window.__pedCalc)window.__pedCalc();
       });
     }
+    window.__pedProds=prods;window.__pedCalc=calc;window.__pedTabela=tabelaDo();
     if(window.lucide)lucide.createIcons();
   };
   sel.onchange=()=>{itens=[];renderItens();calc()};
