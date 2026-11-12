@@ -844,6 +844,18 @@ async function afterLogin(){
   }
   buildNav();applyEmpBtn();bindEmpMenu();$('login').classList.add('hide');$('app').classList.remove('hide');
   atualizaBadgeOffline();filaProcessa();
+  // sincronização do perfil: a cada 60s verifica se o perfil mudou no banco
+  // (ex.: pendente aprovado pela gerência — o menu atualiza sozinho, sem reabrir o app)
+  clearInterval(window.__pendTimer);
+  window.__pendTimer=setInterval(async()=>{
+    try{
+      const {data:u}=await sb.from('usuarios').select('perfil,empresa,is_master').eq('id',ME.id).maybeSingle();
+      if(u&&(u.perfil!==ME.perfil||u.is_master!==!!ME.master)){
+        toast('Seu acesso foi atualizado pela gerência ✓');
+        location.reload();
+      }
+    }catch(e){}
+  },60000);
   go('home');
   loadNotif();
   if(location.hash!=='#home')location.hash='#home';
