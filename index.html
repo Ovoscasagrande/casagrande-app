@@ -2155,8 +2155,12 @@ function novoClienteUI(recarregar){
     <label>Endereço</label><input id="nc-end" placeholder="rua, número, bairro, cidade" style="width:100%">
     <label>CNPJ</label><input id="nc-cnpj" placeholder="00.000.000/0000-00" style="width:100%">
     <label>Localização da loja *</label>
+    <div style="display:flex;gap:6px;margin:6px 0">
+      <button type="button" class="btn mini" id="nc-geo" style="flex:1"><i data-lucide="crosshair"></i> Minha localização</button>
+      <button type="button" class="btn mini sec" id="nc-buscar" style="flex:1"><i data-lucide="search"></i> Buscar endereço</button>
+    </div>
     <div id="nc-map" style="height:220px;border-radius:10px;border:1px solid #333;margin-top:4px"></div>
-    <div class="hint" id="nc-coord" style="margin:6px 0 0">Toque no mapa para marcar o ponto da loja</div>
+    <div class="hint" id="nc-coord" style="margin:6px 0 0">Toque no mapa para marcar o ponto da loja — ou use os botões acima</div>
     <div class="msg err" id="nc-msg" style="display:none"></div>
     <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="nc-ok">Cadastrar</button></div>`;
   w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
@@ -2168,12 +2172,36 @@ function novoClienteUI(recarregar){
     const map=L.map('nc-map').setView([-22.9068,-47.0616],13); // Campinas/SP
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
     let marker=null;
-    map.on('click',e=>{
+    const setPonto=(lat,lng)=>{
       if(marker)map.removeLayer(marker);
-      marker=L.marker([e.latlng.lat,e.latlng.lng]).addTo(map);
-      window.__ncLat=e.latlng.lat;window.__ncLon=e.latlng.lng;
-      document.getElementById('nc-coord').textContent='Ponto marcado ✓ ('+e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5)+')';
-    });
+      marker=L.marker([lat,lng]).addTo(map);
+      map.setView([lat,lng],17);
+      window.__ncLat=lat;window.__ncLon=lng;
+      document.getElementById('nc-coord').textContent='Ponto marcado ✓ ('+lat.toFixed(5)+', '+lng.toFixed(5)+')';
+    };
+    map.on('click',e=>setPonto(e.latlng.lat,e.latlng.lng));
+    // Buscar endereço (Nominatim/OpenStreetMap — grátis)
+    document.getElementById('nc-buscar').onclick=async()=>{
+      const end=(document.getElementById('nc-end').value||'').trim();
+      const m=document.getElementById('nc-coord');
+      if(!end){m.textContent='Digite o endereço primeiro — depois toque em Buscar';return}
+      m.textContent='Buscando endereço…';
+      try{
+        const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q='+encodeURIComponent(end+', São Paulo'));
+        const d=await r.json();
+        if(!d||!d.length){m.textContent='Endereço não encontrado — toque no mapa para marcar manualmente';return}
+        setPonto(parseFloat(d[0].lat),parseFloat(d[0].lon));
+        m.textContent='Endereço encontrado ✓ — confira no mapa e ajuste o pino se precisar';
+      }catch(e){m.textContent='Falha na busca — toque no mapa para marcar manualmente'}
+    };
+    // Minha localização (GPS)
+    document.getElementById('nc-geo').onclick=()=>{
+      const m=document.getElementById('nc-coord');
+      if(!navigator.geolocation){m.textContent='Este aparelho não tem GPS';return}
+      m.textContent='Pegando sua localização…';
+      navigator.geolocation.getCurrentPosition(pos=>setPonto(pos.coords.latitude,pos.coords.longitude),
+        ()=>{m.textContent='GPS não disponível — toque no mapa para marcar manualmente'},{enableHighAccuracy:true,timeout:15000});
+    };
     setTimeout(()=>map.invalidateSize(),300);
   };
   document.head.appendChild(js);
