@@ -3178,10 +3178,10 @@ PAGES['minha-rota']=async el=>{
     <button class="btn mini mrab on" data-a="fazer">📋 A fazer (${pendentes.length})</button>
     <button class="btn mini mrab" data-a="feitas">✅ Entregas realizadas (${concluidos.length})</button></div>`;
   html+=abas;
-  html+=`<div id="mr-abas">`;
+  html+=`<div id="mr-fazer">`;
   html+=prox?card(prox):'';
   html+=`<div class="sec"><h3>Próximas paradas</h3>`+((pendentes||[]).filter(e=>!prox||e.id!==prox.id).map(card).join('')||empty('Nenhuma — você está no fim da rota'))+`</div>`;
-  html+=`</div><div id="mr-abas2" style="display:none">`;
+  html+=`</div><div id="mr-feitas" style="display:none">`;
   html+=`<div class="sec"><h3>✅ Entregas realizadas (${concluidos.length})</h3>`+((concluidos||[]).map(e=>{
     const c=e.clientes_dist||{};
     const st=e.status==='entregue'?'<span class="tag ok">entregue</span>':'<span class="tag bad">recusado</span>';
@@ -3202,11 +3202,11 @@ PAGES['minha-rota']=async el=>{
   }
   w.innerHTML=html;
   // abas: alternar
-  document.querySelectorAll('#mr-abas .mrab').forEach(b=>b.onclick=()=>{
-    document.querySelectorAll('#mr-abas .mrab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.mrab').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.mrab').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');
     const fazer=b.dataset.a==='fazer';
-    const a1=document.getElementById('mr-abas'),a2=document.getElementById('mr-abas2');
+    const a1=document.getElementById('mr-fazer'),a2=document.getElementById('mr-feitas');
     if(a1)a1.style.display=fazer?'':'none';
     if(a2)a2.style.display=fazer?'none':'';
     const ex=document.getElementById('mr-extra-sec');if(ex)ex.style.display=fazer?'':'none';
