@@ -1779,12 +1779,17 @@ PAGES['com-pedido']=async el=>{
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--divider);font-size:13px">
           <span>${esc(p.nome)}<div class="hint">${fmtBRL(preco)} / ${esc(p.un||'UN')}</div></span>
           <button type="button" class="btn mini" data-add="${p.sku}">+ Add</button></div>`}).join('')}</div></div>`;
-    $('sp-cats').querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
-      const p=prods.find(x=>String(x.sku)===b.dataset.add);
-      const t2=tabelaDo();
-      itens.push({sku:String(p.sku),nome:p.nome,un:p.un||'UN',custo:p.custo||0,qtd:1,preco:(p.tabelas||{})[t2]||0});
-      calc();
-    });
+    // event delegation: o handler vive no container (nunca perde o bind em re-render)
+    if(!$('sp-cats').dataset.bound){
+      $('sp-cats').dataset.bound='1';
+      $('sp-cats').addEventListener('click',e=>{
+        const b=e.target.closest('[data-add]');if(!b)return;
+        const p=prods.find(x=>String(x.sku)===b.dataset.add);
+        const t2=tabelaDo();
+        itens.push({sku:String(p.sku),nome:p.nome,un:p.un||'UN',custo:p.custo||0,qtd:1,preco:(p.tabelas||{})[t2]||0});
+        calc();
+      });
+    }
     if(window.lucide)lucide.createIcons();
   };
   sel.onchange=()=>{itens=[];renderItens();calc()};
