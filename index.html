@@ -875,6 +875,19 @@ async function afterLogin(){
   }
   buildNav();applyEmpBtn();bindEmpMenu();$('login').classList.add('hide');$('app').classList.remove('hide');
   atualizaBadgeOffline();filaProcessa();
+  // ===== autoteste de CSS: se o visual novo não carregou (cache parcial), limpa e recarrega sozinho =====
+  setTimeout(()=>{
+    const tb=document.getElementById('tabbar');
+    if(tb&&getComputedStyle(tb).position!=='fixed'){
+      (async()=>{
+        try{
+          if('caches' in window){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}
+          if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()))}
+        }catch(e){}
+        location.reload();
+      })();
+    }
+  },800);
   // ===== MANUTENÇÃO DIÁRIA (1x por dia, silenciosa — deixa o app liso) =====
   (async()=>{
     const hoje=new Date().toISOString().slice(0,10);
