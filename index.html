@@ -2010,12 +2010,10 @@ function novoClienteUI(recarregar){
           const d=await r.json();
           const fs=(d&&d.features)||[];
           if(!fs.length)continue;
-          // escolher o resultado cuja cidade bate com a cidade digitada (senão o 1º)
-          const cidDig=end.toLowerCase();
-          const melhor=fs.find(f=>{
-            const city=((f.properties||{}).city||'').toLowerCase();
-            return cidadeKey&&city.includes(cidadeKey.replace('sumaré','sumare').split(' ')[0]);
-          })||fs[0];
+          // escolher o resultado cuja cidade bate com a cidade digitada (sem acento; senão o 1º)
+          const norm=t=>(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+          const cidBase=cidadeKey?norm(cidadeKey).split(' ')[0]:'';
+          const melhor=cidBase?(fs.find(f=>norm((f.properties||{}).city).includes(cidBase))||fs[0]):fs[0];
           setPonto(melhor.geometry.coordinates[1],melhor.geometry.coordinates[0]);
           const p=melhor.properties||{};
           const onde=[p.street||p.name,p.city||p.locality].filter(Boolean).join(', ');
