@@ -831,6 +831,7 @@ $('li-btn').disabled=true;$('li-msg').textContent='';
   try{
     const {data,error}=await sb.auth.signInWithPassword({email,password:pass});
     if(error)throw error;
+    localStorage.setItem('cg-login-ts',String(Date.now()));
     await afterLogin();
   }catch(e){$('li-msg').className='msg err';$('li-msg').textContent=err(e)}
   $('li-btn').disabled=false;
@@ -872,6 +873,18 @@ async function afterLogin(){
       const {data:ja}=await sb.from('jornadas').select('empresa').eq('motorista_id',ME.motorista.id).in('status',['aberta','conferencia']).limit(1);
       if(ja&&ja.length&&ja[0].empresa)window.__empTravada=ja[0].empresa;
     }
+  }
+  // ===== validade da sessão: desloga a cada 7 dias desde o LOGIN REAL (renova o app) =====
+  let ultLogin=parseInt(localStorage.getItem('cg-login-ts')||'0');
+  if(!ultLogin)localStorage.setItem('cg-login-ts',String(Date.now())); // sessões antigas: começa a contar agora
+  ultLogin=parseInt(localStorage.getItem('cg-login-ts'));
+  if(ultLogin&&Date.now()-ultLogin>7*864e5){
+    await sb.auth.signOut();
+    localStorage.removeItem('cg-login-ts');
+    showLogin();
+    $('li-msg').className='msg ok';
+    $('li-msg').textContent='Sessão expirada (7 dias) — entre com seu login e senha';
+    return;
   }
   buildNav();applyEmpBtn();bindEmpMenu();$('login').classList.add('hide');$('app').classList.remove('hide');
   atualizaBadgeOffline();filaProcessa();
