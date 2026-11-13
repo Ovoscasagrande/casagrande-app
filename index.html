@@ -1104,9 +1104,29 @@ async function ins(table,row){
   }
   await audita(table);return data;
 }
-async function upd(table,id,row){const {data,error}=await sb.from(table).update(row).eq('id',id).select().single();if(error){toast(err(error));return null}await audita(table);return data}
-async function audita(tabela){
-  try{await sb.from('auditoria').insert({acao:tabela,detalhe:{perfil:ME?ME.perfil:null,por:ME?ME.nome:null}})}catch(e){}
+async function upd(table,id,row){const {data,error}=await sb.from(table).update(row).eq('id',id).select().single();if(error){toast(err(error));return null}await audita(table,'upd');return data}
+const AUD_ACAO={
+  jornadas:{ins:'Iniciou jornada',upd:'Atualizou jornada',del:'Apagou jornada'},
+  abastecimentos:{ins:'Lançou abastecimento',upd:'Editou abastecimento',del:'Excluiu abastecimento'},
+  despesas:{ins:'Lançou gasto/despesa',upd:'Editou gasto',del:'Excluiu gasto'},
+  recebimentos:{ins:'Lançou recebimento',upd:'Editou recebimento'},
+  avisos:{ins:'Enviou aviso',upd:'Atualizou aviso'},
+  multas:{ins:'Cadastrou multa',upd:'Atualizou multa'},
+  ordens_servico:{ins:'Abriu ordem de serviço',upd:'Atualizou OS'},
+  veiculos:{ins:'Cadastrou veículo',upd:'Editou veículo'},
+  motoristas:{ins:'Cadastrou motorista',upd:'Editou motorista'},
+  usuarios:{ins:'Cadastrou usuário',upd:'Editou usuário'},
+  visitas:{ins:'Concluiu visita de promotoria',upd:'Atualizou visita'},
+  rotas:{ins:'Criou rota',upd:'Atualizou rota'},
+  entregas:{ins:'Criou entrega',upd:'Atualizou entrega'},
+  trocas_oleo:{ins:'Registrou troca de óleo',upd:'Editou troca de óleo'},
+  produtos:{ins:'Cadastrou produto',upd:'Editou produto'}
+};
+async function audita(tabela,op){
+  try{
+    const nome=(AUD_ACAO[tabela]&&AUD_ACAO[tabela][op||'ins'])||tabela;
+    await sb.from('auditoria').insert({usuario_id:ME?ME.id:null,acao:nome,detalhe:{perfil:ME?ME.perfil:null,por:ME?ME.nome:null,empresa:ME&&empAtiva?empAtiva():null}});
+  }catch(e){}
 }
 function blocoFoto(idFoto,label){
   return `<label>${label} *</label>
@@ -3652,11 +3672,19 @@ PAGES.auditoria=async el=>{
   el.innerHTML=`<h1 class="pg">Auditoria</h1><input id="au-busca" placeholder="🔍 buscar quem ou ação..." style="width:100%;margin-bottom:10px" autocomplete="off"><div id="au">${empty('Carregando…')}</div>`;
   const lista=await sel('auditoria','*, usuarios(nome)','criado_em');
   const l=$('au');
+  const quemDe=a=>{
+    const det=a.detalhe||{};
+    return a.usuarios?.nome||det.por||'—';
+  };
   const qau=(document.getElementById('au-busca')?.value||'').toLowerCase();
-  const listaF=qau?lista.filter(a=>((a.usuarios?.nome||'')+' '+(a.acao||'')).toLowerCase().includes(qau)):lista;
+  const listaF=qau?lista.filter(a=>(quemDe(a)+' '+(a.acao||'')).toLowerCase().includes(qau)):lista;
   if(!listaF.length){l.innerHTML=empty('Nenhum registro encontrado');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Quem</th><th>Ação</th></tr>
-  ${listaF.slice(0,200).map(a=>`<tr><td>${fmtDT(a.criado_em)}</td><td>${esc(a.usuarios?.nome||'—')}</td><td>${esc(a.acao)}</td></tr>`).join('')}</table></div>`;
+  l.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Quem</th><th>O que fez</th><th>Perfil</th></tr>
+  ${listaF.slice(0,200).map(a=>{
+    const det=a.detalhe||{};
+    const quem=quemDe(a);
+    const perfil=det.perfil?`<span class="tag neutral">${esc(det.perfil)}</span>`:'';
+    return `<tr><td>${fmtDT(a.criado_em)}</td><td><b>${esc(quem)}</b></td><td>${esc(a.acao)}</td><td>${perfil}</td></tr>`}).join('')}</table></div>`;
   document.getElementById('au-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
     document.querySelectorAll('#au tbody tr').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
