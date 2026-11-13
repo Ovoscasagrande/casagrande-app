@@ -3248,6 +3248,7 @@ PAGES.jornadas=async el=>{
     l.innerHTML=lista.map(j=>{
       const st={aberta:['warn','Em rota'],conferencia:['primary','Conferência'],fechada:['ok','Fechada'],cancelada:['bad','Cancelada']}[j.status]||['neutral',j.status];
       const kmP=j.km_final!=null?(Number(j.km_final)-Number(j.km_inicial)):null;
+      const podeEditar=ME.perfil==='gerencia'&&j.status!=='aberta';
       return `<div class="listcard ${j.status==='aberta'?'highlight':''}">
       <div class="lc-ico"><i data-lucide="${j.status==='aberta'?'truck':j.status==='conferencia'?'clipboard-check':j.status==='cancelada'?'x-circle':'check-circle-2'}"></i></div>
       <div class="lc-main">
@@ -3260,12 +3261,41 @@ PAGES.jornadas=async el=>{
           ${f==='cancelada'&&j.motivo_cancelamento?`<div class="lc-row"><span>Motivo</span><b style="color:var(--bad)">${esc(j.motivo_cancelamento.slice(0,60))}</b></div>`:''}
           ${f==='cancelada'&&j.usuarios?.nome?`<div class="lc-row"><span>Cancelada por</span><b>${esc(j.usuarios.nome)} · ${fmtDT(j.cancelada_em)}</b></div>`:''}
         </div>
+        ${podeEditar?`<div class="lc-actions"><button type="button" class="btn mini" data-jed="${j.id}"><i data-lucide="pencil"></i> Editar</button></div>`:''}
       </div></div>`}).join('')||empty('Nenhuma jornada');
     if(window.lucide)lucide.createIcons();
   };
   document.querySelectorAll('#jn-filtros .jnf').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#jn-filtros .jnf').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');carregar(b.dataset.f);
+  });
+  // editar jornada (gerência corrige o que o conferente conferiu errado)
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-jed]');if(!b)return;
+    const jid=b.dataset.jed;
+    sb.from('jornadas').select('*').eq('id',jid).maybeSingle().then(({data:j})=>{
+      if(!j)return;
+      const dt=v=>v?new Date(v).toISOString().slice(0,16):'';
+      openModal('✏️ Editar jornada — '+(j.motoristas?.nome||''),[
+        {id:'ej-rot',label:'Nº do roteiro',inputmode:'numeric',valor:j.roteiro||''},
+        {id:'ej-kmi',label:'Km inicial',inputmode:'numeric',valor:j.km_inicial??''},
+        {id:'ej-kmf',label:'Km final',inputmode:'numeric',valor:j.km_final??''},
+        {id:'ej-ini',label:'Início',tipo:'datetime-local',valor:dt(j.inicio)},
+        {id:'ej-fim',label:'Fim',tipo:'datetime-local',valor:dt(j.fim)},
+        {id:'ej-oc',label:'Ocorrências',tipo:'textarea',valor:j.ocorrencias||''}
+      ],async v=>{
+        const patch={};
+        if(v['ej-rot']!=='')patch.roteiro=parseInt(v['ej-rot']);
+        if(v['ej-kmi']!=='')patch.km_inicial=parseFloat(v['ej-kmi']);
+        if(v['ej-kmf']!=='')patch.km_final=parseFloat(v['ej-kmf']);
+        if(v['ej-ini'])patch.inicio=new Date(v['ej-ini']).toISOString();
+        if(v['ej-fim'])patch.fim=new Date(v['ej-fim']).toISOString();
+        patch.ocorrencias=v['ej-oc']||null;
+        const r=await upd('jornadas',jid,patch);
+        if(r){toast('Jornada atualizada ✓');carregar(document.querySelector('#jn-filtros .jnf.on')?.dataset.f||'')}
+        return !!r;
+      });
+    });
   });
   document.querySelector('#jn-filtros .jnf')?.classList.add('on');
   carregar('');
