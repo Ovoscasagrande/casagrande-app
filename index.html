@@ -1021,6 +1021,14 @@ window.addEventListener('hashchange',()=>{
 });
 /* ============ fila offline (lançamentos sem sinal) ============ */
 const FILA_KEY='cg_fila_offline';
+/* ====== barra de busca reutilizável (todas as páginas de dados) ====== */
+function barraBusca(id,placeholder){
+  return `<input id="${id}" placeholder="${placeholder||'🔍 buscar...'}" style="width:100%;margin-bottom:10px" autocomplete="off">`;
+}
+function bindBusca(id,cb){
+  const el=document.getElementById(id);if(!el)return;
+  el.oninput=()=>cb(el.value.trim().toLowerCase());
+}
 /* ====== lightbox: toque na foto para ampliar ====== */
 function lightbox(src){
   let lb=document.getElementById('lightbox');
@@ -2348,14 +2356,17 @@ async function pagAvisosMotorista(el){
   $('av-list').innerHTML=meus&&meus.length?meus.map(a=>`<div style="padding:9px 0;border-bottom:1px solid #242424"><b>${esc(a.categoria||'Aviso')}</b> — ${esc(a.veiculos?.placa||'')} ${tag(a.status)}<div style="font-size:13px;color:var(--mut);margin-top:3px">${esc(a.texto)}</div><div style="font-size:11px;color:#666;margin-top:2px">${fmtDT(a.criado_em)}</div></div>`).join(''):empty('Nenhum aviso enviado');
 }
 async function pagAvisosGestao(el){
-  el.innerHTML=`<h1 class="pg">Avisos dos motoristas</h1><div id="av-g">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Avisos dos motoristas</h1><input id="av-busca" placeholder="🔍 buscar motorista, placa ou texto..." style="width:100%;margin-bottom:10px" autocomplete="off"><div id="av-g">${empty('Carregando…')}</div>`;
   const {data:lista}=await sb.from('avisos').select('*, veiculos(placa,modelo), motoristas(nome)').order('criado_em',{ascending:false}).limit(100);
   const g=$('av-g');
-  if(!lista||!lista.length){g.innerHTML=empty('Nenhum aviso');return}
+  const qav=(document.getElementById('av-busca')?.value||'').toLowerCase();
+  const listaF=qav?lista.filter(a=>((a.motoristas?.nome||'')+' '+(a.veiculos?.placa||'')+' '+(a.categoria||'')+' '+(a.texto||'')).toLowerCase().includes(qav)):lista;
+  if(!listaF.length){g.innerHTML=empty('Nenhum aviso encontrado');return}
   g.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Motorista</th><th>Veículo</th><th>Categoria</th><th>Aviso</th><th>Status</th><th></th></tr>
-  ${lista.map(a=>{const velho=['recebido','em_analise'].includes(a.status)&&(Date.now()-new Date(a.criado_em))>24*3600e3;
+  ${listaF.map(a=>{const velho=['recebido','em_analise'].includes(a.status)&&(Date.now()-new Date(a.criado_em))>24*3600e3;
     return `<tr ${velho?'style="background:rgba(139,58,58,.25)"':''}><td>${fmtDT(a.criado_em)}${velho?'<div style="color:var(--bad);font-weight:700">⚠ +24h sem resposta</div>':''}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.categoria||'—')}</td><td>${esc(a.texto)}</td><td>${tag(a.status)}</td>
   <td><button type="button" class="btn mini" data-av="${a.id}" data-st="${a.status==='recebido'?'em_analise':a.status==='em_analise'?'encaminhado':a.status==='encaminhado'?'resolvido':'arquivado'}">${a.status==='recebido'?'▶ Em análise':a.status==='em_analise'?'🔧 Encaminhar p/ mecânico':a.status==='encaminhado'?'✓ Resolver':'🗄 Arquivar'}</button></td></tr>`}).join('')}</table></div>`;
+  document.getElementById('av-busca').oninput=()=>pagAvisosGestao(el);
   g.querySelectorAll('[data-av]').forEach(b=>b.onclick=async()=>{
     const r=await upd('avisos',b.dataset.av,{status:b.dataset.st});
     if(r){toast('Status atualizado');go('avisos')}
@@ -2618,7 +2629,7 @@ async function pagConfDetalhe(el,jid){
   };
 };
 PAGES.abastecimentos=async el=>{
-  el.innerHTML=`<h1 class="pg">Abastecimentos</h1><div id="ab-f" class="sec"><h3>Filtros</h3><div class="row"><div><label>De</label><input id="f-de" type="date" value=""></div><div><label>Até</label><input id="f-ate" type="date" value=""></div></div><button type="button" class="btn mini" id="f-btn">Filtrar</button></div><div id="ab-l">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Abastecimentos</h1><div id="ab-f" class="sec"><h3>Filtros</h3><div class="row"><div><label>De</label><input id="f-de" type="date" value=""></div><div><label>Até</label><input id="f-ate" type="date" value=""></div></div><button type="button" class="btn mini" id="f-btn">Filtrar</button></div><input id="ab-busca" placeholder="🔍 buscar placa, motorista ou posto..." style="width:100%;margin:10px 0" autocomplete="off"><div id="ab-l">${empty('Carregando…')}</div>`;
   const carregar=async()=>{
     let q=empFilter(sb.from('abastecimentos').select('*, veiculos(placa), motoristas(nome)')).order('data',{ascending:false}).limit(300);
     const de=$('f-de').value,ate=$('f-ate').value;
@@ -2627,26 +2638,32 @@ PAGES.abastecimentos=async el=>{
     const l=$('ab-l');
     if(error){l.innerHTML=empty(err(error));return}
     if(!data||!data.length){l.innerHTML=empty('Nenhum abastecimento no período');return}
-    const tot=data.reduce((s,a)=>s+Number(a.valor_total),0);
-    const litros=data.reduce((s,a)=>s+Number(a.litros||0),0);
+    const qb=(document.getElementById('ab-busca')?.value||'').toLowerCase();
+    const dataF=qb?data.filter(a=>((a.veiculos?.placa||'')+' '+(a.motoristas?.nome||'')+' '+(a.posto||'')).toLowerCase().includes(qb)):data;
+    const tot=dataF.reduce((s,a)=>s+Number(a.valor_total),0);
+    const litros=dataF.reduce((s,a)=>s+Number(a.litros||0),0);
     l.innerHTML=`<div class="kpis"><div class="kpi"><div class="v">${fmtBRL(tot)}</div><div class="l">Total no período</div></div><div class="kpi"><div class="v">${litros.toLocaleString('pt-BR',{maximumFractionDigits:0})} L</div><div class="l">Litros</div></div><div class="kpi"><div class="v">${data.length}</div><div class="l">Lançamentos</div></div></div>
     <div class="tblwrap"><table><tr><th>Data</th><th>Veículo</th><th>Motorista</th><th>Posto</th><th>Km</th><th>Litros</th><th>R$/L</th><th>Total</th><th>Foto</th></tr>
-    ${data.map(a=>`<tr><td>${fmtDT(a.data)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.posto||'—')}</td><td>${km(a.km)}</td><td>${a.litros??'—'}</td><td>${a.preco_litro??'—'}</td><td>${fmtBRL(a.valor_total)}</td><td><button type="button" class="btn mini" data-foto="${a.foto_path}">👁</button></td></tr>`).join('')}</table></div>`;
+    ${dataF.map(a=>`<tr><td>${fmtDT(a.data)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.posto||'—')}</td><td>${km(a.km)}</td><td>${a.litros??'—'}</td><td>${a.preco_litro??'—'}</td><td>${fmtBRL(a.valor_total)}</td><td><button type="button" class="btn mini" data-foto="${a.foto_path}">👁</button></td></tr>`).join('')}</table></div>`;
     l.querySelectorAll('[data-foto]').forEach(b=>b.onclick=async()=>{
       const url=await assinar(b.dataset.foto);
       if(url)window.open(url,'_blank');
     });
   };
   $('f-btn').onclick=carregar;carregar();
+  document.getElementById('ab-busca').oninput=carregar;
 };
 PAGES.despesas=async el=>{
-  el.innerHTML=`<h1 class="pg">Despesas</h1><div id="dp">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Despesas</h1><input id="dp-busca" placeholder="🔍 buscar motorista, veículo, categoria..." style="width:100%;margin-bottom:10px" autocomplete="off"><div id="dp">${empty('Carregando…')}</div>`;
   const {data:lista}=await empFilter(sb.from('despesas').select('*, veiculos(placa), motoristas(nome)')).order('data',{ascending:false}).limit(200);
   const d=$('dp');
-  if(!lista||!lista.length){d.innerHTML=empty('Nenhuma despesa');return}
+  const qb=(document.getElementById('dp-busca')?.value||'').toLowerCase();
+  const listaF=qb?lista.filter(x=>((x.motoristas?.nome||'')+' '+(x.veiculos?.placa||'')+' '+(x.categoria||'')+' '+(x.descricao||'')).toLowerCase().includes(qb)):lista;
+  if(!listaF.length){d.innerHTML=empty('Nenhuma despesa encontrada');return}
   d.innerHTML=`<div class="tblwrap"><table><tr><th>Data</th><th>Motorista</th><th>Veículo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Status</th><th></th></tr>
-  ${lista.map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.motoristas?.nome)}</td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.categoria)}</td><td>${esc(x.descricao||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${tag(x.status)}</td>
+  ${listaF.map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.motoristas?.nome)}</td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.categoria)}</td><td>${esc(x.descricao||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${tag(x.status)}</td>
   <td>${(x.status==='aguardando'&&(ME.perfil==='gerencia'||ME.perfil==='conferente'))?`<button type="button" class="btn mini" data-ok="${x.id}">✓</button> <button type="button" class="btn mini" data-no="${x.id}">✗</button>`:''}</td></tr>`).join('')}</table></div>`;
+  document.getElementById('dp-busca').oninput=()=>PAGES.despesas(el);
   d.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(await upd('despesas',b.dataset.ok,{status:'aprovada',aprovada_por:ME.id,aprovada_em:new Date().toISOString()}))go('despesas')});
   d.querySelectorAll('[data-no]').forEach(b=>b.onclick=async()=>{
     const motivo=await pedirTexto('Reprovar despesa','Motivo da reprovação');if(motivo===null)return;
@@ -2663,6 +2680,7 @@ PAGES.multas=async el=>{
     <label>Notificação (foto/PDF)</label><input id="m-arq" type="file" accept="image/*,application/pdf">
     <label>Observações</label><input id="m-obs">
     <button type="button" class="btn" id="m-btn">Cadastrar multa</button><div class="msg" id="m-msg"></div></div>`:''}
+  <input id="mt-busca" placeholder="🔍 buscar placa, motorista ou órgão..." style="width:100%;margin-bottom:10px" autocomplete="off">
   <div id="m-list">${empty('Carregando…')}</div>`;
   if(ehGestao){
     const veics=await sel('veiculos','id,placa,ativo','placa');
@@ -2685,10 +2703,13 @@ PAGES.multas=async el=>{
   }
   const {data:lista}=await empFilter(sb.from('multas').select('*, veiculos(placa), motoristas(nome)')).order('criado_em',{ascending:false}).limit(200);
   const l=$('m-list');
-  if(!lista||!lista.length){l.innerHTML=empty('Nenhuma multa cadastrada');return}
+  const q=(document.getElementById('mt-busca')?.value||'').toLowerCase();
+  const listaF=q?lista.filter(m=>((m.veiculos?.placa||'')+' '+(m.motoristas?.nome||'')+' '+(m.orgao||'')).toLowerCase().includes(q)):lista;
+  if(!listaF.length){l.innerHTML=empty('Nenhuma multa encontrada');return}
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Veículo</th><th>Motorista</th><th>Órgão</th><th>Infração</th><th>Prazo</th><th>Valor</th><th>Status</th><th></th></tr>
-  ${lista.map(m=>`<tr><td>${esc(m.veiculos?.placa)}</td><td>${esc(m.motoristas?.nome||'—')}</td><td>${esc(m.orgao||'—')}</td><td>${fmtD(m.data_infracao)}</td><td>${fmtD(m.prazo)}</td><td>${fmtBRL(m.valor)}</td><td>${tag(m.status)}</td>
+  ${listaF.map(m=>`<tr><td>${esc(m.veiculos?.placa)}</td><td>${esc(m.motoristas?.nome||'—')}</td><td>${esc(m.orgao||'—')}</td><td>${fmtD(m.data_infracao)}</td><td>${fmtD(m.prazo)}</td><td>${fmtBRL(m.valor)}</td><td>${tag(m.status)}</td>
   <td><button type="button" class="btn mini" data-det="${m.id}">Ver detalhes</button>${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?` <button type="button" class="btn mini" data-cie="${m.id}">Confirmar ciência</button>`:''}</td></tr>`).join('')}</table></div>`;
+  document.getElementById('mt-busca').oninput=()=>PAGES.multas(el);
   l.querySelectorAll('[data-cie]').forEach(b=>b.onclick=async()=>{
     const {error}=await sb.rpc('confirmar_ciencia',{p_multa_id:b.dataset.cie});
     if(error){toast(err(error))}else{toast('Ciência registrada');go('multas')}
@@ -3010,6 +3031,7 @@ PAGES.veiculos=async el=>{
   <label>CRLV-e (PDF ou foto) *</label><input id="v-crlv" type="file" accept="application/pdf,image/*">
   <label>Vencimento do CRLV-e</label><input id="v-crlv-venc" type="date">
   <button type="button" class="btn" id="v-btn">Cadastrar veículo</button><div class="msg" id="v-msg"></div></div>
+  <input id="v-busca" placeholder="🔍 buscar placa, marca, modelo..." style="width:100%;margin-bottom:10px" autocomplete="off">
   <div id="v-list">${empty('Carregando…')}</div>`;
   $('v-btn').onclick=async()=>{
     const placa=placaLimpa($('v-placa').value);
@@ -3036,7 +3058,9 @@ PAGES.veiculos=async el=>{
   // CRLV-e de cada veículo (para a coluna e o botão 📄)
   const {data:docs}=await sb.from('veiculos_documentos').select('id,veiculo_id,tipo,arquivo_path,vencimento,criado_em').eq('tipo','CRLV-e').order('criado_em',{ascending:false});
   const crlvBy={};(docs||[]).forEach(d=>{if(!crlvBy[d.veiculo_id])crlvBy[d.veiculo_id]=d});
-  l.innerHTML=lista.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();const empN={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'}[v.empresa]||v.empresa||'—';
+  const buscaV=(document.getElementById('v-busca')?.value||'').toLowerCase();
+  const listaV=buscaV?lista.filter(v=>((v.placa||'')+' '+(v.marca||'')+' '+(v.modelo||'')+' '+(v.renavam||'')).toLowerCase().includes(buscaV)):lista;
+  l.innerHTML=listaV.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();const empN={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'}[v.empresa]||v.empresa||'—';
   const faltaOleo=(v.km_atual!=null&&v.intervalo_oleo_km&&v.ultima_troca_oleo_km!=null)?Number(v.km_atual)-(Number(v.ultima_troca_oleo_km)+Number(v.intervalo_oleo_km)):null;
   const oleoTxt=faltaOleo!=null?(faltaOleo>=0?`<b style="color:var(--bad)">TROCAR (+${km(faltaOleo)})</b>`:`próxima em ${km(-faltaOleo)}`):(v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—');
   return `<div class="listcard ${faltaOleo!=null&&faltaOleo>=0?'danger':''}">
@@ -3052,6 +3076,7 @@ PAGES.veiculos=async el=>{
     <div class="lc-actions">${ME.perfil==='gerencia'?`<button type="button" class="btn mini" data-ved="${v.id}"><i data-lucide="pencil"></i> Editar</button> <button type="button" class="btn mini sec" data-emp="${v.id}" data-e="${esc(v.empresa||'OVOS')}"><i data-lucide="building-2"></i> ${esc(empN)}</button> <button type="button" class="btn mini sec" data-crlv="${v.id}" data-placa="${esc(v.placa)}"><i data-lucide="file-text"></i> ${d?'Trocar':'Enviar'} CRLV</button> ${d?`<button type="button" class="btn mini sec" data-dl="${d.arquivo_path}" data-pl="${esc(v.placa)}"><i data-lucide="download"></i> Baixar</button>`:''} <button type="button" class="btn mini sec" data-tg="${v.id}" data-a="${v.ativo?0:1}">${v.ativo?'Inativar':'Reativar'}</button>`:''}</div>
   </div></div>`}).join('');
   if(window.lucide)lucide.createIcons();
+  document.getElementById('v-busca').oninput=()=>{const pos=window.scrollY;PAGES.veiculos(el);window.scrollTo(0,pos)};
   l.querySelectorAll('[data-ved]').forEach(b=>b.onclick=()=>{
     const v=lista.find(x=>x.id===b.dataset.ved);if(!v)return;
     openModal('✏️ Editar — '+v.placa,[
@@ -3155,9 +3180,14 @@ PAGES.motoristas=async el=>{
   const hojeStr=hoje();
   const {data:vinc}=await sb.from('motorista_veiculo').select('motorista_id,ativo,veiculos(id,placa,modelo)');
   const vincBy={};(vinc||[]).forEach(v=>{if(v.ativo)vincBy[v.motorista_id]=vincBy[v.motorista_id]||[];if(v.ativo)vincBy[v.motorista_id].push(v.veiculos)});
+  const buscaM=(document.getElementById('mo-busca')?.value||'').toLowerCase();
+  const listaF=buscaM?lista.filter(m=>{
+    const vics=(vincBy[m.id]||[]).map(v=>v.placa).join(' ');
+    return (m.nome||'').toLowerCase().includes(buscaM)||(m.cpf||'').includes(buscaM)||(m.cnh||'').includes(buscaM)||vics.toLowerCase().includes(buscaM);
+  }):lista;
   const EMPNICK={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'};
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>Empresas</th><th>CPF</th><th>CNH</th><th>Validade</th><th>Veículo</th><th>Situação</th><th></th></tr>
-  ${lista.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';const empsTxt=(m.empresas&&m.empresas.length?m.empresas.map(x=>EMPNICK[x]||x).join(', '):EMPNICK[m.empresa]||m.empresa||'—');return `<tr><td><b>${esc(m.nome)}</b></td><td><span class="tag" style="font-size:10px">${esc(empsTxt)}</span></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
+  ${listaF.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';const empsTxt=(m.empresas&&m.empresas.length?m.empresas.map(x=>EMPNICK[x]||x).join(', '):EMPNICK[m.empresa]||m.empresa||'—');return `<tr><td><b>${esc(m.nome)}</b></td><td><span class="tag" style="font-size:10px">${esc(empsTxt)}</span></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
   <td>${ME.perfil==='gerencia'?`<button type="button" class="btn mini" data-vv="${m.id}">🚚 veículo</button> <button type="button" class="btn mini" data-ed="${m.id}">✏️</button> <button type="button" class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
     if(b.dataset.a==='0'){
@@ -3238,6 +3268,7 @@ PAGES.jornadas=async el=>{
   <div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap" id="jn-filtros">
     ${[['','Todas'],['aberta','Abertas'],['conferencia','Conferência'],['fechada','Fechadas'],['cancelada','🗑 Canceladas']].map(([v,t])=>`<button type="button" class="btn mini jnf" data-f="${v}">${t}</button>`).join('')}
   </div>
+  <input id="jn-busca" placeholder="🔍 buscar motorista, placa ou roteiro..." style="width:100%;margin-bottom:10px" autocomplete="off">
   <div id="jn">${empty('Carregando…')}</div>`;
   const carregar=async(f)=>{
     const l=$('jn');l.innerHTML=empty('Carregando…');
@@ -3245,7 +3276,10 @@ PAGES.jornadas=async el=>{
     if(f)q=q.eq('status',f);
     const {data:lista}=await q;
     if(!lista||!lista.length){l.innerHTML=empty(f==='cancelada'?'Nenhuma jornada cancelada':'Nenhuma jornada');return}
-    l.innerHTML=lista.map(j=>{
+    const buscaJ=(document.getElementById('jn-busca')?.value||'').toLowerCase();
+    const listaJ=buscaJ?lista.filter(j=>((j.motoristas?.nome||'')+' '+(j.veiculos?.placa||'')+' '+(j.roteiro||'')).toLowerCase().includes(buscaJ)):lista;
+    if(!listaJ.length){l.innerHTML=empty('Nenhuma jornada encontrada');if(window.lucide)lucide.createIcons();return}
+    l.innerHTML=listaJ.map(j=>{
       const st={aberta:['warn','Em rota'],conferencia:['primary','Conferência'],fechada:['ok','Fechada'],cancelada:['bad','Cancelada']}[j.status]||['neutral',j.status];
       const kmP=j.km_final!=null?(Number(j.km_final)-Number(j.km_inicial)):null;
       const podeEditar=ME.perfil==='gerencia'&&j.status!=='aberta';
@@ -3265,6 +3299,7 @@ PAGES.jornadas=async el=>{
       </div></div>`}).join('')||empty('Nenhuma jornada');
     if(window.lucide)lucide.createIcons();
   };
+  document.getElementById('jn-busca').oninput=()=>carregar(document.querySelector('#jn-filtros .jnf.on')?.dataset.f||'');
   document.querySelectorAll('#jn-filtros .jnf').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#jn-filtros .jnf').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');carregar(b.dataset.f);
@@ -3308,7 +3343,7 @@ PAGES.os=async el=>{
     <label>Descrição do problema/serviço</label><textarea id="o-desc"></textarea>
     <label>Vincular aviso (opcional)</label><select id="o-aviso"><option value="">—</option></select>
     <button type="button" class="btn" id="o-btn">Abrir ordem de serviço</button><div class="msg" id="o-msg"></div></div>`}
-  <div class="sec"><h3>${ME.perfil==='mecanico'?'Todas as ordens de serviço':'Ordens de serviço'}</h3></div>
+  <input id="os-busca" placeholder="🔍 buscar placa ou descrição..." style="width:100%;margin-bottom:10px" autocomplete="off">
   <div id="o-list">${empty('Carregando…')}</div>`;
   if(ME.perfil!=='mecanico'){
     const veics=await sel('veiculos','id,placa,ativo','placa');
@@ -3411,12 +3446,15 @@ PAGES.os=async el=>{
     })();
   }
   const l=$('o-list');
-  if(!lista||!lista.length){l.innerHTML=empty('Nenhuma OS');return}
+  const qo=(document.getElementById('os-busca')?.value||'').toLowerCase();
+  const listaF=qo?lista.filter(o=>((o.veiculos?.placa||'')+' '+(o.descricao||'')+' '+(o.status||'')).toLowerCase().includes(qo)):lista;
+  if(!listaF.length){l.innerHTML=empty('Nenhuma OS encontrada');return}
   const FLOW={recebida:'em_analise',em_analise:'aguardando_peca',aguardando_peca:'em_execucao',em_execucao:'concluida'};
   const LBL={recebida:'▶ Iniciar análise',em_analise:'⏳ Aguardando peça',aguardando_peca:'🔨 Em execução',em_execucao:'✓ Concluir'};
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Aberta</th><th>Veículo</th><th>Descrição</th><th>Diagnóstico</th><th>Custos</th><th>Status</th><th></th></tr>
-  ${lista.map(o=>`<tr><td>${fmtDT(o.aberta_em)}</td><td>${esc(o.veiculos?.placa)}</td><td>${esc(o.descricao)}</td><td>${esc(o.diagnostico||'—')}</td><td>${o.mao_obra||o.custos?fmtBRL(Number(o.mao_obra||0)+Number(o.custos||0)):'—'}</td><td>${tag(o.status)}</td>
+  ${listaF.map(o=>`<tr><td>${fmtDT(o.aberta_em)}</td><td>${esc(o.veiculos?.placa)}</td><td>${esc(o.descricao)}</td><td>${esc(o.diagnostico||'—')}</td><td>${o.mao_obra||o.custos?fmtBRL(Number(o.mao_obra||0)+Number(o.custos||0)):'—'}</td><td>${tag(o.status)}</td>
   <td>${['mecanico','gerencia'].includes(ME.perfil)&&o.status!=='concluida'?`<button type="button" class="btn mini" data-osd="${o.id}">✏️ Atualizar</button>`:''}</td></tr>`).join('')}</table></div>`;
+  document.getElementById('os-busca').oninput=()=>PAGES.os(el);
   l.querySelectorAll('[data-osd]').forEach(b=>b.onclick=async()=>{
     const o=lista.find(x=>x.id===b.dataset.osd);
     openModal('Atualizar OS — '+(o.veiculos?.placa||''),[
@@ -3434,7 +3472,7 @@ PAGES.os=async el=>{
   });
 };
 PAGES.usuarios=async el=>{
-  el.innerHTML=`<h1 class="pg">Usuários</h1><div id="u-pend">${empty('Carregando…')}</div><div id="u-list">${empty('')}</div>`;
+  el.innerHTML=`<h1 class="pg">Usuários</h1><div id="u-pend">${empty('Carregando…')}</div><input id="u-busca" placeholder="🔍 buscar usuário ou e-mail..." style="width:100%;margin:10px 0" autocomplete="off"><div id="u-list">${empty('')}</div>`;
   const lista=await sel('usuarios','*','nome');
   const l=$('u-list'),pw=$('u-pend');
   if(!lista){l.innerHTML=empty('Erro ao carregar');pw.innerHTML='';return}
@@ -3471,7 +3509,7 @@ PAGES.usuarios=async el=>{
   }else{pw.innerHTML=`<div class="sec"><p class="hint">Nenhum cadastro aguardando aprovação ✓</p></div>`}
   // ---- aprovados ----
   l.innerHTML=ativos.length?`<div class="sec"><h3>👥 Cadastrados (${ativos.length})</h3><div class="tblwrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresa</th><th></th></tr>
-  ${ativos.map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td>
+  ${ativos.filter(u=>{const q=(document.getElementById('u-busca')?.value||'').toLowerCase();return !q||(u.nome||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q)}).map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td>
   <td>${ME.master?`<button type="button" class="btn mini" data-ued="${u.id}">✏️</button>`:''}</td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
   // ---- veículos para vínculo na aprovação ----
   (async()=>{
@@ -3524,6 +3562,7 @@ PAGES.usuarios=async el=>{
     };
   });
   // ---- editar aprovado ----
+  document.getElementById('u-busca').oninput=()=>PAGES.usuarios(el);
   l.querySelectorAll('[data-ued]').forEach(b=>b.onclick=()=>{
     const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
     openModal('✏️ Editar — '+u.nome,[
@@ -3545,16 +3584,19 @@ PAGES.usuarios=async el=>{
   });
 };
 PAGES.auditoria=async el=>{
-  el.innerHTML=`<h1 class="pg">Auditoria</h1><div id="au">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Auditoria</h1><input id="au-busca" placeholder="🔍 buscar quem ou ação..." style="width:100%;margin-bottom:10px" autocomplete="off"><div id="au">${empty('Carregando…')}</div>`;
   const lista=await sel('auditoria','*, usuarios(nome)','criado_em');
   const l=$('au');
-  if(!lista||!lista.length){l.innerHTML=empty('Sem registros');return}
+  const qau=(document.getElementById('au-busca')?.value||'').toLowerCase();
+  const listaF=qau?lista.filter(a=>((a.usuarios?.nome||'')+' '+(a.acao||'')).toLowerCase().includes(qau)):lista;
+  if(!listaF.length){l.innerHTML=empty('Nenhum registro encontrado');return}
   l.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Quem</th><th>Ação</th></tr>
-  ${lista.slice(0,200).map(a=>`<tr><td>${fmtDT(a.criado_em)}</td><td>${esc(a.usuarios?.nome||'—')}</td><td>${esc(a.acao)}</td></tr>`).join('')}</table></div>`;
+  ${listaF.slice(0,200).map(a=>`<tr><td>${fmtDT(a.criado_em)}</td><td>${esc(a.usuarios?.nome||'—')}</td><td>${esc(a.acao)}</td></tr>`).join('')}</table></div>`;
+  document.getElementById('au-busca').oninput=()=>PAGES.auditoria(el);
 };
 /* ============ RECEBIMENTOS (gerência/conferente) ============ */
 PAGES.recebimentos=async el=>{
-  el.innerHTML=`<h1 class="pg">Recebimentos</h1><div id="rc">${empty('Carregando…')}</div>`;
+  el.innerHTML=`<h1 class="pg">Recebimentos</h1><input id="rc-busca" placeholder="🔍 buscar tipo, placa ou motorista..." style="width:100%;margin-bottom:10px" autocomplete="off"><div id="rc">${empty('Carregando…')}</div>`;
   const carregar=async()=>{
     const rc=$('rc');rc.innerHTML=empty('Carregando…');
     let q=sb.from('recebimentos').select('*, veiculos(placa), motoristas(nome), usuarios(nome)').order('data',{ascending:false}).limit(300);
@@ -3563,13 +3605,16 @@ PAGES.recebimentos=async el=>{
     if(error){rc.innerHTML=empty(err(error));return}
     const lista=data||[];
     if(!lista.length){rc.innerHTML=empty('Nenhum recebimento'+(e!=='GRUPO'?' em '+EMPNOME[e]:' no grupo'));return}
-    const tot=lista.reduce((s,x)=>s+Number(x.valor),0);
-    rc.innerHTML=`<div class="kpis"><div class="kpi"><div class="v">${fmtBRL(tot)}</div><div class="l">Total (${e==='GRUPO'?'grupo':EMPNOME[e]})</div></div><div class="kpi"><div class="v">${lista.length}</div><div class="l">Lançamentos</div></div></div>
+    const qb=(document.getElementById('rc-busca')?.value||'').toLowerCase();
+    const listaF=qb?lista.filter(x=>((x.tipo||'')+' '+(x.veiculos?.placa||'')+' '+(x.motoristas?.nome||'')).toLowerCase().includes(qb)):lista;
+    const tot=listaF.reduce((s,x)=>s+Number(x.valor),0);
+    rc.innerHTML=`<div class="kpis"><div class="kpi"><div class="v">${fmtBRL(tot)}</div><div class="l">Total (${e==='GRUPO'?'grupo':EMPNOME[e]})</div></div><div class="kpi"><div class="v">${listaF.length}</div><div class="l">Lançamentos</div></div></div>
     <div class="tblwrap"><table><tr><th>Data</th><th>Tipo</th><th>Veículo</th><th>Motorista</th><th>Valor</th><th>Lançado por</th><th>Extras</th><th></th></tr>
-    ${lista.map(x=>`<tr><td>${fmtDT(x.data)}</td><td><b>${esc(x.tipo)}</b></td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.motoristas?.nome||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${esc(x.usuarios?.nome||'—')}</td><td>${x.extras&&Object.keys(x.extras).length?esc(Object.entries(x.extras).map(([k,v])=>k+': '+v).join(' · ')):'—'}</td><td>${x.foto_path?`<button type="button" class="btn mini" data-foto="${x.foto_path}">👁</button>`:'—'}</td></tr>`).join('')}</table></div>`;
+    ${listaF.map(x=>`<tr><td>${fmtDT(x.data)}</td><td><b>${esc(x.tipo)}</b></td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.motoristas?.nome||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${esc(x.usuarios?.nome||'—')}</td><td>${x.extras&&Object.keys(x.extras).length?esc(Object.entries(x.extras).map(([k,v])=>k+': '+v).join(' · ')):'—'}</td><td>${x.foto_path?`<button type="button" class="btn mini" data-foto="${x.foto_path}">👁</button>`:'—'}</td></tr>`).join('')}</table></div>`;
     rc.querySelectorAll('[data-foto]').forEach(b=>b.onclick=async()=>{const url=await assinar(b.dataset.foto);if(url)window.open(url,'_blank')});
   };
   carregar();
+  document.getElementById('rc-busca').oninput=carregar;
 };
 /* ============ RECEBIMENTO — lançamento (motorista Transportadora) ============ */
 PAGES.recnovo=async el=>{
