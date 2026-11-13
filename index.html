@@ -951,7 +951,7 @@ function buildNav(){
     }[ME.perfil]||[];
     const emps=ME.extra||[];
     if(ME.perfil==='motorista'&&emps.includes('promotor')){}
-    const disponiveis=tabs.filter(t=>NAV.includes(t[0])||t[0]==='home');
+    const disponiveis=tabs.filter(t=>items.includes(t[0])||t[0]==='home');
     if(!tb){tb=document.createElement('nav');tb.id='tabbar';tb.className='tabbar';document.body.appendChild(tb)}
     tb.innerHTML=disponiveis.map(t=>`<button type="button" data-tb="${t[0]}" class="${PAGE===t[0]?'on':''}"><i data-lucide="${t[1]}"></i>${t[2]}</button>`).join('');
     tb.querySelectorAll('[data-tb]').forEach(b=>b.onclick=()=>go(b.dataset.tb));
