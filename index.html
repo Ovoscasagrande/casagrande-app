@@ -875,6 +875,22 @@ async function afterLogin(){
   }
   buildNav();applyEmpBtn();bindEmpMenu();$('login').classList.add('hide');$('app').classList.remove('hide');
   atualizaBadgeOffline();filaProcessa();
+  // ===== MANUTENÇÃO DIÁRIA (1x por dia, silenciosa — deixa o app liso) =====
+  (async()=>{
+    const hoje=new Date().toISOString().slice(0,10);
+    if(localStorage.getItem('cg-manutencao')===hoje)return;
+    localStorage.setItem('cg-manutencao',hoje);
+    try{
+      // 1. caches do SW de versões antigas
+      if('caches' in window){const ks=await caches.keys();const atual=(await (await fetch('sw.js',{cache:'no-store'})).text()).match(/cg-v\d+/)?.[0];for(const k of ks){if(atual&&!k.includes(atual))await caches.delete(k)}}
+      // 2. fila offline já enviada há +3 dias
+      const f=filaLer();const fresca=f.filter(x=>x.em&&new Date(x.em)>new Date(Date.now()-3*864e5));if(fresca.length!==f.length)filaSalvar(fresca);
+      // 3. flags temporárias
+      sessionStorage.removeItem('sw-reloaded');
+      // 4. limpeza do banco (RPC idempotente: notificações lidas, auditoria +90d)
+      await sb.rpc('manutencao_diaria');
+    }catch(e){}
+  })();
   // sincronização do perfil: a cada 60s verifica se o perfil mudou no banco
   // (ex.: pendente aprovado pela gerência — o menu atualiza sozinho, sem reabrir o app)
   clearInterval(window.__pendTimer);
