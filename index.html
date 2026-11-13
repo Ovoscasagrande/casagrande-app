@@ -1995,13 +1995,27 @@ function novoClienteUI(recarregar){
       const m=document.getElementById('nc-coord');
       if(!end){m.textContent='Digite o endereço primeiro — depois toque em Buscar';return}
       m.textContent='Buscando endereço…';
+      // bias regional: a operação é toda na região de Campinas/SP
+      const BIAS='&lat=-22.90&lon=-47.06';
+      const tentativas=[
+        encodeURIComponent(end)+'+Brasil',
+        encodeURIComponent(end)+'+SP+Brasil',
+        encodeURIComponent(end.replace(/\d+/,'').trim())+'+'+encodeURIComponent(end.match(/(Sumar|Campinas|Hortol|Valinhos|Vinhedo|Limeira|Americana|Santa B)/i)?.[0]||'Campinas')
+      ];
       try{
-        const r=await fetch('https://photon.komoot.io/api/?limit=1&q='+encodeURIComponent(end+' São Paulo'));
-        const d=await r.json();
-        const f=d&&d.features&&d.features[0];
-        if(!f){m.textContent='Endereço não encontrado — toque no mapa para marcar manualmente';return}
-        setPonto(f.geometry.coordinates[1],f.geometry.coordinates[0]);
-        m.textContent='Endereço encontrado ✓ — confira no mapa e ajuste o pino se precisar';
+        for(const q of tentativas){
+          const r=await fetch('https://photon.komoot.io/api/?limit=1'+BIAS+'&q='+q);
+          const d=await r.json();
+          const f=d&&d.features&&d.features[0];
+          if(f){
+            setPonto(f.geometry.coordinates[1],f.geometry.coordinates[0]);
+            const p=f.properties||{};
+            const onde=[p.street||p.name,p.city||p.locality].filter(Boolean).join(', ');
+            m.textContent='Encontrado ✓ '+(onde?'('+onde+')':'')+' — confira o pino e ajuste no toque se precisar';
+            return;
+          }
+        }
+        m.textContent='Não achei esse endereço — toque no mapa em cima da loja (o pino é manual)';
       }catch(e){m.textContent='Falha na busca — toque no mapa para marcar manualmente'}
     };
     // Minha localização (GPS)
