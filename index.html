@@ -2006,16 +2006,21 @@ function novoClienteUI(recarregar){
       ];
       try{
         for(const q of tentativas){
-          const r=await fetch('https://photon.komoot.io/api/?limit=1'+bias+'&q='+q);
+          const r=await fetch('https://photon.komoot.io/api/?limit=5'+bias+'&q='+q);
           const d=await r.json();
-          const f=d&&d.features&&d.features[0];
-          if(f){
-            setPonto(f.geometry.coordinates[1],f.geometry.coordinates[0]);
-            const p=f.properties||{};
-            const onde=[p.street||p.name,p.city||p.locality].filter(Boolean).join(', ');
-            m.textContent='Encontrado ✓ '+(onde?'('+onde+')':'')+' — confira o pino e ajuste no toque se precisar';
-            return;
-          }
+          const fs=(d&&d.features)||[];
+          if(!fs.length)continue;
+          // escolher o resultado cuja cidade bate com a cidade digitada (senão o 1º)
+          const cidDig=end.toLowerCase();
+          const melhor=fs.find(f=>{
+            const city=((f.properties||{}).city||'').toLowerCase();
+            return cidadeKey&&city.includes(cidadeKey.replace('sumaré','sumare').split(' ')[0]);
+          })||fs[0];
+          setPonto(melhor.geometry.coordinates[1],melhor.geometry.coordinates[0]);
+          const p=melhor.properties||{};
+          const onde=[p.street||p.name,p.city||p.locality].filter(Boolean).join(', ');
+          m.textContent='Encontrado ✓ '+(onde?'('+onde+')':'')+' — confira o pino e ajuste no toque se precisar';
+          return;
         }
         m.textContent='Não achei esse endereço — toque no mapa em cima da loja (o pino é manual)';
       }catch(e){m.textContent='Falha na busca — toque no mapa para marcar manualmente'}
