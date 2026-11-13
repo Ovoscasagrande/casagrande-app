@@ -870,7 +870,7 @@ async function afterLogin(){
     // jornada aberta trava a empresa: iniciou na OVOS, só sai da OVOS quando fechar (e vice-versa)
     window.__empTravada=null;
     if(ME.motorista&&ME.perfil!=='gerencia'&&!ME.master){
-      const {data:ja}=await sb.from('jornadas').select('empresa').eq('motorista_id',ME.motorista.id).in('status',['aberta','conferencia']).limit(1);
+      const {data:ja}=await sb.from('jornadas').select('empresa').eq('motorista_id',ME.motorista.id).eq('status','aberta').limit(1);
       if(ja&&ja.length&&ja[0].empresa)window.__empTravada=ja[0].empresa;
     }
   }
