@@ -1995,16 +1995,18 @@ function novoClienteUI(recarregar){
       const m=document.getElementById('nc-coord');
       if(!end){m.textContent='Digite o endereço primeiro — depois toque em Buscar';return}
       m.textContent='Buscando endereço…';
-      // bias regional: a operação é toda na região de Campinas/SP
-      const BIAS='&lat=-22.90&lon=-47.06';
+      // bias: usa a CIDADE digitada como centro da busca (senão, a região de Campinas)
+      const CIDADES={'sumare':[-22.81,-47.27],'sumaré':[-22.81,-47.27],'hortolandia':[-22.86,-47.22],'hortolândia':[-22.86,-47.22],'campinas':[-22.91,-47.06],'valinhos':[-22.97,-46.99],'vinhedo':[-23.03,-46.99],'limeira':[-22.56,-47.40],'americana':[-22.74,-47.33],'santa barbara':[-22.75,-47.41],'pedreira':[-22.74,-46.93],'monte mor':[-22.95,-47.30],'leme':[-22.19,-47.39],'iracemapolis':[-22.58,-47.31],'iracemápolis':[-22.58,-47.31],'cosmopolis':[-22.65,-47.19],'paulinia':[-22.76,-47.15],'nova odessa':[-22.78,-47.30],'saltinho':[-22.85,-47.48],'sorocaba':[-23.50,-47.45],'salto':[-23.20,-47.29],'engenheiro coelho':[-22.85,-46.97],'santo antonio de posse':[-22.81,-46.92],'artur nogueira':[-22.57,-47.17],'mogi guacu':[-22.37,-46.94],'itapira':[-22.44,-46.82],'piracicaba':[-22.73,-47.65]};
+      const cidadeKey=Object.keys(CIDADES).find(c=>end.toLowerCase().includes(c));
+      const bias=cidadeKey?`&lat=${CIDADES[cidadeKey][0]}&lon=${CIDADES[cidadeKey][1]}`:'&lat=-22.90&lon=-47.06';
       const tentativas=[
         encodeURIComponent(end)+'+Brasil',
         encodeURIComponent(end)+'+SP+Brasil',
-        encodeURIComponent(end.replace(/\d+/,'').trim())+'+'+encodeURIComponent(end.match(/(Sumar|Campinas|Hortol|Valinhos|Vinhedo|Limeira|Americana|Santa B)/i)?.[0]||'Campinas')
+        encodeURIComponent(end.replace(/\d+/,'').trim())+'+Brasil'
       ];
       try{
         for(const q of tentativas){
-          const r=await fetch('https://photon.komoot.io/api/?limit=1'+BIAS+'&q='+q);
+          const r=await fetch('https://photon.komoot.io/api/?limit=1'+bias+'&q='+q);
           const d=await r.json();
           const f=d&&d.features&&d.features[0];
           if(f){
