@@ -3155,6 +3155,7 @@ PAGES.motoristas=async el=>{
     <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="DISTRIBUIDORA" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> Distribuidora</label>
   </div>
   <button type="button" class="btn" id="mo-btn">Cadastrar motorista</button><div class="msg" id="mo-msg"></div></div>
+  <input id="mo-busca" placeholder="🔍 buscar motorista, placa, CPF..." style="width:100%;margin-bottom:10px" autocomplete="off">
   <div id="mo-list">${empty('Carregando…')}</div>`;
   $('mot-toggle').onclick=()=>{window.__motInativos=!verInativos;go('motoristas')};
   $('mo-btn').onclick=async()=>{
