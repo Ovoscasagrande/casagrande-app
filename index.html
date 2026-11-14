@@ -1302,7 +1302,7 @@ PAGES.jornada=async el=>{
       window.__rots.push(n);$('j-rot').value='';renderRots();
     };
     $('j-iniciar').onclick=async()=>{
-      const v=$('j-veic').value,kmv=parseFloat($('j-km').value);
+      const v=$('j-veic').value,kmv=parseBR($('j-km').value);
       if(!kmv&&kmv!==0){$('j-msg').className='msg err';$('j-msg').textContent='Informe a km inicial';return}
       $('j-msg').className='msg';$('j-msg').textContent='Verificando cronograma…';
       const {data:chk}=await sb.rpc('checar_jornada',{p_veiculo:v});
@@ -1387,7 +1387,7 @@ PAGES.jornada=async el=>{
       };
     })();
     $('j-fechar').onclick=async()=>{
-      const kmf=parseFloat($('j-kmf').value);
+      const kmf=parseBR($('j-kmf').value);
       if(!kmf&&kmf!==0){$('j-msg2').className='msg err';$('j-msg2').textContent='Informe a km final';return}
       if(kmf<aberta.km_inicial){$('j-msg2').className='msg err';$('j-msg2').textContent='Km final não pode ser menor que a inicial ('+km(aberta.km_inicial)+')';return}
       const r=await upd('jornadas',aberta.id,{km_final:kmf,fim:new Date().toISOString(),ocorrencias:$('j-oc').value||null,status:'conferencia'});
@@ -1508,7 +1508,7 @@ PAGES.gastos=async el=>{
         const btn=$('d-btn');if(btn.disabled)return;btn.disabled=true;btn.textContent='Enviando…';
         const valor=parseBR($('d-valor').value),file=getDFoto();
         if(!valor||!file){$('d-msg').className='msg err';$('d-msg').textContent='Preencha o valor e anexe a foto do recibo';btn.disabled=false;btn.textContent='Lançar despesa';return}
-        const kmv=parseFloat($('d-km').value);
+        const kmv=parseBR($('d-km').value);
         if($('d-km').value&&kmv<aberta.km_inicial){$('d-msg').className='msg err';$('d-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;btn.disabled=false;btn.textContent='Lançar despesa';return}
         const extras={};
         document.querySelectorAll('#d-campos .dx').forEach(i=>{if(i.value.trim())extras[i.dataset.n]=i.value.trim()});
@@ -1522,7 +1522,12 @@ PAGES.gastos=async el=>{
   $('g-tipo').onchange=render;render();
 };
 /* máscara/parse de números BR: aceita 1.234,56 e 1234.56 */
-function parseBR(v){if(v==null)return 0;v=String(v).trim();if(!v)return 0;v=v.replace(/\s/g,'');if(v.includes(',')){v=v.replace(/\./g,'').replace(',','.')}return parseFloat(v)||0}
+function parseBR(v){
+  if(v==null)return 0;v=String(v).trim();if(!v)return 0;v=v.replace(/\s/g,'');
+  if(v.includes(',')){v=v.replace(/\./g,'').replace(',','.')}                    // 1.234,56 → 1234.56
+  else if(/^\d{1,3}(\.\d{3})+$/.test(v)){v=v.replace(/\./g,'')}                 // 21.500 → 21500 (milhar)
+  return parseFloat(v)||0;
+}
 function fmtBR2(n){return (Math.round(n*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:3})}
 function fmtKm(n){return n==null?'—':Number(n).toLocaleString('pt-BR')}
 async function jornadaAbertaId(){if(!ME.motorista)return null;const {data}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();return data?data.id:null}
@@ -3114,7 +3119,7 @@ PAGES.veiculos=async el=>{
     const crlv=$('v-crlv').files[0];
     if(!crlv){$('v-msg').className='msg err';$('v-msg').textContent='Anexe o CRLV-e do veículo (PDF ou foto)';return}
     const empSel=$('v-emp')?$('v-emp').value:null;
-    const kmAtual=parseFloat($('v-km').value)||null;
+    const kmAtual=parseBR($('v-km').value)||null;
     const r=await ins('veiculos',empSel?{placa,renavam:$('v-renavam').value||null,marca:$('v-marca').value||null,modelo:$('v-modelo').value||null,ano:parseInt($('v-ano').value)||null,cor:$('v-cor').value||null,km_atual:kmAtual,intervalo_oleo_km:parseInt($('v-oleo').value)||null,ultima_troca_oleo_km:parseInt($('v-oleo-km').value)||null,empresa:empSel}:insEmp({placa,renavam:$('v-renavam').value||null,marca:$('v-marca').value||null,modelo:$('v-modelo').value||null,ano:parseInt($('v-ano').value)||null,cor:$('v-cor').value||null,km_atual:kmAtual,intervalo_oleo_km:parseInt($('v-oleo').value)||null,ultima_troca_oleo_km:parseInt($('v-oleo-km').value)||null}));
     if(r){
       const vid=r[0]?.id;
@@ -3164,7 +3169,7 @@ PAGES.veiculos=async el=>{
       {id:'ed-oleo',label:'Intervalo troca de óleo (km)',inputmode:'numeric',valor:v.intervalo_oleo_km!=null?String(v.intervalo_oleo_km):''},
       {id:'ed-oleokm',label:'Última troca (km)',inputmode:'numeric',valor:v.ultima_troca_oleo_km!=null?String(v.ultima_troca_oleo_km):''}
     ],async val=>{
-      const kmv=parseFloat(val['ed-km']);
+      const kmv=parseBR(val['ed-km']);
       const patch={};
       if(val['ed-km']!=='')patch.km_atual=kmv;
       if(val['ed-oleo']!=='')patch.intervalo_oleo_km=parseInt(val['ed-oleo']);
@@ -3411,8 +3416,8 @@ PAGES.jornadas=async el=>{
       ],async v=>{
         const patch={};
         if(v['ej-rot']!=='')patch.roteiro=parseInt(v['ej-rot']);
-        if(v['ej-kmi']!=='')patch.km_inicial=parseFloat(v['ej-kmi']);
-        if(v['ej-kmf']!=='')patch.km_final=parseFloat(v['ej-kmf']);
+        if(v['ej-kmi']!=='')patch.km_inicial=parseBR(v['ej-kmi']);
+        if(v['ej-kmf']!=='')patch.km_final=parseBR(v['ej-kmf']);
         if(v['ej-ini'])patch.inicio=new Date(v['ej-ini']).toISOString();
         if(v['ej-fim'])patch.fim=new Date(v['ej-fim']).toISOString();
         patch.ocorrencias=v['ej-oc']||null;
