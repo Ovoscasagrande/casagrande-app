@@ -901,6 +901,36 @@ async function afterLogin(){
       })();
     }
   },800);
+  // ===== RESET SEMANAL (sábado 21:00 — limpa o aparelho, mantém login e conexão) =====
+  (async()=>{
+    try{
+      // timestamp do último sábado 21:00
+      const agora=new Date();
+      const alvo=new Date(agora);
+      alvo.setHours(21,0,0,0);
+      const diasAteSab=(alvo.getDay()-6+7)%7;   // 6 = sábado
+      alvo.setDate(alvo.getDate()-diasAteSab);
+      if(alvo>agora)alvo.setDate(alvo.getDate()-7);
+      const marco=alvo.getTime();
+      const ultimo=parseInt(localStorage.getItem('cg-reset-semanal')||'0');
+      if(ultimo>=marco)return;                   // já rodou neste sábado
+      localStorage.setItem('cg-reset-semanal',String(marco));
+      // 1. limpa TODOS os caches do app
+      if('caches' in window){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}
+      // 2. fila offline: apaga o que já foi enviado (mantém só o que ainda está pendente de hoje)
+      const f=filaLer();
+      const pendentes=f.filter(x=>x.em&&new Date(x.em)>new Date(Date.now()-864e5));
+      if(pendentes.length!==f.length)filaSalvar(pendentes);
+      // 3. flags temporárias de sessão
+      sessionStorage.clear();
+      localStorage.removeItem('sw-reloaded');
+      localStorage.removeItem('cg-manutencao');
+      // 4. limpeza no banco (só o que não é dado de negócio)
+      await sb.rpc('reset_semanal');
+      // 5. recarrega para pegar o app limpo (mantém o login)
+      location.reload();
+    }catch(e){}
+  })();
   // ===== MANUTENÇÃO DIÁRIA (1x por dia, silenciosa — deixa o app liso) =====
   (async()=>{
     const hoje=new Date().toISOString().slice(0,10);
