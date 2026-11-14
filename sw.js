@@ -1,4 +1,4 @@
-const CACHE = 'cg-v154';
+const CACHE = 'cg-v155';
 const ASSETS = ['./', './index.html', './logo-branca.png', './icon-192.png', './icon-512.png', './favicon.png', './manifest.json',
   'https://unpkg.com/lucide@latest',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap'];
