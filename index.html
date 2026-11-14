@@ -1089,6 +1089,14 @@ window.addEventListener('online',filaProcessa);
 /* ============ helpers de dados ============ */
 async function sel(table,cols,order){let q=sb.from(table).select(cols);if(order)q=q.order(order,{ascending:false});const {data,error}=await q;if(error){toast(err(error));return null}return data}
 async function ins(table,row){
+  // trava anti-duplicidade: mesmo lançamento (mesma tabela+motorista+valor) em menos de 8s é ignorado
+  try{
+    const chave=JSON.stringify([table,row.motorista_id||'',row.valor||row.litros||'',row.categoria||row.posto||'']);
+    const agora=Date.now();
+    window.__insHist=(window.__insHist||[]).filter(x=>agora-x.ts<8000);
+    if(window.__insHist.some(x=>x.chave===chave)){toast('Lançamento já enviado — aguarde…');return null}
+    window.__insHist.push({chave,ts:agora});
+  }catch(e){}
   let data,error;
   try{
     const r=await sb.from(table).insert(row).select().single();
@@ -1465,14 +1473,15 @@ PAGES.gastos=async el=>{
       };
       $('a-litros').addEventListener('input',calc);$('a-preco').addEventListener('input',calc);
       $('a-btn').onclick=async()=>{
+        const btn=$('a-btn');if(btn.disabled)return;btn.disabled=true;btn.textContent='Enviando…';
         const litros=parseBR($('a-litros').value),total=parseBR($('a-total').value),kmv=parseBR($('a-km').value),preco=parseBR($('a-preco').value);
         const file=getAFoto();
-        if(!litros||!preco||!kmv){$('a-msg').className='msg err';$('a-msg').textContent='Preencha km, litros e preço do litro';return}
-        if(kmv<aberta.km_inicial){$('a-msg').className='msg err';$('a-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;return}
-        if(!file){$('a-msg').className='msg err';$('a-msg').textContent='A foto do comprovante é obrigatória';return}
+        if(!litros||!preco||!kmv){$('a-msg').className='msg err';$('a-msg').textContent='Preencha km, litros e preço do litro';btn.disabled=false;btn.textContent='Lançar abastecimento';return}
+        if(kmv<aberta.km_inicial){$('a-msg').className='msg err';$('a-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;btn.disabled=false;btn.textContent='Lançar abastecimento';return}
+        if(!file){$('a-msg').className='msg err';$('a-msg').textContent='A foto do comprovante é obrigatória';btn.disabled=false;btn.textContent='Lançar abastecimento';return}
         const path=`${ME.id}/${Date.now()}.jpg`;
         const p=await uploadFoto(file,path);
-        if(!p)return;
+        if(!p){btn.disabled=false;btn.textContent='Lançar abastecimento';return}
         const r=await ins('abastecimentos',insEmp({jornada_id:aberta.id,motorista_id:ME.motorista.id,veiculo_id:aberta.veiculo_id,posto:$('a-posto').value||null,km:kmv,combustivel:$('a-comb').value,litros,preco_litro:preco,valor_total:total||Math.round(litros*preco*100)/100,parcial:$('a-parcial').value==='true',foto_path:p}));
         if(r){toast('Abastecimento lançado!');go('gastos')}
       };
@@ -1496,14 +1505,15 @@ PAGES.gastos=async el=>{
       };
       $('d-cat').onchange=renderCampos;renderCampos();
       $('d-btn').onclick=async()=>{
+        const btn=$('d-btn');if(btn.disabled)return;btn.disabled=true;btn.textContent='Enviando…';
         const valor=parseBR($('d-valor').value),file=getDFoto();
-        if(!valor||!file){$('d-msg').className='msg err';$('d-msg').textContent='Preencha o valor e anexe a foto do recibo';return}
+        if(!valor||!file){$('d-msg').className='msg err';$('d-msg').textContent='Preencha o valor e anexe a foto do recibo';btn.disabled=false;btn.textContent='Lançar despesa';return}
         const kmv=parseFloat($('d-km').value);
-        if($('d-km').value&&kmv<aberta.km_inicial){$('d-msg').className='msg err';$('d-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;return}
+        if($('d-km').value&&kmv<aberta.km_inicial){$('d-msg').className='msg err';$('d-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;btn.disabled=false;btn.textContent='Lançar despesa';return}
         const extras={};
         document.querySelectorAll('#d-campos .dx').forEach(i=>{if(i.value.trim())extras[i.dataset.n]=i.value.trim()});
         const path=`${ME.id}/${Date.now()}.jpg`;
-        const p=await uploadFoto(file,path);if(!p)return;
+        const p=await uploadFoto(file,path);if(!p){btn.disabled=false;btn.textContent='Lançar despesa';return}
         const r=await ins('despesas',insEmp({jornada_id:aberta.id,motorista_id:ME.motorista.id,veiculo_id:aberta.veiculo_id,categoria:$('d-cat').value,descricao:$('d-desc').value||null,km:kmv||null,valor,foto_path:p,obs:$('d-obs').value||null,extras}));
         if(r){toast('Despesa lançada! Aguardando aprovação');go('gastos')}
       };
@@ -2403,6 +2413,7 @@ async function pagAvisosMotorista(el){
     }
     const r=await ins('avisos',insEmp({motorista_id:ME.motorista.id,veiculo_id:$('av-veic').value,categoria:$('av-cat').value,texto:txt,fotos}));
     if(r){toast('Aviso enviado à gerência!');go('avisos')}
+    btn.disabled=false;
   };
   const {data:meus}=await sb.from('avisos').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).order('criado_em',{ascending:false}).limit(20);
   $('av-list').innerHTML=meus&&meus.length?meus.map(a=>`<div style="padding:9px 0;border-bottom:1px solid #242424"><b>${esc(a.categoria||'Aviso')}</b> — ${esc(a.veiculos?.placa||'')} ${tag(a.status)}<div style="font-size:13px;color:var(--mut);margin-top:3px">${esc(a.texto)}</div><div style="font-size:11px;color:#666;margin-top:2px">${fmtDT(a.criado_em)}</div></div>`).join(''):empty('Nenhum aviso enviado');
@@ -3737,13 +3748,14 @@ PAGES.recnovo=async el=>{
   };
   $('rn-tipo').onchange=renderCampos;renderCampos();
   $('rn-btn').onclick=async()=>{
+    const btn=$('rn-btn');if(btn.disabled)return;btn.disabled=true;btn.textContent='Enviando…';
     const valor=parseFloat($('rn-valor').value),file=$('rn-foto').files[0];
-    if(!valor){$('rn-msg').className='msg err';$('rn-msg').textContent='Informe o valor';return}
-    if(!file){$('rn-msg').className='msg err';$('rn-msg').textContent='A foto do comprovante é obrigatória';return}
+    if(!valor){$('rn-msg').className='msg err';$('rn-msg').textContent='Informe o valor';btn.disabled=false;btn.textContent='Lançar recebimento';return}
+    if(!file){$('rn-msg').className='msg err';$('rn-msg').textContent='A foto do comprovante é obrigatória';btn.disabled=false;btn.textContent='Lançar recebimento';return}
     const extras={};
     document.querySelectorAll('#rn-campos .rx').forEach(i=>{if(i.value.trim())extras[i.dataset.n]=i.value.trim()});
     const path=`${ME.id}/${Date.now()}.jpg`;
-    const p=await uploadFoto(file,path);if(!p)return;
+    const p=await uploadFoto(file,path);if(!p){btn.disabled=false;btn.textContent='Lançar recebimento';return}
     const r=await ins('recebimentos',insEmp({tipo:$('rn-tipo').value,valor,veiculo_id:$('rn-veic').value||null,motorista_id:ME.motorista.id,data:new Date().toISOString(),foto_path:p,obs:$('rn-obs').value||null,extras,lancado_por:ME.id}));
     if(r){toast('Recebimento lançado!');go('recnovo')}
   };
