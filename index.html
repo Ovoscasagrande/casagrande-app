@@ -1221,7 +1221,7 @@ PAGES.jornada=async el=>{
   const {data:aberta}=await sb.from('jornadas').select('*, veiculos(placa,modelo)').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
   const {data:ultimas}=await sb.from('jornadas').select('*, veiculos(placa)').eq('motorista_id',ME.motorista.id).neq('status','aberta').order('inicio',{ascending:false}).limit(5);
   if(!aberta){
-    const {data:veicsRaw}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa,modelo,empresa)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
+    const {data:veicsRaw}=await sb.from('motorista_veiculo').select('veiculo_id, veiculos(id,placa,modelo,empresa,km_atual)').eq('motorista_id',ME.motorista.id).eq('ativo',true);
     const veics=(veicsRaw||[]).filter(v=>v.veiculos);
     if(!veics.length){
       const ocultos=(veicsRaw||[]).filter(v=>!v.veiculos);
@@ -1261,9 +1261,10 @@ PAGES.jornada=async el=>{
       }
     }
     w.innerHTML=`<div class="sec"><h3>Iniciar jornada</h3>
-      <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}" ${bloqueados.has(v.veiculo_id)?'disabled':''}>${bloqueados.has(v.veiculo_id)?'🔒 ':''}${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}${bloqueados.has(v.veiculo_id)?' (aguardando conferência)':''}</option>`).join('')}</select>
+      <label>Veículo</label><select id="j-veic">${veics.map(v=>`<option value="${v.veiculo_id}" data-km="${v.veiculos.km_atual!=null?v.veiculos.km_atual:''}" ${bloqueados.has(v.veiculo_id)?'disabled':''}>${bloqueados.has(v.veiculo_id)?'🔒 ':''}${esc(v.veiculos.placa)} — ${esc(v.veiculos.modelo||'')}${bloqueados.has(v.veiculo_id)?' (aguardando conferência)':''}</option>`).join('')}</select>
       ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
-      <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500">
+      <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500" readonly style="background:#1b1b1b;color:var(--acc);font-weight:700">
+      <p class="hint" style="margin:4px 0 0">KM do odômetro no fim da última jornada — confira no painel do caminhão. Se estiver errado, peça à gerência.</p>
       ${empAtiva()==='DISTRIBUIDORA'?`<label>Nº do roteiro</label><input id="j-rot" type="number" inputmode="numeric" value="${rotaAceita?rotaAceita.roteiro:''}" readonly style="${rotaAceita?'background:#262626':''}"><p class="hint" id="j-rot-hint" style="margin:4px 0 0">${rotaAceita?'Roteiro aceito por você — só confirme o km e inicie.':'O nº gerado em Pedidos & Rota aparece aqui — digite o mesmo.'}</p>`:''}
       ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button type="button" class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;cursor:pointer"><input type="checkbox" id="j-carga" style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">📦 <b>Carregamento</b> — saiu vazio para carregar (sem roteiro)</span></label>`:''}
@@ -1301,6 +1302,16 @@ PAGES.jornada=async el=>{
       if((window.__rots||[]).includes(n)){toast('Roteiro já incluído');return}
       window.__rots.push(n);$('j-rot').value='';renderRots();
     };
+    const syncKmVeic=()=>{
+      const sel=$('j-veic');const op=sel.options[sel.selectedIndex];
+      const kmv=op?op.dataset.km:'';
+      const inp=$('j-km');
+      inp.value=kmv||'';
+      inp.readOnly=!!kmv;                       // travado quando temos o km da última jornada
+      inp.style.background=kmv?'#1b1b1b':'';    // sem km: campo normal, editável
+    };
+    $('j-veic').onchange=syncKmVeic;
+    syncKmVeic();
     $('j-iniciar').onclick=async()=>{
       const v=$('j-veic').value,kmv=parseBR($('j-km').value);
       if(!kmv&&kmv!==0){$('j-msg').className='msg err';$('j-msg').textContent='Informe a km inicial';return}
