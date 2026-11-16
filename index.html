@@ -3247,13 +3247,15 @@ PAGES.veiculos=async el=>{
     openModal('✏️ Editar — '+v.placa,[
       {id:'ed-km',label:'KM atual (odômetro)',inputmode:'numeric',valor:v.km_atual!=null?String(v.km_atual):''},
       {id:'ed-oleo',label:'Intervalo troca de óleo (km)',inputmode:'numeric',valor:v.intervalo_oleo_km!=null?String(v.intervalo_oleo_km):''},
-      {id:'ed-oleokm',label:'Última troca (km)',inputmode:'numeric',valor:v.ultima_troca_oleo_km!=null?String(v.ultima_troca_oleo_km):''}
+      {id:'ed-oleokm',label:'Última troca (km)',inputmode:'numeric',valor:v.ultima_troca_oleo_km!=null?String(v.ultima_troca_oleo_km):''},
+      {id:'ed-mant',label:'Próxima manutenção (km absoluto)',inputmode:'numeric',valor:v.proxima_manutencao_km!=null?String(v.proxima_manutencao_km):''}
     ],async val=>{
       const kmv=parseBR(val['ed-km']);
       const patch={};
       if(val['ed-km']!=='')patch.km_atual=kmv;
       if(val['ed-oleo']!=='')patch.intervalo_oleo_km=parseInt(val['ed-oleo']);
       if(val['ed-oleokm']!=='')patch.ultima_troca_oleo_km=parseInt(val['ed-oleokm']);
+      if(val['ed-mant']!=='')patch.proxima_manutencao_km=parseBR(val['ed-mant']);
       if(!Object.keys(patch).length){toast('Nada para salvar');return false}
       const r=await upd('veiculos',v.id,patch);
       if(r){toast('Veículo atualizado ✓');go('veiculos')}
@@ -3546,7 +3548,7 @@ PAGES.os=async el=>{
     const conclMes=lista.filter(o=>o.status==='concluida'&&(o.aberta_em||'').slice(0,7)===hoje0.slice(0,7)).length;
     const custoMes=lista.filter(o=>(o.aberta_em||'').slice(0,7)===hoje0.slice(0,7)).reduce((s,o)=>s+Number(o.mao_obra||0)+Number(o.custos||0),0);
     // óleo por veículo
-    const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,km_atual,intervalo_oleo_km,ultima_troca_oleo_km')).order('placa');
+    const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,km_atual,intervalo_oleo_km,ultima_troca_oleo_km,proxima_manutencao_km')).order('placa');
     const oleo=(vs||[]).map(v=>{
       const falta=(v.km_atual!=null&&v.intervalo_oleo_km&&v.ultima_troca_oleo_km!=null)?Number(v.km_atual)-(Number(v.ultima_troca_oleo_km)+Number(v.intervalo_oleo_km)):null;
       return {...v, falta};
@@ -3568,14 +3570,24 @@ PAGES.os=async el=>{
       <div class="kpi"><div class="v">${conclMes}</div><div class="l">Concluídas no mês</div></div>
       <div class="kpi"><div class="v">${fmtBRL(custoMes)}</div><div class="l">Custo do mês</div></div>
     </div>
-    <div style="margin:4px 0 12px"><button type="button" class="btn" id="to-btn">🛢️ Registrar troca de óleo</button></div>
+    <div style="margin:4px 0 12px;display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn" id="to-btn" style="flex:1;min-width:200px">🛢️ Registrar troca de óleo</button>
+      <button type="button" class="btn sec" id="man-btn" style="flex:1;min-width:200px">🔧 Indicar próxima manutenção</button>
+    </div>
     ${primeira.length?`<div class="sec"><h3>🛢️ 1ª troca não registrada (${primeira.length})</h3>
       <p class="hint" style="margin:0 0 6px">Estes caminhões têm intervalo configurado, mas nenhuma troca registrada no app. Registre a última troca feita para o alerta começar a contar.</p>
       ${primeira.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span>${v.km_atual!=null?km(v.km_atual):'—'} · intervalo ${km(v.intervalo_oleo_km)}</span></div>`).join('')}</div>`:''}
     ${vencidos.length?`<div class="sec" style="border:1px solid #8b3a3a"><h3 style="color:var(--bad)">🛢️ Troca de óleo VENCIDA (${vencidos.length})</h3>
       ${vencidos.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span style="color:var(--bad);font-weight:700">VENCIDA há ${km(v.falta)}</span></div>`).join('')}</div>`:''}
+    ${(()=>{const mans=(vs||[]).filter(v=>v.proxima_manutencao_km!=null&&v.km_atual!=null).map(v=>({...v,faltaM:Number(v.proxima_manutencao_km)-Number(v.km_atual)})).sort((a,b)=>a.faltaM-b.faltaM);
+      const vencM=mans.filter(x=>x.faltaM<=0);const proxM=mans.filter(x=>x.faltaM>0).slice(0,5);
+      if(!mans.length)return '';
+      return `<div class="sec" ${vencM.length?'style="border:1px solid var(--bad)"':''}><h3>🔧 Manutenções</h3>
+      ${vencM.length?vencM.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--divider);font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span style="color:var(--bad);font-weight:700">VENCIDA há ${km(-v.faltaM)}</span></div>`).join(''):''}
+      ${proxM.length?proxM.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--divider);font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span>🔧 ${km(v.proxima_manutencao_km)} km (faltam ${km(v.faltaM)})</span></div>`).join(''):''}</div>`})()}
     ${proximos.length?`<div class="sec"><h3>🛢️ Óleo — próximas trocas</h3>
-      ${proximos.map(v=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span>próxima em ${km(-v.falta)}</span></div>`).join('')}</div>`:''}
+      ${proximos.map(v=>{const proxKm=(v.ultima_troca_oleo_km!=null&&v.intervalo_oleo_km)?Number(v.ultima_troca_oleo_km)+Number(v.intervalo_oleo_km):null;
+        return `<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<span>🛢️ ${proxKm?km(proxKm)+' km':'próxima em '+km(-v.falta)}</span></div>`}).join('')}</div>`:''}
     ${avs&&avs.length?`<div class="sec"><h3>📣 Avisos encaminhados para você (${avs.length})</h3>
       ${avs.map(a=>`<div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(a.veiculos?.placa||'')}</b> · ${esc(a.categoria||'')} · ${esc(a.motoristas?.nome||'')}<div class="hint">${esc(a.texto)}</div></div>`).join('')}</div>`:''}
     <div class="sec"><h3>OS em aberto por veículo</h3>
@@ -3593,6 +3605,25 @@ PAGES.os=async el=>{
         ${(trocas||[]).map(t=>`<div style="display:flex;justify-content:space-between;padding:8px 4px;border-bottom:1px solid #242424;font-size:13px">
           <span><b>${esc(t.veiculos?.placa||'')}</b> · ${fmtD(t.data)} · ${km(t.km)}${t.obs?' · '+esc(t.obs):''}<div class="hint">por ${esc(t.usuarios?.nome||'—')}</div></span></div>`).join('')||'<p class="hint">Nenhuma troca registrada ainda.</p>'}`;
       pnNow.appendChild(sec);
+      document.getElementById('man-btn').onclick=()=>{
+        const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+        mm.innerHTML=`<h3>🔧 Indicar próxima manutenção</h3>
+          <label>Veículo *</label><select id="man-veic" style="width:100%">${(vs||[]).filter(v=>v.ativo!==false).map(v=>`<option value="${v.id}">${esc(v.placa)} — ${esc(v.modelo||'')}${v.km_atual!=null?' · '+km(v.km_atual):''}${v.proxima_manutencao_km!=null?' · próxima: '+km(v.proxima_manutencao_km):''}</option>`).join('')}</select>
+          <label>Km da próxima manutenção *</label><input id="man-km" inputmode="numeric" placeholder="ex.: 425.000" style="width:100%">
+          <div class="msg err" id="man-msg" style="display:none"></div>
+          <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Cancelar</button><button type="button" class="btn" id="man-ok">Salvar</button></div>`;
+        w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+        document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+        if(window.lucide)lucide.createIcons();
+        document.getElementById('man-ok').onclick=async()=>{
+          const m=document.getElementById('man-msg');
+          const kmv=parseBR(document.getElementById('man-km').value);
+          if(!kmv&&kmv!==0){m.style.display='block';m.textContent='Informe o km da próxima manutenção';return}
+          const {error}=await sb.rpc('set_proxima_manutencao',{p_veiculo:document.getElementById('man-veic').value,p_km:kmv});
+          if(error){m.style.display='block';m.textContent=err(error);return}
+          w.classList.remove('open');toast('Próxima manutenção indicada ✓');go('os');
+        };
+      };
       const tb=document.getElementById('to-btn');
       if(tb)tb.onclick=()=>{
         const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
