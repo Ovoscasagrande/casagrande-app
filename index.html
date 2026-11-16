@@ -2516,7 +2516,7 @@ async function pagAvisosGestao(el){
 }
 /* ============ PÁGINAS — CONFERENTE/GERÊNCIA ============ */
 const CONF_ITENS=['Motorista retornou?','Roteiro informado corretamente?','Todas as notas/canhotos entregues?','Comprovantes anexados?','Divergência ou ocorrência?'];
-const rotTxt=j=>!j.roteiro?'📦 Carregamento':('Roteiro nº '+j.roteiro+((j.roteiros_extra||[]).length?' +'+j.roteiros_extra.length:''));
+const rotTxt=j=>{const r=[j.roteiro,...(j.roteiros_extra||[])].filter(x=>x);if(!r.length)return '📦 Carregamento';return r.map(x=>'R'+x).join(' + ')};
 PAGES.conferencia=async el=>{
   el.innerHTML=`<h1 class="pg">Conferência de jornadas</h1><div id="cf">${empty('Carregando…')}</div>`;
   const {data:lista}=await sb.from('jornadas').select('*, veiculos(placa,modelo), motoristas(nome)').eq('status','conferencia').order('fim',{ascending:false}).limit(100);
@@ -3477,8 +3477,10 @@ PAGES.jornadas=async el=>{
     sb.from('jornadas').select('*').eq('id',jid).maybeSingle().then(({data:j})=>{
       if(!j)return;
       const dt=v=>v?new Date(v).toISOString().slice(0,16):'';
+      const extrasTxt=((j.roteiros_extra||[]).join(', '));
       openModal('✏️ Editar jornada — '+(j.motoristas?.nome||''),[
-        {id:'ej-rot',label:'Nº do roteiro',inputmode:'numeric',valor:j.roteiro||''},
+        {id:'ej-rot',label:'Nº do roteiro principal',inputmode:'numeric',valor:j.roteiro||''},
+        {id:'ej-extras',label:'Roteiros extras (separados por vírgula, ex.: 5519, 5520)',valor:extrasTxt},
         {id:'ej-kmi',label:'Km inicial',inputmode:'numeric',valor:j.km_inicial??''},
         {id:'ej-kmf',label:'Km final',inputmode:'numeric',valor:j.km_final??''},
         {id:'ej-ini',label:'Início',tipo:'datetime-local',valor:dt(j.inicio)},
@@ -3487,6 +3489,7 @@ PAGES.jornadas=async el=>{
       ],async v=>{
         const patch={};
         if(v['ej-rot']!=='')patch.roteiro=parseInt(v['ej-rot']);
+        patch.roteiros_extra=(v['ej-extras']||'').split(',').map(x=>parseInt(x.trim())).filter(x=>x);
         if(v['ej-kmi']!=='')patch.km_inicial=parseBR(v['ej-kmi']);
         if(v['ej-kmf']!=='')patch.km_final=parseBR(v['ej-kmf']);
         if(v['ej-ini'])patch.inicio=new Date(v['ej-ini']).toISOString();
