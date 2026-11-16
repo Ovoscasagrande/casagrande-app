@@ -868,11 +868,7 @@ async function afterLogin(){
       ME.empresasMotorista=ME.motorista.empresas;
     }
     // jornada aberta trava a empresa: iniciou na OVOS, só sai da OVOS quando fechar (e vice-versa)
-    window.__empTravada=null;
-    if(ME.motorista&&ME.perfil!=='gerencia'&&!ME.master){
-      const {data:ja}=await sb.from('jornadas').select('empresa').eq('motorista_id',ME.motorista.id).eq('status','aberta').limit(1);
-      if(ja&&ja.length&&ja[0].empresa)window.__empTravada=ja[0].empresa;
-    }
+    window.__empTravada=null; // jornada aberta NÃO trava a troca de empresa (só impede jornada nova)
   }
   // ===== validade da sessão: desloga a cada 7 dias desde o LOGIN REAL (renova o app) =====
   let ultLogin=parseInt(localStorage.getItem('cg-login-ts')||'0');
@@ -989,6 +985,19 @@ async function afterLogin(){
       }
     }catch(e){}
   },60000);
+  // ===== empresa padrão por funcionário =====
+  // jornada aberta > última jornada do motorista (onde ele trabalha) > OVOS
+  (async()=>{
+    try{
+      if(ME.motorista){
+        const {data:jj}=await sb.from('jornadas').select('empresa,status,inicio').eq('motorista_id',ME.motorista.id).order('inicio',{ascending:false}).limit(5);
+        const aberta=(jj||[]).find(x=>x.status==='aberta');
+        if(aberta&&aberta.empresa&&aberta.empresa!==empAtiva()){setEmp(aberta.empresa);return}
+        const ultima=(jj||[]).find(x=>x.status!=='cancelada'&&x.empresa);
+        if(ultima&&ultima.empresa&&ultima.empresa!==empAtiva())setEmp(ultima.empresa);
+      }
+    }catch(e){}
+  })();
   go('home');
   loadNotif();
   if(location.hash!=='#home')location.hash='#home';
