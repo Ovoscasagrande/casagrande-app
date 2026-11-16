@@ -947,6 +947,36 @@ async function afterLogin(){
       await sb.rpc('manutencao_diaria');
     }catch(e){}
   })();
+  // ===== lembretes de jornada (notificação local no celular) =====
+  (async()=>{
+    try{
+      if(!('Notification' in window))return;
+      if(Notification.permission==='default'){
+        // pede permissão na 1ª visita do dia (silencioso se negado)
+        const r=await Notification.requestPermission();
+        if(r!=='granted')return;
+      }
+      if(Notification.permission!=='granted')return;
+      const agora=new Date();
+      const h=agora.getHours(),min=agora.getMinutes();
+      const marco=h*60+min;
+      const janela=(ini,fim)=>marco>=ini&&marco<fim;
+      const hoje=new Date().toISOString().slice(0,10);
+      const chave='cg-lembrete-'+hoje+'-'+h;
+      if(sessionStorage.getItem(chave))return;   // 1 lembrete por hora
+      const {data:ab}=await sb.from('jornadas').select('id').eq('motorista_id',ME.motorista.id).eq('status','aberta').maybeSingle();
+      const operacional=['motorista','promotor'].includes(ME.perfil);
+      if(!operacional)return;
+      if(!ab&&janela(7*60,9*60)){
+        sessionStorage.setItem(chave,'1');
+        new Notification('🚚 Bom dia! Lembrete da jornada',{body:'Você ainda não iniciou a jornada de hoje. Abre o app e começa.',tag:'jornada-iniciar'});
+      }
+      if(ab&&janela(17*60,19*60)){
+        sessionStorage.setItem(chave,'1');
+        new Notification('🏁 Fim do dia',{body:'Sua jornada está em andamento. Não esquece de finalizar e lançar os gastos.',tag:'jornada-encerrar'});
+      }
+    }catch(e){}
+  })();
   // sincronização do perfil: a cada 60s verifica se o perfil mudou no banco
   // (ex.: pendente aprovado pela gerência — o menu atualiza sozinho, sem reabrir o app)
   clearInterval(window.__pendTimer);
