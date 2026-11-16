@@ -2588,14 +2588,23 @@ async function pagConfDetalhe(el,jid){
     <div class="msg" id="cf-msg"></div>
   </div>`;
   const reabrirBtn=$('cf-reabrir');
-  if(reabrirBtn)reabrirBtn.onclick=async()=>{
-    if(!confirm('Reabrir esta jornada? Ela volta para "em rota" e o motorista poderá lançar gastos esquecidos. Depois é só conferir de novo.'))return;
-    // limpa a conferência anterior (o checklist será refeito)
-    await sb.from('jornada_conferencia').delete().eq('jornada_id',jid);
-    const {error}=await sb.from('jornadas').update({status:'aberta',fim:null,conferida_por:null,conferida_em:null}).eq('id',jid);
-    if(error){toast(err(error));return}
-    toast('Jornada reaberta — o motorista pode lançar gastos agora');
-    go('conferencia');
+  if(reabrirBtn)reabrirBtn.onclick=()=>{
+    const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+    mm.innerHTML=`<div class="grab"></div><h3>↩️ Reabrir jornada?</h3>
+      <p style="font-size:13px;color:#dddddd">A jornada volta para <b>EM ROTA</b> e o motorista poderá lançar os gastos esquecidos.
+      O checklist desta conferência será apagado — depois é só conferir de novo.</p>
+      <div class="mrow"><button type="button" class="btn sec" id="m-cancel">Voltar</button><button type="button" class="btn" id="rb-ok">Reabrir</button></div>`;
+    w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+    document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
+    if(window.lucide)lucide.createIcons();
+    document.getElementById('rb-ok').onclick=async()=>{
+      await sb.from('jornada_conferencia').delete().eq('jornada_id',jid);
+      const {error}=await sb.from('jornadas').update({status:'aberta',fim:null,conferida_por:null,conferida_em:null}).eq('id',jid);
+      if(error){toast(err(error));return}
+      w.classList.remove('open');
+      toast('Jornada reaberta — o motorista pode lançar gastos agora');
+      go('conferencia');
+    };
   };
   $('cf-voltar').onclick=()=>go('conferencia');
   $('cf-editar').onclick=()=>{
