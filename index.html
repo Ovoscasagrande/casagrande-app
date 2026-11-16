@@ -1028,10 +1028,10 @@ function menusPara(){
   }
   if(!ME.master)m=m.filter(x=>x!=='convites');
   if(e!=='OVOS'&&ME.perfil!=='gerencia')m=m.filter(x=>x!=='pro-roteiro'&&x!=='promotoria'&&x!=='pro-avulsa');
-  if(e==='TRANSPORTADORA')m=m.filter(x=>x!=='conferencia');
+  // (conferência liberada na TRANSPORTADORA — 16/11)
   if(e==='OVOS')m=m.filter(x=>x!=='recebimentos');
   if(ME.perfil==='motorista'&&e==='OVOS')m=m.filter(x=>x!=='recnovo');
-  if(ME.perfil==='conferente')m=m.filter(x=>e!=='TRANSPORTADORA'||x!=='conferencia');
+  // (conferente confere em todas as empresas — 16/11)
   return m;
 }
 const TITLES={hoje:'Hoje na empresa',manuais:'Manuais',convites:'Convites',promotoria:'Promotoria','pro-roteiro':'Meu roteiro','pro-avulsa':'Visita avulsa','pro-cliente':'Visita ao cliente','meu-historico':'Meu histórico',relatorios:'Relatórios',home:'Início',recebimentos:'Recebimentos',tipos:'Tipos & cadastros',recnovo:'Incluir recebimento',veiculos:'Veículos',motoristas:'Motoristas',jornadas:'Jornadas',conferencia:'Conferência',abastecimentos:'Abastecimentos',despesas:'Despesas',avisos:'Avisos',os:'Ordens de serviço',multas:'Multas',documentos:'Documentos',usuarios:'Usuários',auditoria:'Auditoria',jornada:'Minha jornada',gastos:'Incluir gasto',rotas:'Rotas',clientes:'Clientes',produtos:'Produtos','minha-rota':'Minha rota',nfs:'NFs (PDF)',carga:'Meu carregamento','pedidos-rota':'Pedidos & Rota',roteiros:'Roteiros'};
