@@ -2583,9 +2583,20 @@ async function pagConfDetalhe(el,jid){
   <div class="sec"><h3>Checklist de conferência</h3><div id="cf-itens"></div>
     <div style="margin-top:12px;font-size:12px;color:var(--mut)" id="cf-prog"></div>
     <button type="button" class="btn" id="cf-fechar" style="margin-top:10px">✓ Fechar jornada</button>
+    ${['conferencia','fechada'].includes(j.status)?`<button type="button" class="btn sec" id="cf-reabrir" style="margin-top:8px;width:100%;border-color:var(--acc);color:var(--acc)">↩️ Reabrir jornada (motorista lança gasto)</button>`:''}
     <button type="button" class="btn sec" id="cf-cancelar" style="margin-top:8px;width:100%;border-color:#8b3a3a;color:#ff9b9b">🗑 Cancelar jornada (com motivo)</button>
     <div class="msg" id="cf-msg"></div>
   </div>`;
+  const reabrirBtn=$('cf-reabrir');
+  if(reabrirBtn)reabrirBtn.onclick=async()=>{
+    if(!confirm('Reabrir esta jornada? Ela volta para "em rota" e o motorista poderá lançar gastos esquecidos. Depois é só conferir de novo.'))return;
+    // limpa a conferência anterior (o checklist será refeito)
+    await sb.from('jornada_conferencia').delete().eq('jornada_id',jid);
+    const {error}=await sb.from('jornadas').update({status:'aberta',fim:null,conferida_por:null,conferida_em:null}).eq('id',jid);
+    if(error){toast(err(error));return}
+    toast('Jornada reaberta — o motorista pode lançar gastos agora');
+    go('conferencia');
+  };
   $('cf-voltar').onclick=()=>go('conferencia');
   $('cf-editar').onclick=()=>{
     const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
