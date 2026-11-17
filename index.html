@@ -1116,9 +1116,34 @@ function lightbox(src){
   let lb=document.getElementById('lightbox');
   if(!lb){
     lb=document.createElement('div');lb.id='lightbox';
-    lb.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;cursor:zoom-out';
-    lb.innerHTML='<img style="max-width:100%;max-height:100%;border-radius:12px">';
-    lb.onclick=()=>lb.style.display='none';
+    lb.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;cursor:zoom-out;touch-action:none;overflow:hidden';
+    lb.innerHTML='<img style="max-width:100%;max-height:100%;border-radius:12px;transition:transform .15s">';
+    let esc=1,dist0=0,x=0,y=0;
+    const img=lb.querySelector('img');
+    const aplica=()=>{img.style.transform=`scale(${esc}) translate(${x}px,${y}px)`};
+    lb.addEventListener('click',()=>{lb.style.display='none';esc=1;x=0;y=0;aplica()});
+    // pinça para zoom (2 dedos) + arrastar (1 dedo ampliado)
+    lb.addEventListener('touchstart',e=>{
+      if(e.touches.length===2){
+        dist0=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      }else if(e.touches.length===1&&esc>1){
+        x0=e.touches[0].clientX;y0=e.touches[0].clientY;
+      }
+    },{passive:true});
+    let x0=0,y0=0;
+    lb.addEventListener('touchmove',e=>{
+      e.preventDefault();
+      if(e.touches.length===2&&dist0){
+        const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+        esc=Math.min(5,Math.max(1,esc*d/dist0));aplica();
+      }else if(e.touches.length===1&&esc>1){
+        x+=e.touches[0].clientX-x0;y+=e.touches[0].clientY-y0;
+        x0=e.touches[0].clientX;y0=e.touches[0].clientY;aplica();
+      }
+    },{passive:false});
+    lb.addEventListener('touchend',()=>{dist0=0});
+    // duplo clique também amplia (desktop)
+    lb.addEventListener('dblclick',e=>{e.stopPropagation();esc=esc>1?1:2.5;x=0;y=0;aplica()});
     document.body.appendChild(lb);
   }
   lb.querySelector('img').src=src;
@@ -1991,13 +2016,13 @@ PAGES.promotoria=async el=>{
       if(v&&v.fotos&&v.fotos.length){
         const urls=[];
         for(const f of v.fotos){const u=await assinar(f,'fotos');if(u)urls.push(u)}
-        fotosHtml=urls.length?`<div style="display:flex;gap:6px;flex-wrap:wrap">${urls.map(u=>`<img src="${u}" style="width:96px;height:96px;object-fit:cover;border-radius:10px">`).join('')}</div>`:'<p class="hint">Fotos expiradas (apagadas após 60 dias).</p>';
+        fotosHtml=urls.length?`<div style="display:flex;gap:6px;flex-wrap:wrap">${urls.map(u=>`<img src="${u}" onclick="lightbox('${u}')" style="width:96px;height:96px;object-fit:cover;border-radius:10px;cursor:zoom-in">`).join('')}</div>`:'<p class="hint">Fotos expiradas (apagadas após 60 dias).</p>';
       }
       let estoqueHtml='';
       if(v&&(v.estoque_fotos||[]).length){
         const urls=[];
         for(const f of v.estoque_fotos){const u=await assinar(f,'fotos');if(u)urls.push(u)}
-        estoqueHtml=`<div style="margin-top:10px"><b>📦 Estoque: ${v.estoque_caixas!=null?v.estoque_caixas+' cx':'—'}</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${urls.map(u=>`<img src="${u}" onclick="lightbox('${u}')" style="width:84px;height:84px;object-fit:cover;border-radius:10px;cursor:zoom-in">`).join('')}</div></div>`;
+        estoqueHtml=`<div style="margin-top:10px"><b>📦 Estoque: ${v.estoque_caixas!=null?v.estoque_caixas+' cx':'—'}</b>${v.estoque_obs?`<div style="font-size:13px;color:var(--ink);margin-top:4px">📝 ${esc(v.estoque_obs)}</div>`:''}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${urls.map(u=>`<img src="${u}" onclick="lightbox('${u}')" style="width:84px;height:84px;object-fit:cover;border-radius:10px;cursor:zoom-in">`).join('')}</div></div>`;
       }
       const chkHtml=v?`<div style="margin-top:10px;font-size:13px">
         <b>📋 Gôndola:</b>
@@ -2191,7 +2216,9 @@ function criarRoteiroUI(recarregar){
     datas.sort();renderDatas();e.target.value='';
   };
   (async()=>{
-    const {data:pro}=await sb.from('motoristas').select('id,nome,ativo').order('nome');
+    // apenas PROMOTORES: motoristas cujo usuário é promotor (perfil) ou tem o extra promotor
+    const {data:proRaw}=await sb.from('motoristas').select('id,nome,ativo,usuario_id,usuarios(perfil,perfis_extra)').order('nome');
+    const pro=(proRaw||[]).filter(m=>m.ativo&&m.usuarios&&(m.usuarios.perfil==='promotor'||(m.usuarios.perfis_extra||[]).includes('promotor')));
     document.getElementById('nr-prom').innerHTML='<option value="">— escolha o promotor —</option>'+(pro||[]).filter(x=>x.ativo).map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('');
     const {data:clis}=await sb.from('clientes_promotoria').select('id,nome,endereco').eq('ativo',true).order('nome');
     const sel=new Set();
@@ -2395,6 +2422,8 @@ PAGES['pro-cliente']=async el=>{
     mm.innerHTML=`<div class="grab"></div><h3><i data-lucide="package" style="width:18px;height:18px;vertical-align:-3px;color:var(--primary-color)"></i> Estoque do cliente</h3>
       <label>Quantas caixas (cx) tem no estoque? *</label>
       <input id="est-caixas" inputmode="numeric" placeholder="ex.: 12" value="${estado.estoque.caixas??''}" style="width:100%">
+      <label style="margin-top:10px">Observações do estoque (livre)</label>
+      <textarea id="est-obs" rows="3" placeholder="ex.: faltou extra branco, só tem caipira; gôndola de baixo vazia..." style="width:100%">${esc(estado.estoque.obs||'')}</textarea>
       <label style="margin-top:10px">Foto do estoque (mínimo 1) *</label>
       <div id="est-fotos" style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0"></div>
       <div class="fotobtns">
@@ -2427,6 +2456,7 @@ PAGES['pro-cliente']=async el=>{
       if(!cx&&cx!==0){m.className='msg err';m.textContent='Informe quantas caixas tem no estoque';return}
       if(estado.estoque.fotos.length<1){m.className='msg err';m.textContent='Anexe pelo menos 1 foto do estoque';return}
       estado.estoque.caixas=cx;
+      estado.estoque.obs=document.getElementById('est-obs').value.trim();
       w.classList.remove('open');
       document.getElementById('pc-estoque-ok').innerHTML='<span class="tag ok">✓</span>';
       toast('Estoque salvo ✓');
@@ -2454,7 +2484,7 @@ PAGES['pro-cliente']=async el=>{
     if(estado.estoque.caixas==null){$('pc-msg').className='msg err';$('pc-msg').textContent='Preencha o ESTOQUE (botão 📦) antes de concluir';return}
     if(estado.estoque.fotos.length<1){$('pc-msg').className='msg err';$('pc-msg').textContent='Anexe 1 foto do estoque (botão 📦)';return}
     const agora=new Date();
-    const {error}=await sb.from('visitas').upsert({roteiro_id:rid,cliente_id:cid,promotor_id:ME.motorista.id,gps_ok:estado.gps.ok,distancia_m:estado.gps.dist,justificativa:estado.gps.just||null,checkin_em:estado.gps.checkin||null,visitado_em:agora.toISOString(),editavel_ate:new Date(agora.getTime()+15*60e3).toISOString(),gondola_abastecida:estado.checks.abastecida,preco_visivel:estado.checks.preco,validade_ok:estado.checks.validade,fotos:estado.fotos.map(f=>f.path),estoque_fotos:estado.estoque.fotos.map(f=>f.path),estoque_caixas:estado.estoque.caixas,pedido:estado.pedido||null},{onConflict:'roteiro_id,cliente_id'});
+    const {error}=await sb.from('visitas').upsert({roteiro_id:rid,cliente_id:cid,promotor_id:ME.motorista.id,gps_ok:estado.gps.ok,distancia_m:estado.gps.dist,justificativa:estado.gps.just||null,checkin_em:estado.gps.checkin||null,visitado_em:agora.toISOString(),editavel_ate:new Date(agora.getTime()+15*60e3).toISOString(),gondola_abastecida:estado.checks.abastecida,preco_visivel:estado.checks.preco,validade_ok:estado.checks.validade,fotos:estado.fotos.map(f=>f.path),estoque_fotos:estado.estoque.fotos.map(f=>f.path),estoque_caixas:estado.estoque.caixas,estoque_obs:estado.estoque.obs||null,pedido:estado.pedido||null},{onConflict:'roteiro_id,cliente_id'});
     if(error){$('pc-msg').className='msg err';$('pc-msg').textContent=err(error);return}
     toast('Visita concluída ✓');go('pro-roteiro');
   };
