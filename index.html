@@ -2654,7 +2654,7 @@ async function pagConfDetalhe(el,jid){
     w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
     document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
     document.getElementById('ed-ok').onclick=async()=>{
-      const kmi=parseFloat(document.getElementById('ed-kmi').value),kmf=parseFloat(document.getElementById('ed-kmf').value);
+      const kmi=parseBR(document.getElementById('ed-kmi').value),kmf=parseBR(document.getElementById('ed-kmf').value);
       if(kmi!=null&&!isNaN(kmi)&&!isNaN(kmf)&&kmf<kmi){toast('Km final não pode ser menor que o inicial');return}
       const extras=(document.getElementById('ed-extras').value||'').split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
       const patch={
