@@ -5050,16 +5050,13 @@ async function geraPdfCarga(rota,lote){
     return y+6.5;
   };
   let y=titulo(16);y=thead(y);
-  // somar por produto (código); descrição completa vem do cadastro de produtos (com a gramatura)
-  const {data:prods}=await sb.from('produtos').select('sku,nome,empresa').eq('empresa','DISTRIBUIDORA');
-  const outras=(await sb.from('produtos').select('sku,nome,empresa').eq('empresa','OVOS')).data||[];
-  const nomePorSku={};
-  (outras||[]).forEach(p=>{if(p.sku)nomePorSku[p.sku]=p.nome});          // base, pode ser sobrescrita
-  (prods||[]).forEach(p=>{if(p.sku)nomePorSku[p.sku]=p.nome});           // DISTRIBUIDORA tem prioridade
+  // somar por produto (código). A carga é da DISTRIBUIDORA: o cadastro usado é o dela
+  // (os códigos da OVOS são outros produtos e não entram aqui).
+  const {data:prods}=await sb.from('produtos').select('sku,nome').eq('empresa','DISTRIBUIDORA');
+  const nomePorSku={};(prods||[]).forEach(p=>{if(p.sku)nomePorSku[p.sku]=p.nome});
   const nomeBom=(cod,doc)=>{
-    const cad=(nomePorSku[cod]||'').trim(), d=(doc||'').trim();
-    if(!cad)return d; if(!d)return cad;
-    return cad.length>=d.length?cad:d;   // fica com a descrição mais completa
+    const cad=(nomePorSku[cod]||'').trim();
+    return cad||(doc||'').trim();        // cadastro da Distribuidora manda; senão, o do documento
   };
   const tot={};
   for(const p of lote)for(const it of p.itens){
@@ -5074,9 +5071,10 @@ async function geraPdfCarga(rota,lote){
     if(y>186){doc.addPage('landscape');y=thead(16)}
     if(zebra){doc.setFillColor(243,243,243);doc.rect(X0,y-4,W,5.5,'F')}
     zebra=!zebra;
-    const desc=t.desc.length>92?t.desc.slice(0,92)+'…':t.desc;
     doc.text(String(t.codigo||'—'),cols[0].x+1.5,y);
-    doc.text(desc,cols[1].x+1.5,y);
+    const dLines=doc.splitTextToSize(t.desc,cols[1].w-2);
+    doc.text(dLines[0],cols[1].x+1.5,y);
+    if(dLines[1])doc.text(dLines[1],cols[1].x+1.5,y+3.4);
     doc.text('1,00',cols[2].x+1.5,y);
     doc.text(t.qtd.toLocaleString('pt-BR',{maximumFractionDigits:3}),cols[3].x+1.5,y,{align:'right'});
     y+=5.5;
@@ -5092,7 +5090,7 @@ async function geraPdfCarga(rota,lote){
 }
 async function geraPdfCargaCliente(rota,lote){
   // RELATÓRIO DE CARGA POR CLIENTE (modelo ERP): bloco por cliente + tabela de itens + Peso
-  const {data:prods}=await sb.from('produtos').select('sku,nome');
+  const {data:prods}=await sb.from('produtos').select('sku,nome').eq('empresa','DISTRIBUIDORA');
   const nomePorSku={};(prods||[]).forEach(p=>{if(p.sku)nomePorSku[p.sku]=p.nome});
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF();
@@ -5139,11 +5137,13 @@ async function geraPdfCargaCliente(rota,lote){
     let peso=0;
     p.itens.forEach(it=>{
       if(y>278){doc.addPage();y=titulo()}
-      const desc=((nomePorSku[it.codigo]||it.descricao||'')).toUpperCase().slice(0,52);
+      const desc=((nomePorSku[it.codigo]||it.descricao||'')).toUpperCase();
       doc.text(String(it.codigo||'—'),X0+1.5,y);
-      doc.text(desc,X0+16,y);
+      const dL=doc.splitTextToSize(desc,96);
+      doc.text(dL[0],X0+16,y);
+      if(dL[1])doc.text(dL[1],X0+16,y+3);
       doc.text(it.unid||'UN',X0+116,y);
-      doc.text(String(it.qtd),X0+136,y,{align:'right'});
+      doc.text(Number(it.qtd||0).toLocaleString('pt-BR',{maximumFractionDigits:3}),X0+136,y,{align:'right'});
       doc.text('1.0000',X0+158,y);
       y+=4.6;
       peso+=(Number(it.qtd)||0);
@@ -5184,7 +5184,10 @@ async function geraPdfRoteiro(rota,lote){
     const pedC=ped?ped.cliente:{};
     bairro=(endereco.split(',')[1]||'').trim().split('/')[0].trim()||pedC.cidade||'';
     if(!bairro)bairro=(endereco||'').slice(0,22);
-    const prods=(itens||[]).map(it=>(it.qtd||'')+' '+(it.unid||'UN')+' '+(it.descricao||'').slice(0,38)).join('\n');
+    const prods=(itens||[]).map(it=>{
+      const q=Number(it.qtd||0).toLocaleString('pt-BR',{maximumFractionDigits:3});
+      return q+' '+(it.unid||'UN')+' '+(it.descricao||'');
+    }).join('\n');
     linhas.push({n:i+1,nome,bairro,prods,endereco});
   }
   const header=()=>{
