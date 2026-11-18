@@ -1014,9 +1014,9 @@ function menusPara(){
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
   if(e==='DISTRIBUIDORA'){
-    if(ME.perfil==='gerencia')m=['home','pedidos-rota','roteiros','hoje','clientes','produtos','tipos','veiculos','motoristas','jornadas','abastecimentos','despesas','avisos','multas','manuais','usuarios','auditoria'];
+    if(ME.perfil==='gerencia')m=['home','pedidos-rota','roteiros','hoje','clientes','produtos','tipos','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','avisos','multas','manuais','usuarios','auditoria'];
     else if(ME.perfil==='motorista')m=['home','minha-rota','jornada','gastos','meu-historico','avisos','multas','manuais'];
-    else m=m.filter(x=>!['promotoria','pro-roteiro','pro-avulsa','conferencia','recebimentos','recnovo','pro-cliente'].includes(x));
+    else m=m.filter(x=>!['promotoria','pro-roteiro','pro-avulsa','recebimentos','recnovo','pro-cliente'].includes(x));
   }
   if(ME.perfil==='gerencia'&&ME.motorista){
     const ex=ME.extra||[];
