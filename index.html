@@ -1718,7 +1718,18 @@ PAGES.convites=async el=>{
       const c=list.find(x=>x.token===b.dataset.cp);
       const PERFIL={gerencia:'Gerente',motorista:'Motorista',promotor:'Promotor',conferente:'Conferente',mecanico:'Mecânico'};
       const msg='🎟️ *Convite para '+PERFIL[c.perfil]+' da '+(c.empresa==='OVOS'?'OVOS CASAGRANDE':c.empresa==='TRANSPORTADORA'?'TRANSPORTADORA CASAGRANDE':'DISTRIBUIDORA CASAGRANDE')+'*\n\nToque no link e crie seu acesso ao app:\n'+url+'\n\n⏰ O link é válido por 24 horas e é de uso único.';
-      try{await navigator.clipboard.writeText(msg);toast('Convite copiado com a mensagem!')}catch(e){prompt('Copie a mensagem:',msg)}
+      try{await navigator.clipboard.writeText(msg);toast('Convite copiado com a mensagem!')}
+      catch(e){
+        // sem acesso à área de transferência: mostra em modal próprio (nunca prompt do navegador)
+        const w=document.getElementById('modal-wrap'),mm=document.getElementById('modal');
+        mm.innerHTML=`<div class="grab"></div><h3>📋 Copie a mensagem</h3>
+          <p style="font-size:12px;color:var(--mut)">Selecione e copie o texto abaixo.</p>
+          <textarea rows="8" readonly style="width:100%" onclick="this.select()">${esc(msg)}</textarea>
+          <div class="mrow"><button type="button" class="btn" id="m-ok">Fechar</button></div>`;
+        w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+        document.getElementById('m-ok').onclick=()=>w.classList.remove('open');
+        if(window.lucide)lucide.createIcons();
+      }
     });
   };
   $('cv-btn').onclick=async()=>{
