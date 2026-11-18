@@ -1050,7 +1050,13 @@ function buildNav(){
     const emps=ME.extra||[];
     if(ME.perfil==='motorista'&&emps.includes('promotor')){}
     const disponiveis=tabs.filter(t=>items.includes(t[0])||t[0]==='home');
-    if(!tb){tb=document.createElement('nav');tb.id='tabbar';tb.className='tabbar';document.body.appendChild(tb)}
+    if(!tb){
+      tb=document.createElement('nav');tb.id='tabbar';tb.className='tabbar';
+      tb.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;align-items:center;'+
+        'height:calc(var(--tabbar-h,64px) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);'+
+        'background:rgba(18,18,18,.96);backdrop-filter:blur(12px);border-top:1px solid var(--divider);';
+      document.body.appendChild(tb);
+    }
     tb.innerHTML=disponiveis.map(t=>`<button type="button" data-tb="${t[0]}" class="${PAGE===t[0]?'on':''}"><i data-lucide="${t[1]}"></i>${t[2]}</button>`).join('');
     tb.querySelectorAll('[data-tb]').forEach(b=>b.onclick=()=>go(b.dataset.tb));
     if(window.lucide)lucide.createIcons();
