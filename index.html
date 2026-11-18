@@ -493,7 +493,6 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
 </style>
 </head>
 <body>
-<div class="wm"><img id="lg-wm" src="logo-branca.png" alt=""></div>
 <div id="login">
   <div style="height:24px"></div>
   <div class="card" id="card-login">
@@ -605,7 +604,7 @@ function applyBranding(){
   else if(e==='DISTRIBUIDORA'){r.setProperty('--primary-color','#797F35');r.setProperty('--primary-contrast','#ffffff')}
   else{r.setProperty('--primary-color','#FCC85C');r.setProperty('--primary-contrast','#121212')}
   const lg=EMPLOGO[e]||'logo-branca.png';
-  ['lg-wm'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=lg});
+  // (marca d água de fundo removida — layout clean)
   const h2=document.getElementById('lg-app');if(h2)h2.textContent=EMPNOME[e];
   applyEmpBtn();
 }
