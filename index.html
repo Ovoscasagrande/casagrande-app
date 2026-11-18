@@ -410,11 +410,12 @@ nav button svg{width:18px;height:18px;vertical-align:-3px;margin-right:8px}
 /* header legado */
 header{position:sticky;top:0;z-index:20;background:rgba(18,18,18,.92);backdrop-filter:blur(12px);padding:12px var(--sp-4);display:flex;align-items:center;gap:var(--sp-3);padding-top:calc(12px + env(safe-area-inset-top));min-height:calc(56px + env(safe-area-inset-top))}
 header img{height:28px}
-header .tt{font-weight:700;font-size:var(--fs-md);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.burger{background:none;border:none;color:var(--ink);font-size:22px;line-height:1;padding:4px 8px}
+header .tt{font-weight:700;font-size:var(--fs-md);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.burger{background:none;border:none;color:var(--ink);font-size:22px;line-height:1;padding:8px 10px;margin-left:-6px;border-radius:10px;-webkit-tap-highlight-color:transparent}
+.burger:active{background:var(--field)}
 .bell{position:relative;background:none;border:none;font-size:20px;color:var(--ink)}
 .bell .bdg{position:absolute;top:-4px;right:-6px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;border-radius:8px;padding:1px 5px}
-#emp-btn{background:var(--field);border:1px solid var(--divider);color:var(--ink);border-radius:var(--r-pill);padding:6px 12px;font-size:12px;font-weight:700;font-family:var(--font)}
+#emp-btn{background:var(--field);border:1px solid var(--divider);color:var(--ink);border-radius:var(--r-pill);padding:6px 10px;font-size:12px;font-weight:700;font-family:var(--font);flex:none;max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #emp-menu{position:fixed;top:calc(60px + env(safe-area-inset-top));right:12px;background:var(--card);border:1px solid var(--divider);border-radius:var(--r-md);box-shadow:var(--shadow-float);z-index:60;display:none;min-width:220px;overflow:hidden}
 #emp-menu.open{display:block}
 #emp-menu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--ink);padding:12px 14px;font-size:14px;font-family:var(--font)}
@@ -1056,7 +1057,7 @@ function buildNav(){
   } else if(tb){tb.remove()}
   document.body.classList.toggle('sem-tabbar',!operacional);
   const burger=document.querySelector('.burger');
-  if(burger)burger.style.display=operacional?'none':'';
+  if(burger)burger.style.display='';        // menu lateral disponível para todos os perfis
   NAV=items;
   $('nav').innerHTML=`<div class="who">${esc(ME.nome)}<br><span style="color:var(--acc)">${esc(ME.perfil)}${['AMBAS','TODAS','MULTI'].includes(ME.empresa)?' · '+empAtiva():''}</span></div>`+
     items.map(p=>`<button type="button" data-pg="${p}" class="${p===PAGE?'on':''}">${ICONS[p]||'•'} ${TITLES[p]||p}</button>`).join('')+
