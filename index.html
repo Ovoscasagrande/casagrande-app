@@ -4616,16 +4616,40 @@ function parsePedido(items){
   });
   if(ini>=0){
     const end=fim<0?lines.length:fim;
+    let atual=null;
     for(let i=ini+1;i<end;i++){
       const L=lines[i];
       const c0=L.cells[0];
-      const qt=numQtd(c0?c0.s:null);
-      if(qt==null)continue;
-      const ci=L.cells.findIndex(c=>/^\d{2,6}\s*-\s*\S/.test(c.s));
-      if(ci<0)continue;
-      const m=L.cells[ci].s.match(/^(\d{2,6})\s*-\s*(.+)$/);
-      out.itens.push({codigo:m[1],descricao:m[2].replace(/\s*-\s*$/,'').trim(),qtd:qt});
+      const txtL=L.cells.map(c=>c.s).join(' ');
+      if(/\bTotal\b/.test(txtL))break;
+      const naEsquerda=(c0&&c0.x<70);
+      const qt=naEsquerda?numQtd(c0?c0.s:null):null;
+      if(qt!=null){
+        // procura o CÓDIGO do produto (célula isolada ou "cod - desc")
+        let cod=null,descIni='';
+        for(const c of L.cells){
+          if(c.x>=80&&c.x<=100&&/^\d{2,6}$/.test(c.s)){cod=c.s;break}
+          const mm=c.s.match(/^(\d{2,6})\s*-\s*(.+)$/);
+          if(mm&&c.x<200){cod=mm[1];descIni=mm[2];break}
+        }
+        if(!cod){atual=null;continue}
+        const partes=[];
+        if(descIni)partes.push(descIni);
+        for(const c of L.cells){
+          if(c.x>100&&c.x<=440&&c.s!=='-'&&c.s!==cod&&!partes.includes(c.s))partes.push(c.s);
+        }
+        atual={codigo:cod,qtd:qt,descricao:partes.join(' ').replace(/\s+/g,' ').replace(/\s*-\s*$/,'').trim()};
+        out.itens.push(atual);
+      }else if(atual){
+        // CONTINUAÇÃO da descrição na linha de baixo — é aqui que fica a gramatura/embalagem
+        // (ex.: "12x500g Pote" ou "20 x 250g"). Vale toda a faixa da descrição.
+        const cont=[];
+        for(const c of L.cells){ if(c.x>=80&&c.x<=440&&c.s!=='-')cont.push(c.s) }
+        const extra=cont.join(' ').replace(/\s+/g,' ').trim();
+        if(extra)atual.descricao=(atual.descricao+' '+extra).replace(/\s+/g,' ').trim();
+      }
     }
+    out.itens.forEach(it=>{it.descricao=it.descricao.replace(/\s*-(\s|$)/g,' ').replace(/\s+/g,' ').trim()});
   }
   const obsIdx=[];
   lines.forEach((L,i)=>{if(/Observações/i.test(J(i)))obsIdx.push(i)});
