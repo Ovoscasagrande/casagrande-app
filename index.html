@@ -1368,7 +1368,11 @@ PAGES.jornada=async el=>{
       ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button type="button" class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;cursor:pointer"><input type="checkbox" id="j-carga" style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">📦 <b>Carregamento</b> — saiu vazio para carregar (sem roteiro)</span></label>`:''}
       <button type="button" class="btn" id="j-iniciar">▶ ${empAtiva()==='DISTRIBUIDORA'?'Iniciar roteiro':'Iniciar jornada'}</button><div class="msg" id="j-msg"></div></div>
-      ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>${ultimas.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa)}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:''}`;
+      ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div>${ultimas.map(j=>`<div class="listcard"><div class="lc-main">
+        <div class="lc-title"><span>${rotTxt(j)}</span><span class="lc-tag">${tag(j.status)}</span></div>
+        <div class="lc-sub">${esc(j.veiculos?.placa||'—')} · ${fmtDT(j.inicio)}</div>
+        <div class="lc-rows"><div class="lc-row"><span>Km</span><b>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</b></div></div>
+      </div></div>`).join('')}</div></div>`:''}`;
     window.__rots=[];
     if(empAtiva()==='DISTRIBUIDORA'&&ME.motorista){
       const {data:minhaRotaArr}=await sb.from('rotas').select('roteiro,sequencia,entregas(status)').eq('motorista_id',ME.motorista.id).in('status',['aberto','em_rota','planejada','distribuida']).order('data',{ascending:false}).limit(1);
@@ -1671,14 +1675,30 @@ PAGES['meu-historico']=async el=>{
       <div class="kpi"><div class="v">${fmtBRL(gasto)}</div><div class="l">Gastos (30 dias)</div></div>
       ${pend?`<div class="kpi"><div class="v">${fmtBRL(pend)}</div><div class="l">Aguardando aprovação</div></div>`:''}
     </div>
-    <div class="sec"><h3>Últimas jornadas</h3>${J.length?`<div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>
-    ${J.slice(0,10).map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa||'')}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div>`:empty('Nenhuma jornada nos últimos 30 dias')}</div>`,
-    jornadas:()=>J.length?`<div class="sec"><h3>Todas (30 dias)</h3><div class="tblwrap"><table><tr><th>Saída</th><th>Veículo</th><th>Roteiro</th><th>Km</th><th>Status</th></tr>
-    ${J.map(j=>`<tr><td>${fmtDT(j.inicio)}</td><td>${esc(j.veiculos?.placa||'')}</td><td>${rotTxt(j)}</td><td>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</td><td>${tag(j.status)}</td></tr>`).join('')}</table></div></div>`:empty('Nenhuma jornada nos últimos 30 dias'),
-    gastos:()=> (D.length||A.length)?`<div class="sec"><h3>Abastecimentos (${A.length})</h3><div class="tblwrap"><table><tr><th>Data</th><th>Posto</th><th>Comb.</th><th>Litros</th><th>Valor</th></tr>
-    ${A.slice(0,30).map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.posto||'—')}</td><td>${esc(x.combustivel||'')}</td><td>${x.litros}</td><td>${fmtBRL(x.valor_total)}</td></tr>`).join('')}</table></div>
-    <h3 style="margin-top:12px">Outros gastos (${D.length})</h3><div class="tblwrap"><table><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th>Status</th></tr>
-    ${D.slice(0,30).map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.categoria||'')}</td><td>${esc(x.descricao||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${tag(x.status)}</td></tr>`).join('')}</table></div></div>`:empty('Nenhum gasto nos últimos 30 dias'),
+    <div class="sec"><h3>Últimas jornadas</h3>${J.length?`<div>
+    ${J.slice(0,10).map(j=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${rotTxt(j)}</span><span class="lc-tag">${tag(j.status)}</span></div>
+      <div class="lc-sub">${esc(j.veiculos?.placa||'—')} · ${fmtDT(j.inicio)}</div>
+      <div class="lc-rows"><div class="lc-row"><span>Km</span><b>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</b></div></div>
+    </div></div>`).join('')}</div></div>`:empty('Nenhuma jornada nos últimos 30 dias')}</div>`,
+    jornadas:()=>J.length?`<div class="sec"><h3>Todas (30 dias)</h3><div>
+    ${J.map(j=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${rotTxt(j)}</span><span class="lc-tag">${tag(j.status)}</span></div>
+      <div class="lc-sub">${esc(j.veiculos?.placa||'—')} · ${fmtDT(j.inicio)}</div>
+      <div class="lc-rows"><div class="lc-row"><span>Km</span><b>${km(j.km_inicial)}${j.km_final!=null?' → '+km(j.km_final):''}</b></div></div>
+    </div></div>`).join('')}</div></div></div>`:empty('Nenhuma jornada nos últimos 30 dias'),
+    gastos:()=> (D.length||A.length)?`<div class="sec"><h3>Abastecimentos (${A.length})</h3><div>
+    ${A.slice(0,30).map(x=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(x.posto||'—')}</span><span class="lc-tag"><b>${fmtBRL(x.valor_total)}</b></span></div>
+      <div class="lc-sub">${fmtDT(x.data)}${x.combustivel?' · '+esc(x.combustivel):''}</div>
+      <div class="lc-rows"><div class="lc-row"><span>Litros</span><b>${x.litros}</b></div></div>
+    </div></div>`).join('')}</div></div>
+    <h3 style="margin-top:12px">Outros gastos (${D.length})</h3><div>
+    ${D.slice(0,30).map(x=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(x.categoria||'Gasto')}</span><span class="lc-tag"><b>${fmtBRL(x.valor)}</b></span></div>
+      <div class="lc-sub">${fmtDT(x.data)}${x.descricao?' · '+esc(x.descricao):''}</div>
+      <div class="lc-rows"><div class="lc-row"><span>Status</span><b>${tag(x.status)}</b></div></div>
+    </div></div>`).join('')}</div></div></div>`:empty('Nenhum gasto nos últimos 30 dias'),
     multas:()=> M.length?`<div class="sec"><h3>Minhas multas (${M.length})</h3>${M.map(m=>`
       <div style="padding:10px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(m.veiculos?.placa||'')}</b> · ${fmtBRL(m.valor)} · ${tag(m.status)}
       <div class="hint">${esc(m.orgao||'')} · infração ${fmtD(m.data_infracao)}${m.prazo?' · prazo '+fmtD(m.prazo):''}</div></div>`).join('')}</div>`:empty('Nenhuma multa — parabéns! 🎉'),
@@ -2556,10 +2576,17 @@ async function pagAvisosGestao(el){
   const qav=(document.getElementById('av-busca')?.value||'').toLowerCase();
   const listaF=qav?lista.filter(a=>((a.motoristas?.nome||'')+' '+(a.veiculos?.placa||'')+' '+(a.categoria||'')+' '+(a.texto||'')).toLowerCase().includes(qav)):lista;
   if(!listaF.length){g.innerHTML=empty('Nenhum aviso encontrado');return}
-  g.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Motorista</th><th>Veículo</th><th>Categoria</th><th>Aviso</th><th>Status</th><th></th></tr>
+  g.innerHTML=`<div>
   ${listaF.map(a=>{const velho=['recebido','em_analise'].includes(a.status)&&(Date.now()-new Date(a.criado_em))>24*3600e3;
-    return `<tr ${velho?'style="background:rgba(139,58,58,.25)"':''}><td>${fmtDT(a.criado_em)}${velho?'<div style="color:var(--bad);font-weight:700">⚠ +24h sem resposta</div>':''}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.categoria||'—')}</td><td>${esc(a.texto)}</td><td>${tag(a.status)}</td>
-  <td><button type="button" class="btn mini" data-av="${a.id}" data-st="${a.status==='recebido'?'em_analise':a.status==='em_analise'?'encaminhado':a.status==='encaminhado'?'resolvido':'arquivado'}">${a.status==='recebido'?'▶ Em análise':a.status==='em_analise'?'🔧 Encaminhar p/ mecânico':a.status==='encaminhado'?'✓ Resolver':'🗄 Arquivar'}</button></td></tr>`}).join('')}</table></div>`;
+    return `<div class="listcard"${velho?' style="border-color:var(--bad)"':''}><div class="lc-main">
+      <div class="lc-title"><span>${esc(a.motoristas?.nome||'—')}</span><span class="lc-tag">${tag(a.status)}</span></div>
+      <div class="lc-sub">${esc(a.veiculos?.placa||'—')} · ${esc(a.categoria||'—')} · ${fmtDT(a.criado_em)}</div>
+      <div class="lc-rows">
+        <div class="lc-row"><span>Aviso</span><b>${esc(a.texto)}</b></div>
+        ${velho?'<div class="lc-row"><span>Alerta</span><b style="color:var(--bad)">+24h sem resposta</b></div>':''}
+      </div>
+      <div class="lc-actions"><button type="button" class="btn mini" data-av="${a.id}" data-st="${a.status==='recebido'?'em_analise':a.status==='em_analise'?'encaminhado':a.status==='encaminhado'?'resolvido':'arquivado'}">${a.status==='recebido'?'▶ Em análise':a.status==='em_analise'?'🔧 Encaminhar p/ mecânico':a.status==='encaminhado'?'✓ Resolver':'🗄 Arquivar'}</button></div>
+    </div></div>`}).join('')}</div></div>`;
   document.getElementById('av-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
     document.querySelectorAll('#av-g tbody tr').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
@@ -2860,8 +2887,17 @@ PAGES.abastecimentos=async el=>{
     const tot=dataF.reduce((s,a)=>s+Number(a.valor_total),0);
     const litros=dataF.reduce((s,a)=>s+Number(a.litros||0),0);
     l.innerHTML=`<div class="kpis"><div class="kpi"><div class="v">${fmtBRL(tot)}</div><div class="l">Total no período</div></div><div class="kpi"><div class="v">${litros.toLocaleString('pt-BR',{maximumFractionDigits:0})} L</div><div class="l">Litros</div></div><div class="kpi"><div class="v">${data.length}</div><div class="l">Lançamentos</div></div></div>
-    <div class="tblwrap"><table><tr><th>Data</th><th>Veículo</th><th>Motorista</th><th>Posto</th><th>Km</th><th>Litros</th><th>R$/L</th><th>Total</th><th>Foto</th></tr>
-    ${dataF.map(a=>`<tr><td>${fmtDT(a.data)}</td><td>${esc(a.veiculos?.placa)}</td><td>${esc(a.motoristas?.nome)}</td><td>${esc(a.posto||'—')}</td><td>${km(a.km)}</td><td>${a.litros??'—'}</td><td>${a.preco_litro??'—'}</td><td>${fmtBRL(a.valor_total)}</td><td><button type="button" class="btn mini" data-foto="${a.foto_path}">👁</button></td></tr>`).join('')}</table></div>`;
+    <div>
+    ${dataF.map(a=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(a.veiculos?.placa||'—')}</span><span class="lc-tag"><b>${fmtBRL(a.valor_total)}</b></span></div>
+      <div class="lc-sub">${esc(a.motoristas?.nome||'—')} · ${esc(a.posto||'—')} · ${fmtDT(a.data)}</div>
+      <div class="lc-rows">
+        <div class="lc-row"><span>Km</span><b>${km(a.km)}</b></div>
+        <div class="lc-row"><span>Litros</span><b>${a.litros??'—'}</b></div>
+        <div class="lc-row"><span>R$/L</span><b>${a.preco_litro??'—'}</b></div>
+      </div>
+      <div class="lc-actions"><button type="button" class="btn mini" data-foto="${a.foto_path}">👁 Ver foto</button></div>
+    </div></div>`).join('')}</div></div>`;
     l.querySelectorAll('[data-foto]').forEach(b=>b.onclick=async()=>{
       const url=await assinar(b.dataset.foto);
       if(url)window.open(url,'_blank');
@@ -2880,9 +2916,16 @@ PAGES.despesas=async el=>{
   const qb=(document.getElementById('dp-busca')?.value||'').toLowerCase();
   const listaF=qb?lista.filter(x=>((x.motoristas?.nome||'')+' '+(x.veiculos?.placa||'')+' '+(x.categoria||'')+' '+(x.descricao||'')).toLowerCase().includes(qb)):lista;
   if(!listaF.length){d.innerHTML=empty('Nenhuma despesa encontrada');return}
-  d.innerHTML=`<div class="tblwrap"><table><tr><th>Data</th><th>Motorista</th><th>Veículo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Status</th><th></th></tr>
-  ${listaF.map(x=>`<tr><td>${fmtDT(x.data)}</td><td>${esc(x.motoristas?.nome)}</td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.categoria)}</td><td>${esc(x.descricao||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${tag(x.status)}</td>
-  <td>${(x.status==='aguardando'&&(ME.perfil==='gerencia'||ME.perfil==='conferente'))?`<button type="button" class="btn mini" data-ok="${x.id}">✓</button> <button type="button" class="btn mini" data-no="${x.id}">✗</button>`:''}</td></tr>`).join('')}</table></div>`;
+  d.innerHTML=`<div>
+  ${listaF.map(x=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(x.categoria)}</span><span class="lc-tag"><b>${fmtBRL(x.valor)}</b></span></div>
+      <div class="lc-sub">${esc(x.motoristas?.nome||'—')} · ${esc(x.veiculos?.placa||'—')} · ${fmtDT(x.data)}</div>
+      <div class="lc-rows">
+        ${x.descricao?`<div class="lc-row"><span>Descrição</span><b>${esc(x.descricao)}</b></div>`:''}
+        <div class="lc-row"><span>Status</span><b>${tag(x.status)}</b></div>
+      </div>
+      ${(x.status==='aguardando'&&(ME.perfil==='gerencia'||ME.perfil==='conferente'))?`<div class="lc-actions"><button type="button" class="btn mini" data-ok="${x.id}">✓ Aprovar</button><button type="button" class="btn mini sec" data-no="${x.id}">✗ Recusar</button></div>`:''}
+    </div></div>`).join('')}</div></div>`;
   document.getElementById('dp-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
     document.querySelectorAll('#dp tbody tr').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
@@ -2929,9 +2972,17 @@ PAGES.multas=async el=>{
   const q=(document.getElementById('mt-busca')?.value||'').toLowerCase();
   const listaF=q?lista.filter(m=>((m.veiculos?.placa||'')+' '+(m.motoristas?.nome||'')+' '+(m.orgao||'')).toLowerCase().includes(q)):lista;
   if(!listaF.length){l.innerHTML=empty('Nenhuma multa encontrada');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Veículo</th><th>Motorista</th><th>Órgão</th><th>Infração</th><th>Prazo</th><th>Valor</th><th>Status</th><th></th></tr>
-  ${listaF.map(m=>`<tr><td>${esc(m.veiculos?.placa)}</td><td>${esc(m.motoristas?.nome||'—')}</td><td>${esc(m.orgao||'—')}</td><td>${fmtD(m.data_infracao)}</td><td>${fmtD(m.prazo)}</td><td>${fmtBRL(m.valor)}</td><td>${tag(m.status)}</td>
-  <td><button type="button" class="btn mini" data-det="${m.id}">Ver detalhes</button>${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?` <button type="button" class="btn mini" data-cie="${m.id}">Confirmar ciência</button>`:''}</td></tr>`).join('')}</table></div>`;
+  l.innerHTML=`<div>
+  ${listaF.map(m=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(m.veiculos?.placa||'—')}</span><span class="lc-tag"><b>${fmtBRL(m.valor)}</b></span></div>
+      <div class="lc-sub">${esc(m.motoristas?.nome||'sem motorista')} · ${esc(m.orgao||'—')}</div>
+      <div class="lc-rows">
+        <div class="lc-row"><span>Infração</span><b>${fmtD(m.data_infracao)}</b></div>
+        <div class="lc-row"><span>Prazo</span><b>${fmtD(m.prazo)}</b></div>
+        <div class="lc-row"><span>Status</span><b>${tag(m.status)}</b></div>
+      </div>
+      <div class="lc-actions"><button type="button" class="btn mini" data-det="${m.id}">Ver detalhes</button>${m.status==='aguardando_ciencia'&&ME.perfil==='motorista'?`<button type="button" class="btn mini" data-cie="${m.id}">Confirmar ciência</button>`:''}</div>
+    </div></div>`).join('')}</div></div>`;
   document.getElementById('mt-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
     document.querySelectorAll('#m-list tbody tr').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
@@ -3236,9 +3287,18 @@ PAGES.relatorios=async el=>{
         <button type="button" data-s="manut" class="${window.__relSort==='manut'?'on':''}">🔧 Mais gastou manutenção</button>
         <button type="button" data-s="total" class="${window.__relSort==='total'?'on':''}">💰 Maior gasto total</button>
       </div>
-      <div class="sec"><div class="tblwrap"><table><tr><th>Motorista</th><th>Jorn.</th><th>Km</th><th>km/L</th><th>⛽ R$</th><th>🔧 Manut. R$</th><th>Outros R$</th><th>🚨 Multas</th><th>TOTAL R$</th></tr>
-      ${rows.map((g,i)=>`<tr${i===0?' style="background:rgba(252,200,92,.08)"':''}><td><b>${esc(g.nome)}</b></td><td>${g.nJ}</td><td>${Math.round(g.km).toLocaleString('pt-BR')}</td><td>${g.kml?g.kml.toFixed(1).replace('.',','):'—'}</td><td>${Math.round(g.comb).toLocaleString('pt-BR')}</td><td>${Math.round(g.manut).toLocaleString('pt-BR')}</td><td>${Math.round(g.outras).toLocaleString('pt-BR')}</td><td>${g.multas?g.multas+' × '+Math.round(g.vMultas).toLocaleString('pt-BR'):'—'}</td><td><b>${Math.round(g.total).toLocaleString('pt-BR')}</b></td></tr>`).join('')}
-      </table></div><p class="hint">Período: jun → nov 2026 · linha destacada = 1º do critério escolhido · manutenção = peças, pneus, mecânica e óleo.</p></div>`;
+      <div class="sec"><div>
+      ${rows.map((g,i)=>`<div class="listcard"${i===0?' style="border-color:var(--acc)"':''}><div class="lc-main">
+        <div class="lc-title"><span>${i===0?'🏆 ':''}${esc(g.nome)}</span><span class="lc-tag"><b>R$ ${Math.round(g.total).toLocaleString('pt-BR')}</b></span></div>
+        <div class="lc-sub">${g.nJ} jornada(s) · ${Math.round(g.km).toLocaleString('pt-BR')} km${g.kml?' · '+g.kml.toFixed(1).replace('.',',')+' km/L':''}</div>
+        <div class="lc-rows">
+          <div class="lc-row"><span>Combustível</span><b>R$ ${Math.round(g.comb).toLocaleString('pt-BR')}</b></div>
+          <div class="lc-row"><span>Manutenção</span><b>R$ ${Math.round(g.manut).toLocaleString('pt-BR')}</b></div>
+          <div class="lc-row"><span>Outros</span><b>R$ ${Math.round(g.outras).toLocaleString('pt-BR')}</b></div>
+          ${g.multas?`<div class="lc-row"><span>Multas</span><b>${g.multas} × R$ ${Math.round(g.vMultas).toLocaleString('pt-BR')}</b></div>`:''}
+        </div>
+      </div></div>`).join('')}
+      </div></div><p class="hint">Período: jun → nov 2026 · linha destacada = 1º do critério escolhido · manutenção = peças, pneus, mecânica e óleo.</p></div>`;
       el.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{window.__relSort=b.dataset.s;renderTab()});
     }
   }
@@ -3420,9 +3480,18 @@ PAGES.motoristas=async el=>{
     return (m.nome||'').toLowerCase().includes(buscaM)||(m.cpf||'').includes(buscaM)||(m.cnh||'').includes(buscaM)||vics.toLowerCase().includes(buscaM);
   }):lista;
   const EMPNICK={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'};
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Nome</th><th>Empresas</th><th>CPF</th><th>CNH</th><th>Validade</th><th>Veículo</th><th>Situação</th><th></th></tr>
-  ${listaF.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';const empsTxt=(m.empresas&&m.empresas.length?m.empresas.map(x=>EMPNICK[x]||x).join(', '):EMPNICK[m.empresa]||m.empresa||'—');return `<tr><td><b>${esc(m.nome)}</b></td><td><span class="tag" style="font-size:10px">${esc(empsTxt)}</span></td><td>${esc(m.cpf||'—')}</td><td>${esc(m.cnh||'—')}</td><td style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' ⚠️':''}</td><td data-vinc="${m.id}">${esc(vs)}</td><td>${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</td>
-  <td>${ME.perfil==='gerencia'?`<button type="button" class="btn mini" data-vv="${m.id}">🚚 veículo</button> <button type="button" class="btn mini" data-ed="${m.id}">✏️</button> <button type="button" class="btn mini" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button>`:''}</td></tr>`}).join('')}</table></div>`;
+  l.innerHTML=`<div>
+  ${listaF.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';const empsTxt=(m.empresas&&m.empresas.length?m.empresas.map(x=>EMPNICK[x]||x).join(', '):EMPNICK[m.empresa]||m.empresa||'—');return `<div class="listcard"><div class="lc-main">
+    <div class="lc-title"><span>${esc(m.nome)}</span><span class="lc-tag">${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</span></div>
+    <div class="lc-sub"><span class="tag" style="font-size:10px">${esc(empsTxt)}</span></div>
+    <div class="lc-rows">
+      <div class="lc-row"><span>CPF</span><b>${esc(m.cpf||'—')}</b></div>
+      <div class="lc-row"><span>CNH</span><b>${esc(m.cnh||'—')}</b></div>
+      <div class="lc-row"><span>Validade</span><b style="${venc?'color:var(--bad)':''}">${fmtD(m.cnh_validade)}${venc?' vencida':''}</b></div>
+      <div class="lc-row"><span>Veículo</span><b data-vinc="${m.id}">${esc(vs)}</b></div>
+    </div>
+    ${ME.perfil==='gerencia'?`<div class="lc-actions"><button type="button" class="btn mini" data-vv="${m.id}">🚚 veículo</button><button type="button" class="btn mini sec" data-ed="${m.id}">✏️</button><button type="button" class="btn mini sec" data-tg="${m.id}" data-a="${m.ativo?0:1}">${m.ativo?'Inativar':'Reativar'}</button></div>`:''}
+  </div></div>`}).join('')}</div></div>`;
   l.querySelectorAll('[data-tg]').forEach(b=>b.onclick=async()=>{
     if(b.dataset.a==='0'){
       const ml=lista.find(x=>x.id===b.dataset.tg);
@@ -3726,9 +3795,17 @@ PAGES.os=async el=>{
   if(!listaF.length){l.innerHTML=empty('Nenhuma OS encontrada');return}
   const FLOW={recebida:'em_analise',em_analise:'aguardando_peca',aguardando_peca:'em_execucao',em_execucao:'concluida'};
   const LBL={recebida:'▶ Iniciar análise',em_analise:'⏳ Aguardando peça',aguardando_peca:'🔨 Em execução',em_execucao:'✓ Concluir'};
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Aberta</th><th>Veículo</th><th>Descrição</th><th>Diagnóstico</th><th>Custos</th><th>Status</th><th></th></tr>
-  ${listaF.map(o=>`<tr><td>${fmtDT(o.aberta_em)}</td><td>${esc(o.veiculos?.placa)}</td><td>${esc(o.descricao)}</td><td>${esc(o.diagnostico||'—')}</td><td>${o.mao_obra||o.custos?fmtBRL(Number(o.mao_obra||0)+Number(o.custos||0)):'—'}</td><td>${tag(o.status)}</td>
-  <td>${['mecanico','gerencia'].includes(ME.perfil)&&o.status!=='concluida'?`<button type="button" class="btn mini" data-osd="${o.id}">✏️ Atualizar</button>`:''}</td></tr>`).join('')}</table></div>`;
+  l.innerHTML=`<div>
+  ${listaF.map(o=>`<div class="listcard"><div class="lc-main">
+    <div class="lc-title"><span>${esc(o.veiculos?.placa||'—')}</span><span class="lc-tag">${tag(o.status)}</span></div>
+    <div class="lc-sub">${fmtDT(o.aberta_em)}</div>
+    <div class="lc-rows">
+      <div class="lc-row"><span>Descrição</span><b>${esc(o.descricao)}</b></div>
+      ${o.diagnostico?`<div class="lc-row"><span>Diagnóstico</span><b>${esc(o.diagnostico)}</b></div>`:''}
+      ${(o.mao_obra||o.custos)?`<div class="lc-row"><span>Custos</span><b>${fmtBRL(Number(o.mao_obra||0)+Number(o.custos||0))}</b></div>`:''}
+    </div>
+    ${['mecanico','gerencia'].includes(ME.perfil)&&o.status!=='concluida'?`<div class="lc-actions"><button type="button" class="btn mini" data-osd="${o.id}">✏️ Atualizar</button></div>`:''}
+  </div></div>`).join('')}</div></div>`;
   document.getElementById('os-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
     document.querySelectorAll('#o-list tbody tr').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
@@ -3786,9 +3863,13 @@ PAGES.usuarios=async el=>{
       </div>`}).join('')+`</div>`;
   }else{pw.innerHTML=`<div class="sec"><p class="hint">Nenhum cadastro aguardando aprovação ✓</p></div>`}
   // ---- aprovados ----
-  l.innerHTML=ativos.length?`<div class="sec"><h3>👥 Cadastrados (${ativos.length})</h3><div class="tblwrap"><table><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Empresa</th><th></th></tr>
-  ${ativos.filter(u=>{const q=(document.getElementById('u-busca')?.value||'').toLowerCase();return !q||(u.nome||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q)}).map(u=>`<tr><td><b>${esc(u.nome)}</b></td><td style="font-size:11px;color:var(--mut);word-break:break-all">${esc(u.email||'—')}</td><td>${tag(u.perfil)}</td><td>${esc(u.empresa||'OVOS')}</td>
-  <td>${ME.master?`<button type="button" class="btn mini" data-ued="${u.id}">✏️</button>`:''}</td></tr>`).join('')}</table></div></div>`:empty('Nenhum usuário aprovado ainda');
+  l.innerHTML=ativos.length?`<div class="sec"><h3>👥 Cadastrados (${ativos.length})</h3><div>
+  ${ativos.filter(u=>{const q=(document.getElementById('u-busca')?.value||'').toLowerCase();return !q||(u.nome||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q)}).map(u=>`<div class="listcard"><div class="lc-main">
+    <div class="lc-title"><span>${esc(u.nome)}</span><span class="lc-tag">${tag(u.perfil)}</span></div>
+    <div class="lc-sub" style="word-break:break-all">${esc(u.email||'—')}</div>
+    <div class="lc-rows"><div class="lc-row"><span>Empresa</span><b>${esc(u.empresa||'OVOS')}</b></div></div>
+    ${ME.master?`<div class="lc-actions"><button type="button" class="btn mini" data-ued="${u.id}">✏️ Editar</button></div>`:''}
+  </div></div>`).join('')}</div></div></div>`:empty('Nenhum usuário aprovado ainda');
   // ---- veículos para vínculo na aprovação ----
   (async()=>{
     const {data:vlist}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
@@ -3875,12 +3956,16 @@ PAGES.auditoria=async el=>{
   const qau=(document.getElementById('au-busca')?.value||'').toLowerCase();
   const listaF=qau?lista.filter(a=>(quemDe(a)+' '+(a.acao||'')).toLowerCase().includes(qau)):lista;
   if(!listaF.length){l.innerHTML=empty('Nenhum registro encontrado');return}
-  l.innerHTML=`<div class="tblwrap"><table><tr><th>Quando</th><th>Quem</th><th>O que fez</th><th>Perfil</th></tr>
+  l.innerHTML=`<div>
   ${listaF.slice(0,200).map(a=>{
     const det=a.detalhe||{};
     const quem=quemDe(a);
     const perfil=det.perfil?`<span class="tag neutral">${esc(det.perfil)}</span>`:'';
-    return `<tr><td>${fmtDT(a.criado_em)}</td><td><b>${esc(quem)}</b></td><td>${esc(a.acao)}</td><td>${perfil}</td></tr>`}).join('')}</table></div>`;
+    return `<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(quem)}</span><span class="lc-tag">${perfil}</span></div>
+      <div class="lc-sub">${fmtDT(a.criado_em)}</div>
+      <div class="lc-rows"><div class="lc-row"><span>O que fez</span><b>${esc(a.acao)}</b></div></div>
+    </div></div>`}).join('')}</div></div>`;
   document.getElementById('au-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
     document.querySelectorAll('#au tbody tr').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
@@ -3901,8 +3986,16 @@ PAGES.recebimentos=async el=>{
     const listaF=qb?lista.filter(x=>((x.tipo||'')+' '+(x.veiculos?.placa||'')+' '+(x.motoristas?.nome||'')).toLowerCase().includes(qb)):lista;
     const tot=listaF.reduce((s,x)=>s+Number(x.valor),0);
     rc.innerHTML=`<div class="kpis"><div class="kpi"><div class="v">${fmtBRL(tot)}</div><div class="l">Total (${e==='GRUPO'?'grupo':EMPNOME[e]})</div></div><div class="kpi"><div class="v">${listaF.length}</div><div class="l">Lançamentos</div></div></div>
-    <div class="tblwrap"><table><tr><th>Data</th><th>Tipo</th><th>Veículo</th><th>Motorista</th><th>Valor</th><th>Lançado por</th><th>Extras</th><th></th></tr>
-    ${listaF.map(x=>`<tr><td>${fmtDT(x.data)}</td><td><b>${esc(x.tipo)}</b></td><td>${esc(x.veiculos?.placa||'—')}</td><td>${esc(x.motoristas?.nome||'—')}</td><td>${fmtBRL(x.valor)}</td><td>${esc(x.usuarios?.nome||'—')}</td><td>${x.extras&&Object.keys(x.extras).length?esc(Object.entries(x.extras).map(([k,v])=>k+': '+v).join(' · ')):'—'}</td><td>${x.foto_path?`<button type="button" class="btn mini" data-foto="${x.foto_path}">👁</button>`:'—'}</td></tr>`).join('')}</table></div>`;
+    <div>
+    ${listaF.map(x=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(x.tipo)}</span><span class="lc-tag"><b>${fmtBRL(x.valor)}</b></span></div>
+      <div class="lc-sub">${fmtDT(x.data)} · ${esc(x.veiculos?.placa||'—')} · ${esc(x.motoristas?.nome||'—')}</div>
+      <div class="lc-rows">
+        <div class="lc-row"><span>Lançado por</span><b>${esc(x.usuarios?.nome||'—')}</b></div>
+        ${x.extras&&Object.keys(x.extras).length?`<div class="lc-row"><span>Extras</span><b>${esc(Object.entries(x.extras).map(([k,v])=>k+': '+v).join(' · '))}</b></div>`:''}
+      </div>
+      ${x.foto_path?`<div class="lc-actions"><button type="button" class="btn mini" data-foto="${x.foto_path}">👁 Ver foto</button></div>`:''}
+    </div></div>`).join('')}</div></div>`;
     rc.querySelectorAll('[data-foto]').forEach(b=>b.onclick=async()=>{const url=await assinar(b.dataset.foto);if(url)window.open(url,'_blank')});
   };
   carregar();
@@ -3991,7 +4084,11 @@ PAGES.produtos=async el=>{
   el.innerHTML=`<h1 class="pg">Produtos</h1><div class="sec"><div class="dynrow"><input id="pr-nome" placeholder="Nome do produto"><input id="pr-sku" placeholder="SKU" style="max-width:110px"><input id="pr-un" placeholder="UN (CX, KG)" style="max-width:110px"><button type="button" class="btn mini" id="pr-add">➕</button></div><p class="hint">Nome + SKU + unidade — toque em ➕ para incluir</p></div><div id="pr-list">${empty('Carregando…')}</div>`;
   const carregar=async()=>{
     const {data:l}=await sb.from('produtos').select('*').order('nome');
-    $('pr-list').innerHTML=(l&&l.length)?`<div class="tblwrap"><table><tr><th>Produto</th><th>SKU</th><th>Un.</th><th></th></tr>`+l.map(p=>`<tr><td>${esc(p.nome)} ${p.ativo?'':'<span class="tag bad">inativo</span>'}</td><td>${esc(p.sku||'—')}</td><td>${esc(p.unidade)}</td><td style="white-space:nowrap"><button type="button" class="btn mini" data-edit="${p.id}">✏️</button> <button type="button" class="btn mini" data-pr="${p.id}" data-on="${p.ativo?1:0}">${p.ativo?'Desativar':'Ativar'}</button></td></tr>`).join('')+`</table></div>`:empty('Nenhum produto — inclua o primeiro acima');
+    $('pr-list').innerHTML=(l&&l.length)?`<div>`+l.map(p=>`<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(p.nome)}</span><span class="lc-tag">${p.ativo?'':'<span class="tag bad">inativo</span>'}</span></div>
+      <div class="lc-sub">SKU ${esc(p.sku||'—')} · ${esc(p.unidade)}</div>
+      <div class="lc-actions"><button type="button" class="btn mini" data-edit="${p.id}">✏️</button><button type="button" class="btn mini sec" data-pr="${p.id}" data-on="${p.ativo?1:0}">${p.ativo?'Desativar':'Ativar'}</button></div>
+    </div></div>`).join('')+`</div></div>`:empty('Nenhum produto — inclua o primeiro acima');
     $('pr-list').querySelectorAll('[data-pr]').forEach(b=>b.onclick=async()=>{await sb.from('produtos').update({ativo:b.dataset.on!=='1'}).eq('id',b.dataset.pr);carregar()});
     $('pr-list').querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
       const p=l.find(x=>x.id===b.dataset.edit);
