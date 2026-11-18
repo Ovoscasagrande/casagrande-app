@@ -539,7 +539,6 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
 <div id="app" class="hide">
   <header>
     <button type="button" class="burger" id="burger">☰</button>
-    <img id="lg-head" src="logo-branca.png" alt="">
     <div class="tt" id="pg-title">Início</div>
     <button type="button" class="emp-btn" id="emp-btn" style="margin-right:6px"></button>
     <button type="button" class="bell" id="bell">🔔<span class="bdg hide" id="bdg">0</span></button>
@@ -606,7 +605,7 @@ function applyBranding(){
   else if(e==='DISTRIBUIDORA'){r.setProperty('--primary-color','#797F35');r.setProperty('--primary-contrast','#ffffff')}
   else{r.setProperty('--primary-color','#FCC85C');r.setProperty('--primary-contrast','#121212')}
   const lg=EMPLOGO[e]||'logo-branca.png';
-  ['lg-login','lg-head','lg-wm'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=lg});
+  ['lg-wm'].forEach(id=>{const el=document.getElementById(id);if(el)el.src=lg});
   const h2=document.getElementById('lg-app');if(h2)h2.textContent=EMPNOME[e];
   applyEmpBtn();
 }
