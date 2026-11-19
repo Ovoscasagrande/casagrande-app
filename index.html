@@ -1679,6 +1679,9 @@ PAGES.gastos=async el=>{
         const file=getAFoto();
         if(!litros||!preco||!kmv){$('a-msg').className='msg err';$('a-msg').textContent='Preencha km, litros e preço do litro';btn.disabled=false;btn.textContent='Lançar abastecimento';return}
         if(kmv<aberta.km_inicial){$('a-msg').className='msg err';$('a-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;btn.disabled=false;btn.textContent='Lançar abastecimento';return}
+        // TRAVA: valor acima do tanque é erro de digitação (ex.: 77,261 virou 77.261 L = R$ 540 mil)
+        if(litros>TANQUE_MAX){$('a-msg').className='msg err';$('a-msg').textContent=`${fmtBR2(litros)} L acima do tanque (máx. ${TANQUE_MAX} L). Confira o campo Litros — use vírgula para os decimais (ex.: 77,261).`;btn.disabled=false;btn.textContent='Lançar abastecimento';return}
+        if(preco>PRECO_MAX){$('a-msg').className='msg err';$('a-msg').textContent=`Preço R$ ${fmtBR2(preco)}/L fora do normal (máx. R$ ${PRECO_MAX}). Confira o campo.`;btn.disabled=false;btn.textContent='Lançar abastecimento';return}
         if(!file){$('a-msg').className='msg err';$('a-msg').textContent='A foto do comprovante é obrigatória';btn.disabled=false;btn.textContent='Lançar abastecimento';return}
         const path=`${ME.id}/${Date.now()}.jpg`;
         const p=await uploadFoto(file,path);
@@ -1723,6 +1726,9 @@ PAGES.gastos=async el=>{
   $('g-tipo').onchange=render;render();
 };
 /* máscara/parse de números BR: aceita 1.234,56 e 1234.56 */
+// limites de sanidade do abastecimento (o maior tanque da frota é 280 L)
+const TANQUE_MAX = 500;   // litros por abastecimento
+const PRECO_MAX  = 20;    // R$ por litro
 function parseBR(v){
   if(v==null)return 0;v=String(v).trim();if(!v)return 0;v=v.replace(/\s/g,'');
   if(v.includes(',')){v=v.replace(/\./g,'').replace(',','.')}                    // 1.234,56 → 1234.56
