@@ -1666,16 +1666,29 @@ PAGES.gastos=async el=>{
           };
         };
       })();
+      // auto-correção: 699 vira 6,99 e 77261 vira 77,261, com aviso do que mudou
+      const avisos=[];
       const calc=()=>{
-        const l=parseBR($('a-litros').value),pr=parseBR($('a-preco').value);
+        avisos.length=0;
+        const lRaw=parseBR($('a-litros').value), prRaw=parseBR($('a-preco').value);
+        const cl=corrigeDecimal(lRaw,TANQUE_MAX), cp=corrigeDecimal(prRaw,PRECO_MAX);
+        const l=cl.valor, pr=cp.valor;
+        if(cl.corrigido) avisos.push(`Litros: ${fmtBR2(cl.original)} → ${fmtBR2(l)} L`);
+        if(cp.corrigido) avisos.push(`Preço: ${fmtBR2(cp.original)} → R$ ${fmtBR2(pr)}/L`);
         const tot=(l>0&&pr>0)?Math.round(l*pr*100)/100:0;
         $('a-total').value=tot?fmtBR2(tot):'';
-        $('a-calc').textContent=(l>0&&pr>0)?`${fmtBR2(l)} L × R$ ${fmtBR2(pr)} = R$ ${fmtBR2(tot)}`:'';
+        $('a-calc').innerHTML=(l>0&&pr>0)
+          ? `${fmtBR2(l)} L × R$ ${fmtBR2(pr)} = <b>R$ ${fmtBR2(tot)}</b>`
+            + (avisos.length?`<br><span style="color:#ffb84d">Corrigido automaticamente — ${avisos.join(' · ')}</span>`:'')
+          : '';
       };
       $('a-litros').addEventListener('input',calc);$('a-preco').addEventListener('input',calc);
       $('a-btn').onclick=async()=>{
         const btn=$('a-btn');if(btn.disabled)return;btn.disabled=true;btn.textContent='Enviando…';
-        const litros=parseBR($('a-litros').value),total=parseBR($('a-total').value),kmv=parseBR($('a-km').value),preco=parseBR($('a-preco').value);
+        // grava sempre o valor corrigido (699 -> 6,99 / 77261 -> 77,261)
+        const litros=corrigeDecimal(parseBR($('a-litros').value),TANQUE_MAX).valor;
+        const preco=corrigeDecimal(parseBR($('a-preco').value),PRECO_MAX).valor;
+        const total=parseBR($('a-total').value),kmv=parseBR($('a-km').value);
         const file=getAFoto();
         if(!litros||!preco||!kmv){$('a-msg').className='msg err';$('a-msg').textContent='Preencha km, litros e preço do litro';btn.disabled=false;btn.textContent='Lançar abastecimento';return}
         if(kmv<aberta.km_inicial){$('a-msg').className='msg err';$('a-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;btn.disabled=false;btn.textContent='Lançar abastecimento';return}
@@ -1710,8 +1723,12 @@ PAGES.gastos=async el=>{
       $('d-cat').onchange=renderCampos;renderCampos();
       $('d-btn').onclick=async()=>{
         const btn=$('d-btn');if(btn.disabled)return;btn.disabled=true;btn.textContent='Enviando…';
-        const valor=parseBR($('d-valor').value),file=getDFoto();
+        const file=getDFoto();
+        // mesma regra do abastecimento: valor absurdo por falta de vírgula
+        const cv=corrigeDecimal(parseBR($('d-valor').value),DESPESA_MAX);
+        const valor=cv.valor;
         if(!valor||!file){$('d-msg').className='msg err';$('d-msg').textContent='Preencha o valor e anexe a foto do recibo';btn.disabled=false;btn.textContent='Lançar despesa';return}
+        if(cv.corrigido){$('d-valor').value=fmtBR2(valor);toast(`Valor corrigido: ${fmtBR2(cv.original)} → ${fmtBR2(valor)}`);}
         const kmv=parseBR($('d-km').value);
         if($('d-km').value&&kmv<aberta.km_inicial){$('d-msg').className='msg err';$('d-msg').textContent=`O km (${kmv}) não pode ser menor que a saída da jornada (${aberta.km_inicial} km)`;btn.disabled=false;btn.textContent='Lançar despesa';return}
         const extras={};
@@ -1729,6 +1746,17 @@ PAGES.gastos=async el=>{
 // limites de sanidade do abastecimento (o maior tanque da frota é 280 L)
 const TANQUE_MAX = 500;   // litros por abastecimento
 const PRECO_MAX  = 20;    // R$ por litro
+const DESPESA_MAX = 50000; // R$ por despesa avulsa (acima disso é vírgula faltando)
+/* Corrige digitação sem vírgula: 699 -> 6,99 e 77261 -> 77,261.
+   Divide por 10 até caber no limite. Devolve também o que foi corrigido,
+   para avisar o motorista em vez de trocar o número em silêncio. */
+function corrigeDecimal(valor, max){
+  let n = Number(valor) || 0;
+  if(n <= 0) return {valor:0, corrigido:false, original:n};
+  let voltas = 0;
+  while(n > max && voltas < 5){ n = n/10; voltas++; }
+  return {valor: Math.round(n*1000)/1000, corrigido: voltas>0, original: Number(valor)||0};
+}
 function parseBR(v){
   if(v==null)return 0;v=String(v).trim();if(!v)return 0;v=v.replace(/\s/g,'');
   if(v.includes(',')){v=v.replace(/\./g,'').replace(',','.')}                    // 1.234,56 → 1234.56
