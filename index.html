@@ -510,6 +510,53 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
 .bx-motivo{width:100%;margin-top:8px}
 .mo-emp{display:inline-flex;align-items:center;gap:6px;margin-right:12px;font-size:13px}
 .empchip{display:inline-flex;align-items:center;gap:6px;background:var(--field);border:1px solid var(--divider);border-radius:var(--r-pill);padding:4px 12px;font-size:12px;color:var(--muted)}
+/* ===== dashboard v2 (cg-v179) ===== */
+.dash-filtros{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.dash-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.dash-row::-webkit-scrollbar{display:none}
+.dash-row .chip{min-height:48px;display:inline-flex;align-items:center;padding:0 16px}
+.dash-row .chip.on{background:var(--acc);color:var(--primary-contrast,#121212);border-color:var(--acc);font-weight:700}
+.dash-sel{flex:1 1 0;min-width:150px;min-height:48px;background:var(--field);color:var(--ink);
+  border:1px solid var(--divider);border-radius:var(--r-md);padding:0 12px;font-family:var(--font);
+  font-size:14px;font-weight:600;-webkit-appearance:none;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 22px,calc(100% - 13px) 22px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.dash-sel:focus{outline:2px solid var(--acc);outline-offset:1px}
+
+/* card de KPI clicável, com badge e sparkline */
+.dash-kpi{position:relative;cursor:pointer;transition:border-color .15s, transform .12s;
+  min-height:112px;display:flex;flex-direction:column;gap:2px}
+.dash-kpi:active{transform:scale(.985)}
+.dash-kpi:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.dash-kpi .v{font-size:20px;font-weight:800;line-height:1.15;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-kpi .l{font-size:11px;color:var(--muted);line-height:1.2}
+.dash-badge{display:inline-block;margin-top:4px;font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:999px;white-space:nowrap;width:fit-content}
+.dash-badge.up{background:rgba(224,82,82,.16);color:#ff8a8a}
+.dash-badge.down{background:rgba(62,207,110,.16);color:#6ee79a}
+.dash-badge.neu{background:rgba(158,158,158,.16);color:var(--muted)}
+.dash-spark{height:32px;margin-top:auto;position:relative}
+.dash-spark canvas{position:absolute;inset:0;width:100%!important;height:32px!important}
+
+/* mini-resumo no topo do modal de drill-down */
+.dash-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 12px}
+.dash-mini>div{background:var(--field);border:1px solid var(--divider);
+  border-radius:var(--r-md);padding:10px 8px;text-align:center;min-height:62px;
+  display:flex;flex-direction:column;justify-content:center;gap:2px}
+.dash-mini b{font-size:15px;font-weight:800;color:var(--ink);line-height:1.15;
+  overflow:hidden;text-overflow:ellipsis}
+.dash-mini span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+#modal .listcard{margin-bottom:8px}
+#modal .listcard:last-child{margin-bottom:0}
+
+/* 390px: KPIs lado a lado ficam apertados — mantém 2 colunas, fonte menor */
+@media(max-width:400px){
+  .dash-kpi .v{font-size:17px}
+  .dash-mini b{font-size:13px}
+  .dash-sel{min-width:130px;font-size:13px}
+}
+
 </style>
 </head>
 <body>
@@ -3065,40 +3112,397 @@ PAGES.hoje=async el=>{if(empAtiva()==='DISTRIBUIDORA')return pagHojeDist(el);
   ${A.length?`<div class="sec"><h3>📣 Avisos de hoje (${A.length})</h3>${A.map(a=>`<div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(a.motoristas?.nome||'')}</b> · ${esc(a.veiculos?.placa||'')} · ${esc(a.categoria||'')}<div class="hint">${esc(a.texto.slice(0,80))}</div></div>`).join('')}</div>`:''}
   ${M.length?`<div class="sec"><h3>🚨 Multas de hoje (${M.length})</h3>${M.map(m=>`<div style="padding:9px 4px;border-bottom:1px solid #242424;font-size:13px"><b>${esc(m.motoristas?.nome||'—')}</b> · ${esc(m.veiculos?.placa||'')} · ${fmtBRL(m.valor)}<div class="hint">${esc(m.orgao||'')} · ${tag(m.status)}</div></div>`).join('')}</div>`:''}`;
 };
+/* ============================================================================
+   DASHBOARD v2 — análise interativa (cg-v179)
+   ----------------------------------------------------------------------------
+   Mantém tudo do dashboard anterior (abas Dinheiro/Operação/Controle, mesmos
+   IDs de canvas, mesmo Chart.js 4, mesmo tema) e acrescenta:
+     • DASH_STATE  — cache dos registros brutos: drill-down sem ir ao banco
+     • drill-down  — toque na barra/ponto abre o modal com os lançamentos
+     • filtros     — período, veículo e motorista, com filtro cruzado
+     • KPIs        — variação % vs período anterior + sparkline
+     • plugin      — linha de média tracejada e destaque de anomalia (>15%)
+   ========================================================================== */
+
+/* ---------------- estado e utilitários ---------------- */
+const DASH_STATE = window.DASH_STATE = {
+  periodos: {},          // chave 'AAAA-MM-DD|AAAA-MM-DD' -> {abs,des,rec,mlt,osL,avs}
+  filtro: {veiculo:null, motorista:null},
+  periodo: null,         // {ini, fim, label}
+  nomes: {veic:null, mot:null}
+};
+const DASH_PLACAS = window.DASH_PLACAS = {};
+const DASH_NOMES  = window.DASH_NOMES  = {};
+
+/* DD-MM-AAAA a partir de 'AAAA-MM-DD' (aceita timestamp) */
+function ddmmaaaa(v){
+  if(!v) return '—';
+  const s=String(v).slice(0,10);            // AAAA-MM-DD
+  const p=s.split('-');
+  return p.length===3 ? `${p[2]}-${p[1]}-${p[0]}` : '—';
+}
+/* ISO do primeiro e do último dia de um recorte */
+function dashPeriodo(tipo){
+  const hj=new Date();
+  const iso=d=>d.toISOString().slice(0,10);
+  const y=hj.getFullYear(), m=hj.getMonth(), dia=hj.getDate();
+  if(tipo==='hoje')   return {ini:iso(hj), fim:iso(hj), label:'Hoje'};
+  if(tipo==='7')      return {ini:iso(new Date(y,m,dia-6)), fim:iso(hj), label:'7 dias'};
+  if(tipo==='30')     return {ini:iso(new Date(y,m,dia-29)), fim:iso(hj), label:'30 dias'};
+  if(tipo==='mes')    return {ini:iso(new Date(y,m,1)), fim:iso(new Date(y,m+1,0)), label:'Mês atual'};
+  if(tipo==='mesant') return {ini:iso(new Date(y,m-1,1)), fim:iso(new Date(y,m,0)), label:'Mês anterior'};
+  return {ini:iso(new Date(y,m,1)), fim:iso(new Date(y,m+1,0)), label:'Mês atual'};
+}
+/* período anterior de mesmo tamanho, para a variação % */
+function dashPeriodoAnterior(p){
+  const d1=new Date(p.ini+'T12:00:00'), d2=new Date(p.fim+'T12:00:00');
+  const dias=Math.round((d2-d1)/86400000)+1;
+  const fim=new Date(d1.getTime()-86400000);
+  const ini=new Date(fim.getTime()-(dias-1)*86400000);
+  const iso=d=>d.toISOString().slice(0,10);
+  return {ini:iso(ini), fim:iso(fim), label:'anterior'};
+}
+/* R$ pt-BR, resumido só para eixo (nunca para valor de registro) */
+function dashR$(v){
+  const n=Number(v||0);
+  if(Math.abs(n)>=1000000) return 'R$ '+(n/1000000).toFixed(1).replace('.',',')+'M';
+  if(Math.abs(n)>=1000)    return 'R$ '+(n/1000).toFixed(1).replace('.',',')+'k';
+  return 'R$ '+Math.round(n);
+}
+function dashPct(atual, ant){
+  if(!ant) return null;
+  return (atual-ant)/Math.abs(ant)*100;
+}
+function dashBadge(pct){
+  if(pct===null||!isFinite(pct)) return '<span class="dash-badge neu">sem base</span>';
+  const subiu=pct>=0;
+  const cls=subiu?'up':'down';
+  const seta=subiu?'▲':'▼';
+  const v=Math.abs(pct).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+  return `<span class="dash-badge ${cls}">${seta} ${subiu?'+':'-'}${v}%</span>`;
+}
+
+/* ---------------- leitura do período (com cache) ---------------- */
+async function dashCarrega(p){
+  const chave=p.ini+'|'+p.fim;
+  if(DASH_STATE.periodos[chave]) return DASH_STATE.periodos[chave];
+
+  const ini=p.ini, fim=p.fim+'T23:59:59';
+  const sel=(t,cols)=>{                       // devolve lista, já filtrada por empresa
+    return empFilter(sb.from(t).select(cols)).gte(cols.includes('data')?'data':'inicio',ini).lte(cols.includes('data')?'data':'inicio',fim).limit(1000)
+      .then(r=>r.data||[]);
+  };
+  const [abs,des,rec,mlt,osL,avs]=await Promise.all([
+    empFilter(sb.from('abastecimentos').select('id,data,posto,litros,valor_total,km,combustivel,foto_path,veiculo_id,motorista_id')).gte('data',ini).lte('data',fim).limit(1000).then(r=>r.data||[]),
+    empFilter(sb.from('despesas').select('id,data,categoria,descricao,valor,km,foto_path,status,veiculo_id,motorista_id')).gte('data',ini).lte('data',fim).limit(1000).then(r=>r.data||[]),
+    empFilter(sb.from('recebimentos').select('id,data,tipo,valor,foto_path,veiculo_id,motorista_id')).gte('data',ini).lte('data',fim).limit(1000).then(r=>r.data||[]),
+    empFilter(sb.from('multas').select('id,data_infracao,orgao,valor,status,veiculo_id,motorista_id')).gte('data_infracao',ini).lte('data_infracao',p.fim).limit(1000).then(r=>r.data||[]),
+    empFilter(sb.from('ordens_servico').select('id,aberta_em,descricao,servico,custos,mao_obra,status,veiculo_id')).gte('aberta_em',ini).lte('aberta_em',fim).limit(1000).then(r=>r.data||[]),
+    empFilter(sb.from('avisos').select('id,criado_em,categoria,texto,status,veiculo_id,motorista_id')).gte('criado_em',ini).lte('criado_em',fim).limit(1000).then(r=>r.data||[]),
+  ]);
+  const dado={abs,des,rec,mlt,osL,avs};
+  DASH_STATE.periodos[chave]=dado;
+  return dado;
+}
+
+/* nomes de placa e motorista (1x por sessão) */
+async function dashNomes(){
+  if(DASH_STATE.nomes.veic) return;
+  const [v,m]=await Promise.all([
+    empFilter(sb.from('veiculos').select('id,placa')).limit(500).then(r=>r.data||[]),
+    empFilter(sb.from('motoristas').select('id,nome')).limit(500).then(r=>r.data||[]),
+  ]);
+  v.forEach(x=>DASH_PLACAS[x.id]=x.placa);
+  m.forEach(x=>DASH_NOMES[x.id]=x.nome);
+  DASH_STATE.nomes.veic=DASH_PLACAS; DASH_STATE.nomes.mot=DASH_NOMES;
+}
+const dashPlaca = id => DASH_PLACAS[id]||'—';
+const dashMot   = id => DASH_NOMES[id]||'—';
+
+/* aplica o filtro cruzado sobre uma lista de registros */
+function dashFiltra(lista){
+  const {veiculo,motorista}=DASH_STATE.filtro;
+  if(!veiculo && !motorista) return lista;
+  return lista.filter(x=>{
+    if(veiculo && x.veiculo_id!==veiculo) return false;
+    if(motorista && x.motorista_id!==motorista) return false;
+    return true;
+  });
+}
+
+/* ---------------- plugin: média tracejada + anomalia ---------------- */
+const DashMediaPlugin = {
+  id:'dashMedia',
+  afterDatasetsDraw(chart, args, opts){
+    const cfg=chart.options.plugins.dashMedia;
+    if(!cfg||!cfg.on) return;
+    const ds=chart.data.datasets[0];
+    const vals=(ds.data||[]).map(Number).filter(v=>isFinite(v)&&v>0);
+    if(!vals.length) return;
+    const media=vals.reduce((a,b)=>a+b,0)/vals.length;
+    if(!isFinite(media)||media<=0) return;
+
+    const {ctx, chartArea, scales}=chart;
+    const horizontal = chart.options.indexAxis!=='y';
+    const g = horizontal ? scales.y : scales.x;
+    if(!g) return;
+    const pos = g.getPixelForValue(media);
+
+    ctx.save();
+    ctx.setLineDash([6,4]);
+    ctx.lineWidth=1.5;
+    ctx.strokeStyle=cfg.cor||'#FCC85C';
+    ctx.globalAlpha=.85;
+    ctx.beginPath();
+    if(horizontal){
+      ctx.moveTo(chartArea.left,pos); ctx.lineTo(chartArea.right,pos);
+    } else {
+      ctx.moveTo(pos,chartArea.top); ctx.lineTo(pos,chartArea.bottom);
+    }
+    ctx.stroke();
+
+    if(cfg.rotulo!==false){
+      const txt = 'média ' + (cfg.fmtMat||dashR$)(media);
+      ctx.setLineDash([]);
+      ctx.globalAlpha=1;
+      ctx.font='600 10px Inter, system-ui, sans-serif';
+      ctx.fillStyle=cfg.cor||'#FCC85C';
+      const w=ctx.measureText(txt).width;
+      if(horizontal){
+        const x=chartArea.right-w-4, y=Math.max(chartArea.top+10, pos-6);
+        ctx.fillText(txt,x,y);
+      } else {
+        ctx.save(); ctx.translate(Math.min(chartArea.right-4,pos+4), chartArea.top+4);
+        ctx.rotate(Math.PI/2); ctx.fillText(txt,0,0); ctx.restore();
+      }
+    }
+    ctx.restore();
+  }
+};
+
+/* plug-in registrado uma única vez */
+if(window.Chart && !window.__dashMediaReg){
+  Chart.register(DashMediaPlugin);
+  window.__dashMediaReg=true;
+}
+
+/* ---------------- modal de drill-down ---------------- */
+function dashAbreDetalhe(titulo, registros, opts){
+  opts=opts||{};
+  const w=document.getElementById('modal-wrap'), m=document.getElementById('modal');
+  const vals=registros.map(r=>Number(opts.valor?opts.valor(r):r.valor||r.valor_total||0)).filter(v=>isFinite(v));
+  const soma=vals.reduce((a,b)=>a+b,0);
+  const media=vals.length?soma/vals.length:0;
+  const maior=vals.length?Math.max(...vals):0;
+  const n=registros.length;
+
+  const linhas = registros.slice(0,300).map(r=>{
+    const data = ddmmaaaa(r.data||r.data_infracao||r.aberta_em||r.criado_em);
+    const mot  = r.motorista_id ? dashMot(r.motorista_id) : '—';
+    const pl   = r.veiculo_id   ? dashPlaca(r.veiculo_id) : '—';
+    const desc = r.posto || r.descricao || r.categoria || r.tipo || r.orgao || r.servico || r.texto || '—';
+    const val  = Number(opts.valor?opts.valor(r):r.valor||r.valor_total||r.custos||0);
+    const foto = r.foto_path || (Array.isArray(r.fotos)&&r.fotos[0]) || r.notificacao_path;
+    const extra= [];
+    if(r.litros) extra.push(Number(r.litros).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L');
+    if(r.km)     extra.push(Number(r.km).toLocaleString('pt-BR',{maximumFractionDigits:0})+' km');
+    return `<div class="listcard">
+      <div class="lc-main">
+        <div class="lc-title"><span>${esc(String(desc).slice(0,48))}</span><span class="lc-tag">${fmtBRL(val)}</span></div>
+        <div class="lc-sub">${data} · ${esc(mot)} · ${esc(pl)}${extra.length?' · '+extra.join(' · '):''}</div>
+        ${foto?`<button type="button" class="btn sec" style="margin-top:8px;min-height:44px" onclick="dashFoto('${esc(foto)}')">Ver comprovante</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  m.innerHTML=`
+    <h3 style="padding-right:28px">${esc(titulo)}</h3>
+    <div class="dash-mini">
+      <div><b>${n}</b><span>lançamentos</span></div>
+      <div><b>${fmtBRL(media)}</b><span>ticket médio</span></div>
+      <div><b>${fmtBRL(maior)}</b><span>maior</span></div>
+    </div>
+    <div style="max-height:52vh;overflow:auto;-webkit-overflow-scrolling:touch">${linhas||'<p class="hint">Nenhum registro.</p>'}</div>
+    ${n>300?`<p class="hint">Mostrando os 300 primeiros de ${n}.</p>`:''}
+    <div class="mrow"><button type="button" class="btn sec" id="dsh-fechar">Fechar</button></div>`;
+
+  w.classList.add('open');
+  document.getElementById('dsh-fechar').onclick=()=>w.classList.remove('open');
+  w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+}
+async function dashFoto(path){
+  const url=await assinar(path,'fotos');
+  if(url) lightbox(url); else toast('Não consegui abrir a foto');
+}
+
+/* ---------------- filtros rápidos ---------------- */
+function dashBarraFiltros(){
+  const f=DASH_STATE.filtro, p=DASH_STATE.periodo;
+  const chips=[['hoje','Hoje'],['7','7 dias'],['30','30 dias'],['mes','Mês atual'],['mesant','Mês anterior']];
+  let ativo='mes';
+  if(p) chips.forEach(([k])=>{ const t=dashPeriodo(k); if(t.ini===p.ini&&t.fim===p.fim) ativo=k; });
+
+  const veics=Object.entries(DASH_PLACAS).sort((a,b)=>(a[1]||'').localeCompare(b[1]||''));
+  const mots=Object.entries(DASH_NOMES).sort((a,b)=>(a[1]||'').localeCompare(b[1]||''));
+
+  return `<div class="dash-filtros">
+    <div class="dash-row">
+      ${chips.map(([k,l])=>`<button type="button" class="chip ${ativo===k?'on':''}" data-per="${k}">${l}</button>`).join('')}
+    </div>
+    <div class="dash-row">
+      <select id="dash-veic" class="dash-sel" aria-label="Filtrar por veículo">
+        <option value="">Todos os veículos</option>
+        ${veics.map(([id,pl])=>`<option value="${esc(id)}" ${f.veiculo===id?'selected':''}>${esc(pl||'—')}</option>`).join('')}
+      </select>
+      <select id="dash-mot" class="dash-sel" aria-label="Filtrar por motorista">
+        <option value="">Todos os motoristas</option>
+        ${mots.map(([id,nm])=>`<option value="${esc(id)}" ${f.motorista===id?'selected':''}>${esc(nm||'—')}</option>`).join('')}
+      </select>
+    </div>
+    ${(f.veiculo||f.motorista)?`<div class="dash-row">
+      ${f.veiculo?`<span class="chip on">${esc(dashPlaca(f.veiculo))} <b data-limpar="veiculo" style="margin-left:6px;cursor:pointer">×</b></span>`:''}
+      ${f.motorista?`<span class="chip on">${esc(dashMot(f.motorista))} <b data-limpar="motorista" style="margin-left:6px;cursor:pointer">×</b></span>`:''}
+    </div>`:''}
+  </div>`;
+}
+
+/* ---------------- sparkline (canvas puro, sem eixos) ---------------- */
+const SPARK={};
+function dashSparkline(id, serie, cor){
+  const cv=document.getElementById(id);
+  if(!cv||!serie||!serie.length) return;
+  if(SPARK[id]){ try{SPARK[id].destroy()}catch(_){} }
+  SPARK[id]=new Chart(cv,{
+    type:'line',
+    data:{labels:serie.map((_,i)=>i),datasets:[{data:serie,borderColor:cor||chartTheme().ok,
+      backgroundColor:'transparent',borderWidth:2,tension:.35,pointRadius:0,fill:false}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},y:{display:false,beginAtZero:true}},
+      layout:{padding:0},elements:{line:{borderCapStyle:'round'}}}
+  });
+}
+
+/* ============================================================================
+   PAGES.dashboard
+   ========================================================================== */
 PAGES.dashboard=async el=>{
   el.innerHTML=`<h1 class="pg">Dashboard</h1><div id="db">${empty('Carregando…')}</div>`;
-  const [js,vs,ms,ds,avs,osL,rcs]=await Promise.all([
-    empFilter(sb.from('jornadas').select('status')).neq('status','fechada'),
-    empFilter(sb.from('veiculos').select('id,placa,ativo')),
-    empFilter(sb.from('multas').select('id')).eq('status','aguardando_ciencia'),
-    empFilter(sb.from('despesas').select('valor')).eq('status','aguardando'),
-    empFilter(sb.from('avisos').select('id')).in('status',['recebido','em_analise']),
-    empFilter(sb.from('ordens_servico').select('id')).neq('status','concluida'),
-    empFilter(sb.from('recebimentos').select('valor'))
+
+  // filtros vêm da sessão (sobrevivem a trocar de aba e voltar)
+  if(!DASH_STATE.periodo) DASH_STATE.periodo=dashPeriodo('mes');
+
+  await dashNomes();
+  const p=DASH_STATE.periodo;
+  const pa=dashPeriodoAnterior(p);
+
+  const [atual, anterior, resumo] = await Promise.all([
+    dashCarrega(p),
+    dashCarrega(pa),
+    Promise.all([
+      empFilter(sb.from('jornadas').select('status')).neq('status','fechada'),
+      empFilter(sb.from('veiculos').select('id,ativo')),
+      empFilter(sb.from('multas').select('id')).eq('status','aguardando_ciencia'),
+      empFilter(sb.from('avisos').select('id')).in('status',['recebido','em_analise']),
+      empFilter(sb.from('ordens_servico').select('id')).neq('status','concluida'),
+      empFilter(sb.from('despesas').select('valor')).eq('status','aguardando'),
+      empFilter(sb.from('recebimentos').select('valor'))
+    ])
   ]);
-  const j=js.data||[],v=vs.data||[];
+
+  const [js,vs,ms,avs,osL,ds,rcs]=resumo;
+  const j=js.data||[], v=vs.data||[];
   const abertas=j.filter(x=>x.status==='aberta').length;
   const conf=j.filter(x=>x.status==='conferencia').length;
   const ativos=v.filter(x=>x.ativo).length;
-  const totDesp=(ds.data||[]).reduce((s,x)=>s+Number(x.valor),0);
-  const totRec=(rcs.data||[]).reduce((s,x)=>s+Number(x.valor||0),0);
   const e=empAtiva();
-  $('db').innerHTML=`<div class="kpis">
-    <div class="kpi"><div class="v">${fmtBRL(totRec)}</div><div class="l">Recebimentos</div></div>
-    <div class="kpi"><div class="v">${fmtBRL(totDesp)}</div><div class="l">Reembolsos pendentes</div></div>
-    <div class="kpi"><div class="v">${abertas}</div><div class="l">Jornadas abertas</div></div>
-    ${e==='OVOS'||e==='GRUPO'?`<div class="kpi"><div class="v">${conf}</div><div class="l">Aguardando conferência</div></div>`:''}
-    <div class="kpi"><div class="v">${ativos}</div><div class="l">Veículos ativos</div></div>
-    <div class="kpi"><div class="v">${(ms.data||[]).length}</div><div class="l">Multas sem ciência</div></div>
-    <div class="kpi"><div class="v">${(avs.data||[]).length}</div><div class="l">Avisos em aberto</div></div>
-    <div class="kpi"><div class="v">${(osL.data||[]).length}</div><div class="l">OS abertas</div></div>
-  </div>
-  <div class="sec"><h3>${EMPNOME[e]||'Grupo'}</h3><p class="hint">${ativos} veículos ativos · ${j.filter(x=>x.status==='conferencia').length} jornadas em conferência · recebimentos lançados: ${fmtBRL(totRec)} · despesas pendentes: ${fmtBRL(totDesp)}</p></div>
-  <div id="db-charts">${empty('Carregando gráficos…')}</div>`;
-  try{await renderCharts(e)}catch(_){}
+
+  // ---- KPIs do período, com filtro cruzado e variação ----
+  const A=dashFiltra(atual.abs), D=dashFiltra(atual.des), R=dashFiltra(atual.rec), M=dashFiltra(atual.mlt);
+  const Aa=dashFiltra(anterior.abs), Da=dashFiltra(anterior.des), Ra=dashFiltra(anterior.rec), Ma=dashFiltra(anterior.mlt);
+
+  const soma=(l,k)=>l.reduce((s,x)=>s+Number(x[k]||0),0);
+  const totComb=soma(A,'valor_total'), totCombA=soma(Aa,'valor_total');
+  const totDesp=soma(D,'valor'),     totDespA=soma(Da,'valor');
+  const totRec =soma(R,'valor'),     totRecA =soma(Ra,'valor');
+  const totMult=soma(M,'valor'),     totMultA =soma(Ma,'valor');
+  const qtdJorn=dashFiltra(atual.abs).length;   // abastecimentos no período
+  const custoTotal=totComb+totDesp;
+
+  // série diária para o sparkline
+  const serieDiaria=(lista,campo,campoData)=>{
+    const dias={};
+    lista.forEach(x=>{ const d=String(x[campoData]||'').slice(0,10); if(d) dias[d]=(dias[d]||0)+Number(x[campo]||0); });
+    const ord=Object.keys(dias).sort();
+    return ord.map(d=>dias[d]);
+  };
+
+  const kpiClicavel=(rotulo,valor,ant,serie,tipo)=>{
+    const pct=dashPct(valor,ant);
+    return `<div class="kpi dash-kpi" data-tipo="${tipo}" role="button" tabindex="0">
+      <div class="v">${fmtBRL(valor)}</div>
+      <div class="l">${rotulo}</div>
+      ${dashBadge(pct)}
+      <div class="dash-spark"><canvas id="spk-${tipo}"></canvas></div>
+    </div>`;
+  };
+
+  $('db').innerHTML=`
+    ${dashBarraFiltros()}
+    <div class="kpis">
+      ${kpiClicavel('Combustível',totComb,totCombA,serieDiaria(A,'valor_total','data'),'comb')}
+      ${kpiClicavel('Despesas',totDesp,totDespA,serieDiaria(D,'valor','data'),'desp')}
+      ${kpiClicavel('Custo total',custoTotal,totCombA+totDespA,null,'custo')}
+      ${kpiClicavel('Multas',totMult,totMultA,serieDiaria(M,'valor','data_infracao'),'mult')}
+      ${e!=='OVOS'?`<div class="kpi"><div class="v">${(rcs.data||[]).reduce((s,x)=>s+Number(x.valor||0),0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div><div class="l">Recebimentos</div></div>`:''}
+      <div class="kpi"><div class="v">${abertas}</div><div class="l">Jornadas abertas</div></div>
+      <div class="kpi"><div class="v">${conf}</div><div class="l">Aguardando conferência</div></div>
+      <div class="kpi"><div class="v">${ativos}</div><div class="l">Veículos ativos</div></div>
+      <div class="kpi"><div class="v">${(ms.data||[]).length}</div><div class="l">Multas sem ciência</div></div>
+      <div class="kpi"><div class="v">${(avs.data||[]).length}</div><div class="l">Avisos em aberto</div></div>
+      <div class="kpi"><div class="v">${(osL.data||[]).length}</div><div class="l">OS abertas</div></div>
+    </div>
+    <div class="sec"><h3>${EMPNOME[e]||'Grupo'}</h3>
+      <p class="hint">${p.label} · ${ddmmaaaa(p.ini)} a ${ddmmaaaa(p.fim)} · ${ativos} veículos ativos · ${conf} em conferência</p>
+    </div>
+    <div id="db-charts">${empty('Carregando gráficos…')}</div>`;
+
+  // sparklines dos KPIs
+  dashSparkline('spk-comb', serieDiaria(A,'valor_total','data'), chartTheme().ok);
+  dashSparkline('spk-desp', serieDiaria(D,'valor','data'), '#e05252');
+  dashSparkline('spk-mult', serieDiaria(M,'valor','data_infracao'), '#e0a052');
+
+  // filtros: chips de período
+  $('db').querySelectorAll('[data-per]').forEach(b=>{
+    b.onclick=()=>{ DASH_STATE.periodo=dashPeriodo(b.dataset.per); PAGES.dashboard(el); };
+  });
+  // filtros: veículo e motorista
+  const sv=$('dash-veic'), sm=$('dash-mot');
+  if(sv) sv.onchange=()=>{ DASH_STATE.filtro.veiculo=sv.value||null; PAGES.dashboard(el); };
+  if(sm) sm.onchange=()=>{ DASH_STATE.filtro.motorista=sm.value||null; PAGES.dashboard(el); };
+  // limpar filtro pelo ×
+  $('db').querySelectorAll('[data-limpar]').forEach(b=>{
+    b.onclick=ev=>{ ev.stopPropagation(); DASH_STATE.filtro[b.dataset.limpar]=null; PAGES.dashboard(el); };
+  });
+  // KPI clicável -> lista completa
+  $('db').querySelectorAll('.dash-kpi').forEach(k=>{
+    const abre=()=>{
+      const t=k.dataset.tipo;
+      if(t==='comb') dashAbreDetalhe('Combustível · '+p.label, A, {valor:r=>r.valor_total});
+      else if(t==='desp') dashAbreDetalhe('Despesas · '+p.label, D, {valor:r=>r.valor});
+      else if(t==='mult') dashAbreDetalhe('Multas · '+p.label, M, {valor:r=>r.valor});
+      else dashAbreDetalhe('Custo total · '+p.label, [...A.map(r=>({...r,_v:r.valor_total})), ...D.map(r=>({...r,_v:r.valor}))], {valor:r=>r._v});
+    };
+    k.onclick=abre;
+    k.onkeydown=ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); abre(); } };
+  });
+
+  try{ await renderCharts(e, {atual, anterior, p}); }catch(err){ console.warn(err); }
 };
-/* ===== gráficos do dashboard (Chart.js, cores do tema) ===== */
+
+/* ===== gráficos do dashboard (Chart.js 4 + drill-down) ===== */
 const CHARTS={};
+
 function chartTheme(){
   const cs=getComputedStyle(document.body);
   const cor=(cs.getPropertyValue('--primary-color')||'').trim()||'#FCC85C';
@@ -3106,125 +3510,374 @@ function chartTheme(){
   const ink=(cs.getPropertyValue('--ink')||'').trim()||'#f5f5f5';
   return {ok:cor,cor:cor,mut:mut,ink:ink};
 }
-async function renderCharts(e){
+
+/* tooltip escuro padrão do dashboard */
+function dashTooltip(fmtValor){
+  return {
+    backgroundColor:'#1e1e1e',
+    borderColor:'#FCC85C',
+    borderWidth:1,
+    titleColor:'#f5f5f5',
+    bodyColor:'#f5f5f5',
+    padding:10,
+    cornerRadius:8,
+    displayColors:false,
+    callbacks:{
+      label:c=>{
+        const v=fmtValor?fmtValor(c.parsed.y!==undefined?c.parsed.y:c.parsed.x):c.parsed.y;
+        return ' '+v;
+      }
+    }
+  };
+}
+
+async function renderCharts(e, ctx){
   const box=document.getElementById('db-charts');if(!box)return;
   const f=x=>(x||'').slice(0,10);
-  const {ini,fim}=periodoMes(2);
-  const [jrn,abs,desp,rec,mlt,despP]=await Promise.all([
-    empFilter(sb.from('jornadas').select('inicio,km_inicial,km_final,veiculo_id,motorista_id,status')).gte('inicio',ini).lte('inicio',fim+'T23:59:59'),
-    empFilter(sb.from('abastecimentos').select('veiculo_id,litros,valor_total,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
-    empFilter(sb.from('despesas').select('valor,categoria,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
-    empFilter(sb.from('recebimentos').select('valor,tipo,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
-    empFilter(sb.from('multas').select('valor,data_infracao')).gte('data_infracao',ini),
-    empFilter(sb.from('despesas').select('valor,data')).eq('status','aguardando').gte('data',ini).lte('data',fim+'T23:59:59')
-  ]);
-  const J=jrn.data||[],A=abs.data||[],D=desp.data||[],R=rec.data||[],M=mlt.data||[],DP=despP.data||[];
-  const meses=mesesLabel(2);
-  const mk=()=>{const m={};meses.forEach(x=>m[x]=0);return m};
-  const mRec=mk(),mDesp=mk(),mLuc=mk(),mMult=mk(),mPend=mk();
-  const idx=dt=>{const mm=(dt||'').slice(5,7);return meses[Number(mm)-6]||null};
-  R.forEach(x=>{const k=idx(x.data);if(k){mRec[k]+=Number(x.valor);mLuc[k]+=Number(x.valor)}});
-  D.forEach(x=>{const k=idx(x.data);if(k){mDesp[k]+=Number(x.valor);mLuc[k]-=Number(x.valor)}});
-  M.forEach(x=>{const k=idx(x.data_infracao);if(k)mMult[k]+=Number(x.valor||0)});
-  DP.forEach(x=>{const k=idx(x.data);if(k)mPend[k]+=Number(x.valor||0)});
-  const fmtK=v=>v>=1000?(v/1000).toFixed(1).replace('.',',')+'k':Math.round(v);
+
+  // dados do período vêm prontos do PAGES.dashboard (DASH_STATE), já filtrados
+  const st = ctx && ctx.atual ? ctx.atual : {
+    abs:[],des:[],rec:[],mlt:[],osL:[],avs:[]
+  };
+  const p  = ctx && ctx.p ? ctx.p : DASH_STATE.periodo;
+  const ini=p.ini, fim=p.fim;
+
+  const J=dashFiltra(await empFilter(sb.from('jornadas').select('inicio,km_inicial,km_final,veiculo_id,motorista_id,status,roteiro')).gte('inicio',ini).lte('inicio',fim+'T23:59:59').limit(1000).then(r=>r.data||[]));
+  const A=dashFiltra(st.abs), D=dashFiltra(st.des), R=dashFiltra(st.rec), M=dashFiltra(st.mlt), OS=dashFiltra(st.osL||[]);
+
   const acc=chartTheme().ok;
-  const bar=(id,labels,s1,n1,s2,n2,c1,c2)=>{
-    if(CHARTS[id])CHARTS[id].destroy();
-    CHARTS[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[
-      {label:n1,data:s1,backgroundColor:c1},{label:n2,data:s2,backgroundColor:c2}]},
-      options:{responsive:true,plugins:{legend:{labels:{color:'#9a9a9a',font:{size:10}}}},
-      scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}}}}});
+  const diasDoPeriodo=(()=>{
+    const a=new Date(ini+'T12:00:00'), b=new Date(fim+'T12:00:00');
+    const out=[]; for(let d=new Date(a); d<=b; d.setDate(d.getDate()+1)) out.push(d.toISOString().slice(0,10));
+    return out;
+  })();
+  const rotuloDia=d=>d.slice(8,10)+'/'+d.slice(5,7);
+
+  /* -------- drill-down genérico -------- */
+  function ligaDrill(chart, opts){
+    // opts: {lista, valor, recorte(i) -> {titulo, filtro}}
+    if(!opts || !Array.isArray(opts.lista)){
+      console.warn('ligaDrill: lista ausente', opts); return;
+    }
+    chart.options.onClick=(evt, els)=>{
+      // o Chart.js 4 já entrega os elementos tocados em `els`;
+      // se não vier (chamada programática), pega pelo evento
+      let pts=els;
+      if(!pts || !pts.length){
+        try{ pts=chart.getElementsAtEventForMode(evt||{},'nearest',{intersect:true},true); }catch(_){ pts=[]; }
+      }
+      if(!pts||!pts.length) return;
+      const i=pts[0].index;
+      const recorte=opts.recorte(i);
+      if(!recorte) return;
+      const lista=opts.lista.filter(recorte.filtro);
+      if(!lista.length){ toast('Nenhum lançamento neste ponto'); return; }
+      dashAbreDetalhe(recorte.titulo, lista, {valor:opts.valor});
+    };
+    chart.options.onHover=(evt, els)=>{
+      const alvo=evt&&evt.native&&evt.native.target;
+      if(!alvo) return;
+      alvo.style.cursor = (els&&els.length)?'pointer':'default';
+    };
+  }
+
+  /* -------- construtores de gráfico -------- */
+  const baseOpts=()=>({
+    responsive:true,
+    maintainAspectRatio:false,
+    animation:{duration:450,easing:'easeOutQuart'},
+    interaction:{mode:'index',intersect:false}
+  });
+
+  const bar=(id,labels,s1,n1,s2,n2,c1,c2)=>new Chart(document.getElementById(id),{
+    type:'bar',
+    data:{labels,datasets:[
+      {label:n1,data:s1,backgroundColor:c1||acc,borderRadius:6,maxBarThickness:26},
+      ...(s2?[{label:n2,data:s2,backgroundColor:c2||'#e05252',borderRadius:6,maxBarThickness:26}]:[])
+    ]},
+    options:{
+      ...baseOpts(),
+      plugins:{
+        legend:{labels:{color:'#9a9a9a',font:{size:10},boxWidth:10,usePointStyle:true}},
+        tooltip:dashTooltip(v=>fmtBRL(v))
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#9a9a9a',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#9a9a9a',font:{size:9},callback:dashR$}}
+      }
+    }
+  });
+
+  const bar1=(id,labels,vals,nome,cores,media)=>{
+    const c=new Chart(document.getElementById(id),{
+      type:'bar',
+      data:{labels,datasets:[{label:nome,data:vals,backgroundColor:cores||acc,borderRadius:6,maxBarThickness:30}]},
+      options:{
+        ...baseOpts(),
+        plugins:{
+          legend:{display:false},
+          tooltip:dashTooltip(v=>fmtBRL(v)),
+          dashMedia:{on:!!media,cor:acc,fmtMat:dashR$}
+        },
+        scales:{
+          x:{grid:{display:false},ticks:{color:'#9a9a9a',font:{size:9}}},
+          y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#9a9a9a',font:{size:9},callback:dashR$}}
+        }
+      }
+    });
+    // destaque de anomalia: barra 15% acima da média fica com borda
+    if(media){
+      const nums=vals.map(Number).filter(v=>isFinite(v)&&v>0);
+      if(nums.length){
+        const med=nums.reduce((a,b)=>a+b,0)/nums.length;
+        const ds=c.data.datasets[0];
+        ds.borderColor=vals.map(v=>Number(v)>med*1.15?'#ffffff':'transparent');
+        ds.borderWidth=vals.map(v=>Number(v)>med*1.15?2:0);
+      }
+    }
+    return c;
   };
-  const bar1=(id,labels,vals,nome,cores)=>{
-    if(CHARTS[id])CHARTS[id].destroy();
-    CHARTS[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels,datasets:[{label:nome,data:vals,backgroundColor:cores||acc}]},
-      options:{responsive:true,plugins:{legend:{display:false}},
-      scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}}}}});
-  };
-  const line1=(id,labels,vals,nome)=>{
-    if(CHARTS[id])CHARTS[id].destroy();
-    CHARTS[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:[{label:nome,data:vals,borderColor:'#4a90d9',backgroundColor:'rgba(74,144,217,.12)',fill:true,tension:.3,pointRadius:3}]},
-      options:{responsive:true,plugins:{legend:{display:false}},
-      scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
-  };
-  const donut=(id,labels,vals)=>{
-    if(CHARTS[id])CHARTS[id].destroy();
-    CHARTS[id]=new Chart(document.getElementById(id),{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:[acc,'#4a90d9','#3ecf6e','#e05252','#9a6ad9','#e0a052','#777'],borderColor:'#1a1a1a',borderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9a9a9a',font:{size:10},boxWidth:12}}}}});
-  };
-  // ---- abas ----
-  const temDin=(e==='GRUPO'||e==='TRANSPORTADORA')&&(R.length||D.length);
+
+  const line1=(id,labels,vals,nome,cor)=>new Chart(document.getElementById(id),{
+    type:'line',
+    data:{labels,datasets:[{label:nome,data:vals,borderColor:cor||'#4a90d9',
+      backgroundColor:(cor||'#4a90d9')+'22',fill:true,tension:.35,pointRadius:3,pointHoverRadius:6,borderWidth:2}]},
+    options:{
+      ...baseOpts(),
+      plugins:{legend:{display:false},tooltip:dashTooltip(v=>fmtBRL(v))},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#9a9a9a',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#9a9a9a',font:{size:9},callback:dashR$}}
+      }
+    }
+  });
+
+  const donut=(id,labels,vals,cores)=>new Chart(document.getElementById(id),{
+    type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:cores||[acc,'#4a90d9','#3ecf6e','#e05252','#9a6ad9','#e0a052','#777'],borderColor:'#1e1e1e',borderWidth:2}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      animation:{duration:450},
+      plugins:{legend:{position:'right',labels:{color:'#9a9a9a',font:{size:10},boxWidth:12}},
+        tooltip:dashTooltip(v=>fmtBRL(v))}
+    }
+  });
+
+  // ---- abas (mesma lógica de antes) ----
+  const temDin=(R.length||D.length);
   const temOpe=!!(J.length||A.length);
-  const temCtl=!!(M.length||DP.length);
+  const temCtl=!!(M.length||st.des.length);
   const tabs=[temDin?['dinheiro','💰 Dinheiro']:null,temOpe?['operacao','🚚 Operação']:null,temCtl?['controle','📋 Controle']:null].filter(Boolean);
-  if(!tabs.length){box.innerHTML=empty('Sem dados no período para gráficos');return}
+  if(!tabs.length){box.innerHTML=empty('Sem dados no período');return}
   if(!window.__dbTab||!tabs.find(t=>t[0]===window.__dbTab))window.__dbTab=tabs[0][0];
+
   box.innerHTML=`<div class="dbtabs">${tabs.map(t=>`<button type="button" data-t="${t[0]}" class="${window.__dbTab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div><div id="db-tab-body"></div>`;
   box.querySelectorAll('.dbtabs button').forEach(b=>b.onclick=()=>{window.__dbTab=b.dataset.t;box.querySelectorAll('.dbtabs button').forEach(x=>x.classList.toggle('on',x===b));renderTab()});
+
+  function limpaCharts(){
+    Object.keys(CHARTS).forEach(k=>{try{CHARTS[k]&&CHARTS[k].destroy&&CHARTS[k].destroy()}catch(_){}delete CHARTS[k]});
+  }
+
   function renderTab(){
     const el=document.getElementById('db-tab-body');if(!el)return;
-    Object.keys(CHARTS).forEach(k=>{try{CHARTS[k]&&CHARTS[k].destroy&&CHARTS[k].destroy()}catch(_){}delete CHARTS[k]});
+    limpaCharts();
     let html='';const t=window.__dbTab;
+    const hint='<p class="hint">Toque em uma barra ou ponto para ver os lançamentos.</p>';
+    // disponíveis nas duas abas (antes viviam só dentro do if do Dinheiro)
+    const labels=diasDoPeriodo.map(rotuloDia);
+
     if(t==='dinheiro'){
-      html+=`<div class="sec"><h3>💰 Recebimentos × Despesas (6 meses)</h3><div style="height:210px"><canvas id="ch-recdesp"></canvas></div></div>`;
-      html+=`<div class="sec"><h3>📈 Lucro por mês (recebeu − gastou)</h3><div style="height:190px"><canvas id="ch-lucro"></canvas></div></div>`;
-      html+=`<div class="sec"><h3>🥧 Despesas por tipo (período)</h3><div style="height:230px"><canvas id="ch-tipo"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>💰 Recebimentos × Despesas por dia</h3>${hint}<div style="height:220px"><canvas id="ch-recdesp"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>📈 Saldo do dia (recebeu − gastou)</h3>${hint}<div style="height:190px"><canvas id="ch-lucro"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>🥧 Despesas por tipo</h3>${hint}<div style="height:240px"><canvas id="ch-tipo"></canvas></div></div>`;
       el.innerHTML=html;
-      bar('ch-recdesp',meses,Object.values(mRec).map(x=>Math.round(x)),'Recebimentos',Object.values(mDesp).map(x=>Math.round(x)),'Despesas',acc,'#e05252');
-      const luc=Object.values(mLuc).map(x=>Math.round(x));
-      bar1('ch-lucro',meses,luc,'Lucro (R$)',luc.map(v=>v>=0?'#3ecf6e':'#e05252'));
-      const porTipo={};D.forEach(x=>{const g=(x.categoria||'Outros').trim()||'Outros';porTipo[g]=(porTipo[g]||0)+Number(x.valor||0)});
+
+      // série diária
+      const mR={},mD={};
+      diasDoPeriodo.forEach(d=>{mR[d]=0;mD[d]=0});
+      R.forEach(x=>{const d=f(x.data); if(d in mR) mR[d]+=Number(x.valor||0)});
+      D.forEach(x=>{const d=f(x.data); if(d in mD) mD[d]+=Number(x.valor||0)});
+      const sR=diasDoPeriodo.map(d=>Math.round(mR[d]));
+      const sD=diasDoPeriodo.map(d=>Math.round(mD[d]));
+
+      CHARTS.rd=bar('ch-recdesp',labels,sR,'Recebimentos',sD,'Despesas',acc,'#e05252');
+      ligaDrill(CHARTS.rd,{
+        lista:[...R,...D],
+        valor:r=>r.valor,
+        recorte:i=>{
+          const d=diasDoPeriodo[i];
+          return {titulo:`Movimento de ${ddmmaaaa(d)}`,
+            filtro:x=>f(x.data)===d};
+        }
+      });
+
+      const saldo=diasDoPeriodo.map((d,i)=>sR[i]-sD[i]);
+      CHARTS.lucro=bar1('ch-lucro',labels,saldo,'Saldo (R$)',saldo.map(v=>v>=0?'#3ecf6e':'#e05252'),false);
+      ligaDrill(CHARTS.lucro,{
+        lista:[...R,...D],
+        valor:r=>r.valor,
+        recorte:i=>{
+          const d=diasDoPeriodo[i];
+          return {titulo:`Saldo de ${ddmmaaaa(d)}`,
+            filtro:x=>f(x.data)===d};
+        }
+      });
+
+      const porTipo={};
+      D.forEach(x=>{const g=(x.categoria||'Outros').trim()||'Outros';porTipo[g]=(porTipo[g]||0)+Number(x.valor||0)});
       let ent=Object.entries(porTipo).sort((a,b)=>b[1]-a[1]);
-      if(ent.length>6){ent=ent.slice(0,5).concat([['Outros',ent.slice(5).reduce((s,x)=>s+x[1],0)]])}
-      donut('ch-tipo',ent.map(x=>x[0]),ent.map(x=>Math.round(x[1])));
+      if(ent.length>6) ent=ent.slice(0,5).concat([['Outros',ent.slice(5).reduce((s,x)=>s+x[1],0)]]);
+      const cTipo=donut('ch-tipo',ent.map(x=>x[0]),ent.map(x=>Math.round(x[1])));
+      CHARTS.tipo=cTipo;
+      cTipo.options.onClick=(evt,els)=>{
+        if(!els.length) return;
+        const rot=ent[els[0].index][0];
+        const lista=D.filter(x=>((x.categoria||'Outros').trim()||'Outros')===rot);
+        dashAbreDetalhe('Despesas · '+rot, lista, {valor:r=>r.valor});
+      };
+      cTipo.options.onHover=(evt,els)=>{ evt.native.target.style.cursor = els.length?'pointer':'default'; };
+      cTipo.update();
     }
+
     if(t==='operacao'){
-      html+=`<div class="sec"><h3>🛣️ Jornadas por dia (30 dias)</h3><div style="height:190px"><canvas id="ch-jordia"></canvas></div></div>`;
-      html+=`<div class="sec"><h3>⛽ km/L por caminhão (período)</h3><div style="height:300px"><canvas id="ch-kml"></canvas></div></div>`;
-      html+=`<div class="sec"><h3>📉 km/L da frota por mês</h3><div style="height:180px"><canvas id="ch-kmlmes"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>🛣️ Jornadas por dia</h3>${hint}<div style="height:190px"><canvas id="ch-jordia"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>⛽ km/L por caminhão</h3>${hint}<div style="height:300px"><canvas id="ch-kml"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>📉 km/L da frota por dia</h3>${hint}<div style="height:180px"><canvas id="ch-kmlmes"></canvas></div></div>`;
       el.innerHTML=html;
-      const dias=[...new Set(J.map(x=>f(x.inicio)))].sort().slice(-30);
-      if(dias.length){
-        const cnt=dias.map(d=>J.filter(x=>f(x.inicio)===d).length);
-        CHARTS.jd=new Chart(document.getElementById('ch-jordia'),{type:'line',data:{labels:dias.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),datasets:[{label:'Jornadas',data:cnt,borderColor:acc,backgroundColor:'rgba(255,255,255,.06)',fill:true,tension:.3,pointRadius:2}]},
-          options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:8},maxRotation:0,autoSkip:true,maxTicksLimit:10}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
+
+      const cntDia=diasDoPeriodo.map(d=>J.filter(x=>f(x.inicio)===d).length);
+      if(diasDoPeriodo.length && cntDia.some(v=>v>0)){
+        CHARTS.jd=line1('ch-jordia',labels,cntDia,'Jornadas',acc);
+        ligaDrill(CHARTS.jd,{
+          lista:J,
+          valor:r=>r.km_final?Number(r.km_final)-Number(r.km_inicial):0,
+          recorte:i=>{
+            const d=diasDoPeriodo[i];
+            return {titulo:`Jornadas de ${ddmmaaaa(d)}`, filtro:x=>f(x.inicio)===d};
+          }
+        });
+      } else {
+        document.getElementById('ch-jordia').closest('.sec').innerHTML='<p class="hint">Sem jornadas no período.</p>';
       }
+
+      // km/L por caminhão
       (async()=>{
         const porV={};
-        A.forEach(a=>{const g=porV[a.veiculo_id]=porV[a.veiculo_id]||{L:0,km:0};g.L+=Number(a.litros||0)});
+        A.forEach(a=>{const g=porV[a.veiculo_id]=porV[a.veiculo_id]||{L:0,km:0,gasto:0};g.L+=Number(a.litros||0);g.gasto+=Number(a.valor_total||0)});
         J.filter(x=>x.km_final!=null).forEach(x=>{if(porV[x.veiculo_id])porV[x.veiculo_id].km+=Number(x.km_final)-Number(x.km_inicial)});
-        const ids=Object.keys(porV);
-        if(!ids.length)return;
-        const vs2=await sb.from('veiculos').select('id,placa').in('id',ids);
-        const placa={};(vs2.data||[]).forEach(x=>placa[x.id]=x.placa);
-        const rows=ids.map(id=>({p:placa[id]||'?',kml:porV[id].L>0?porV[id].km/porV[id].L:0})).filter(r=>r.kml>0.1);
-        rows.sort((a,b)=>b.kml-a.kml);
-        if(document.getElementById('ch-kml')){
-          if(CHARTS.kml)CHARTS.kml.destroy();
-          CHARTS.kml=new Chart(document.getElementById('ch-kml'),{type:'bar',data:{labels:rows.map(r=>r.p),datasets:[{label:'km/L',data:rows.map(r=>r.kml),backgroundColor:acc}]},
-            options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
-        }
-        const mL=mk(),mKm=mk();
-        A.forEach(a=>{const k=idx(a.data);if(k)mL[k]+=Number(a.litros||0)});
-        J.filter(x=>x.km_final!=null).forEach(x=>{const k=idx(x.inicio);if(k)mKm[k]+=Number(x.km_final)-Number(x.km_inicial)});
-        const kmlM=meses.map(m=>mL[m]>0?Math.round(mKm[m]/mL[m]*10)/10:0);
-        if(document.getElementById('ch-kmlmes')){
-          if(kmlM.some(v=>v>0))line1('ch-kmlmes',meses,kmlM,'km/L');
-          else document.getElementById('ch-kmlmes').closest('.sec').innerHTML='<p class="hint">Sem abastecimentos suficientes para o km/L mensal.</p>';
-        }
+        const rows=Object.entries(porV).map(([id,g])=>({id,p:dashPlaca(id),kml:g.L>0?g.km/g.L:0,L:g.L,gasto:g.gasto}))
+          .filter(r=>r.kml>0.1).sort((a,b)=>b.kml-a.kml);
+        const cv=document.getElementById('ch-kml');
+        if(!cv) return;
+        if(!rows.length){ cv.closest('.sec').innerHTML='<p class="hint">Sem abastecimentos suficientes para calcular km/L.</p>'; return; }
+        CHARTS.kml=new Chart(cv,{
+          type:'bar',
+          data:{labels:rows.map(r=>r.p),datasets:[{label:'km/L',data:rows.map(r=>Math.round(r.kml*10)/10),
+            backgroundColor:rows.map(r=>r.kml>0?acc:'#e05252'),borderRadius:6,maxBarThickness:22}]},
+          options:{
+            indexAxis:'y',responsive:true,maintainAspectRatio:false,
+            animation:{duration:450,easing:'easeOutQuart'},
+            plugins:{legend:{display:false},
+              tooltip:{...dashTooltip(),callbacks:{label:c=>' '+c.parsed.x.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km/L'}},
+              dashMedia:{on:true,cor:'#ffffff',fmtMat:v=>v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+' km/L',rotulo:false}},
+            scales:{
+              x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#9a9a9a',font:{size:9}}},
+              y:{grid:{display:false},ticks:{color:'#9a9a9a',font:{size:9}}}
+            }
+          }
+        });
+        CHARTS.kml.options.onClick=(evt,els)=>{
+          let pts=els;
+          if(!pts||!pts.length){ try{pts=CHARTS.kml.getElementsAtEventForMode(evt||{},'nearest',{intersect:true},true)}catch(_){pts=[]} }
+          if(!pts||!pts.length) return;
+          const r=rows[pts[0].index];
+          const lista=A.filter(a=>a.veiculo_id===r.id);
+          dashAbreDetalhe(`${r.p} · abastecimentos do período`,lista,{valor:x=>x.valor_total});
+        };
+        CHARTS.kml.options.onHover=(evt,els)=>{ const t=evt&&evt.native&&evt.native.target; if(t) t.style.cursor=(els&&els.length)?'pointer':'default'; };
       })();
+
+      // km/L por dia
+      const mL={},mKm={};
+      diasDoPeriodo.forEach(d=>{mL[d]=0;mKm[d]=0});
+      A.forEach(a=>{const d=f(a.data); if(d in mL) mL[d]+=Number(a.litros||0)});
+      J.filter(x=>x.km_final!=null).forEach(x=>{const d=f(x.inicio); if(d in mKm) mKm[d]+=Number(x.km_final)-Number(x.km_inicial)});
+      const kmlDia=diasDoPeriodo.map(d=>mL[d]>0?Math.round(mKm[d]/mL[d]*10)/10:0);
+      const cvK=document.getElementById('ch-kmlmes');
+      if(kmlDia.some(v=>v>0)) CHARTS.kmlD=line1('ch-kmlmes',labels,kmlDia,'km/L',acc);
+      else if(cvK) cvK.closest('.sec').innerHTML='<p class="hint">Sem abastecimentos suficientes para o km/L diário.</p>';
     }
+
     if(t==='controle'){
-      html+=`<div class="sec"><h3>🚨 Multas por mês (R$)</h3><div style="height:190px"><canvas id="ch-mult"></canvas></div></div>`;
-      html+=`<div class="sec"><h3>⏳ Reembolsos aguardando aprovação (R$/mês)</h3><div style="height:190px"><canvas id="ch-pend"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>🚨 Multas por mês (R$)</h3>${hint}<div style="height:190px"><canvas id="ch-mult"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>⏳ Reembolsos aguardando aprovação (R$/mês)</h3>${hint}<div style="height:190px"><canvas id="ch-pend"></canvas></div></div>`;
+      html+=`<div class="sec"><h3>🔧 Custo de manutenção por veículo</h3>${hint}<div style="height:240px"><canvas id="ch-os"></canvas></div></div>`;
       el.innerHTML=html;
-      bar1('ch-mult',meses,Object.values(mMult).map(x=>Math.round(x)),'Multas (R$)','#e05252');
-      bar1('ch-pend',meses,Object.values(mPend).map(x=>Math.round(x)),'Pendente (R$)','#e0a052');
+
+      // multas por mês dentro do período
+      const mMes={};
+      M.forEach(x=>{const k=String(x.data_infracao||'').slice(0,7);if(k)mMes[k]=(mMes[k]||0)+Number(x.valor||0)});
+      const mKeys=Object.keys(mMes).sort();
+      if(mKeys.length){
+        CHARTS.mult=bar1('ch-mult',mKeys.map(k=>k.slice(5,7)+'/'+k.slice(2,4)),mKeys.map(k=>Math.round(mMes[k])),'Multas (R$)','#e05252',true);
+        ligaDrill(CHARTS.mult,{lista:M,valor:r=>r.valor,recorte:i=>{
+          const k=mKeys[i];
+          return {titulo:`Multas de ${k.slice(5,7)}/${k.slice(0,4)}`,filtro:x=>String(x.data_infracao||'').slice(0,7)===k};
+        }});
+      } else {
+        document.getElementById('ch-mult').closest('.sec').innerHTML='<p class="hint">Sem multas no período.</p>';
+      }
+
+      const pend=D.filter(x=>x.status==='aguardando');
+      const pMes={};
+      pend.forEach(x=>{const k=String(x.data||'').slice(0,7);if(k)pMes[k]=(pMes[k]||0)+Number(x.valor||0)});
+      const pKeys=Object.keys(pMes).sort();
+      if(pKeys.length){
+        CHARTS.pend=bar1('ch-pend',pKeys.map(k=>k.slice(5,7)+'/'+k.slice(2,4)),pKeys.map(k=>Math.round(pMes[k])),'Pendente (R$)','#e0a052',true);
+        ligaDrill(CHARTS.pend,{lista:pend,valor:r=>r.valor,recorte:i=>{
+          const k=pKeys[i];
+          return {titulo:`Reembolsos pendentes de ${k.slice(5,7)}/${k.slice(0,4)}`,
+            filtro:x=>x.status==='aguardando'&&String(x.data||'').slice(0,7)===k};
+        }});
+      } else {
+        document.getElementById('ch-pend').closest('.sec').innerHTML='<p class="hint">Nenhum reembolso pendente no período.</p>';
+      }
+
+      // custo de manutenção (OS) por veículo
+      const porV={};
+      OS.forEach(o=>{const g=porV[o.veiculo_id]=porV[o.veiculo_id]||0;g+=Number(o.custos||0)+Number(o.mao_obra||0)});
+      const rows=Object.entries(porV).map(([id,v])=>({p:dashPlaca(id),v})).filter(r=>r.v>0).sort((a,b)=>b.v-a.v).slice(0,10);
+      const cv=document.getElementById('ch-os');
+      if(rows.length){
+        CHARTS.os=new Chart(cv,{
+          type:'bar',
+          data:{labels:rows.map(r=>r.p),datasets:[{label:'Manutenção (R$)',data:rows.map(r=>Math.round(r.v)),backgroundColor:'#9a6ad9',borderRadius:6,maxBarThickness:22}]},
+          options:{
+            indexAxis:'y',responsive:true,maintainAspectRatio:false,
+            animation:{duration:450},
+            plugins:{legend:{display:false},tooltip:dashTooltip(v=>fmtBRL(v)),
+              dashMedia:{on:true,cor:'#ffffff',fmtMat:dashR$,rotulo:false}},
+            scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#9a9a9a',font:{size:9},callback:dashR$}},
+                    y:{grid:{display:false},ticks:{color:'#9a9a9a',font:{size:9}}}}
+          }
+        });
+        CHARTS.os.options.onClick=(evt,els)=>{
+          let pts=els;
+          if(!pts||!pts.length){ try{pts=CHARTS.os.getElementsAtEventForMode(evt||{},'nearest',{intersect:true},true)}catch(_){pts=[]} }
+          if(!pts||!pts.length) return;
+          const r=rows[pts[0].index];
+          const lista=OS.filter(o=>dashPlaca(o.veiculo_id)===r.p);
+          dashAbreDetalhe(`${r.p} · ordens de serviço`,lista,{valor:x=>Number(x.custos||0)+Number(x.mao_obra||0)});
+        };
+        CHARTS.os.options.onHover=(evt,els)=>{ const t=evt&&evt.native&&evt.native.target; if(t) t.style.cursor=(els&&els.length)?'pointer':'default'; };
+      } else if(cv){
+        cv.closest('.sec').innerHTML='<p class="hint">Sem ordens de serviço com custo no período.</p>';
+      }
     }
   }
   renderTab();
 }
+
 PAGES.relatorios=async el=>{
   el.innerHTML=`<h1 class="pg">Relatórios</h1><div id="rel">${empty('Carregando…')}</div>`;
   const {ini,fim}=periodoMes(6);
