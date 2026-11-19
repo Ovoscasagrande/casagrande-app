@@ -557,6 +557,26 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
   .dash-sel{min-width:130px;font-size:13px}
 }
 
+/* ===== relatórios v2 (cg-v181) ===== */
+.rel-card{cursor:pointer;transition:border-color .15s, transform .12s;min-height:48px}
+.rel-card:active{transform:scale(.99)}
+.rel-card:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.rel-linhas{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.rel-linha{display:flex;align-items:center;gap:8px;width:100%;min-height:48px;
+  background:var(--field);color:var(--ink);border:1px solid var(--divider);
+  border-radius:var(--r-md);padding:0 12px;font-family:var(--font);font-size:13px;
+  font-weight:600;cursor:pointer;text-align:left;transition:border-color .15s}
+.rel-linha:active{border-color:var(--acc)}
+.rel-linha-rot{flex:1 1 auto}
+.rel-linha-qtd{color:var(--muted);font-weight:700;font-size:12px;min-width:22px;text-align:right}
+.rel-linha-val{color:var(--acc);font-weight:800;font-size:12px;min-width:76px;text-align:right}
+.rel-seta{color:var(--muted);font-size:16px;line-height:1}
+#rel-body .dash-row{margin-bottom:10px}
+
+
+.rel-alerta{background:rgba(224,82,82,.10);border:1px solid rgba(224,82,82,.45);
+  border-radius:var(--r-md);padding:12px;margin:10px 0;font-size:12px;color:var(--ink);line-height:1.5}
+.rel-alerta b{color:#ff9a9a}
 </style>
 </head>
 <body>
@@ -3878,111 +3898,587 @@ async function renderCharts(e, ctx){
   renderTab();
 }
 
-PAGES.relatorios=async el=>{
-  el.innerHTML=`<h1 class="pg">Relatórios</h1><div id="rel">${empty('Carregando…')}</div>`;
-  const {ini,fim}=periodoMes(6);
-  const [mts,jrn,abs,desp,mlt]=await Promise.all([
-    empFilter(sb.from('motoristas').select('id,nome,empresa')),
-    empFilter(sb.from('jornadas').select('motorista_id,km_inicial,km_final,inicio')).gte('inicio',ini).lte('inicio',fim+'T23:59:59'),
-    empFilter(sb.from('abastecimentos').select('motorista_id,posto,litros,valor_total,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
-    empFilter(sb.from('despesas').select('motorista_id,categoria,valor,data')).gte('data',ini).lte('data',fim+'T23:59:59'),
-    empFilter(sb.from('multas').select('motorista_id,valor,data_infracao')).gte('data_infracao',ini)
-  ]);
-  const M=mts.data||[],J=jrn.data||[],A=abs.data||[],D=desp.data||[],X=mlt.data||[];
-  const box=$('rel');
-  const fmtK=v=>v>=1000?(v/1000).toFixed(1).replace('.',',')+'k':Math.round(v);
-  const acc=chartTheme().ok;
-  const meses=mesesLabel(6);
-  const idx=dt=>{const mm=(dt||'').slice(5,7);return meses[Number(mm)-6]||null};
-  const mk=()=>{const m={};meses.forEach(x=>m[x]=0);return m};
-  const mComb=mk(),mDesp=mk();
-  A.forEach(x=>{const k=idx(x.data);if(k)mComb[k]+=Number(x.valor_total||0)});
-  D.forEach(x=>{const k=idx(x.data);if(k)mDesp[k]+=Number(x.valor||0)});
-  // ---- postos ----
-  const postos={};
-  A.forEach(x=>{const pn=(x.posto||'—').trim()||'—';const g=postos[pn]=postos[pn]||{n:0,L:0,R:0};g.n++;g.L+=Number(x.litros||0);g.R+=Number(x.valor_total||0)});
-  const pTop=Object.entries(postos).sort((a,b)=>b[1].R-a[1].R);
-  // ---- categorias ----
-  const cats={};
-  D.forEach(x=>{const c=(x.categoria||'Outros').trim()||'Outros';cats[c]=(cats[c]||0)+Number(x.valor||0)});
-  const cTop=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
-  const ehManut=c=>/pe[cç]a|pneu|manuten|borrachari|mec[aâ]nic|[óo]leo|oficina/i.test(c||'');
-  // ---- motoristas ----
-  const mot={};
-  M.forEach(m=>mot[m.id]={nome:m.nome,nJ:0,km:0,L:0,comb:0,manut:0,outras:0,multas:0,vMultas:0});
-  J.forEach(x=>{const g=mot[x.motorista_id];if(!g)return;g.nJ++;if(x.km_final!=null)g.km+=Number(x.km_final)-Number(x.km_inicial)});
-  A.forEach(x=>{const g=mot[x.motorista_id];if(!g)return;g.L+=Number(x.litros||0);g.comb+=Number(x.valor_total||0)});
-  D.forEach(x=>{const g=mot[x.motorista_id];if(!g)return;if(ehManut(x.categoria))g.manut+=Number(x.valor||0);else g.outras+=Number(x.valor||0)});
-  X.forEach(x=>{const g=mot[x.motorista_id];if(!g)return;g.multas++;g.vMultas+=Number(x.valor||0)});
-  Object.values(mot).forEach(g=>{g.total=g.comb+g.manut+g.outras+g.vMultas;g.kml=g.L>0?g.km/g.L:0});
-  let rows=Object.values(mot).filter(g=>g.nJ||g.comb||g.manut||g.outras||g.multas);
-  // ---- abas ----
-  const tabs=[['gastos','💰 Gastos'],['motoristas','🧑‍✈️ Motoristas']];
-  if(!window.__relTab)window.__relTab='gastos';
-  const destr=()=>{Object.keys(CHARTS).forEach(k=>{if(k.startsWith('rel')){try{CHARTS[k].destroy()}catch(_){}delete CHARTS[k]}})};
-  function renderTab(){
-    destr();
-    const t=window.__relTab;
-    let html=`<div class="dbtabs">${tabs.map(x=>`<button type="button" data-t="${x[0]}" class="${t===x[0]?'on':''}">${x[1]}</button>`).join('')}</div><div id="rel-body"></div>`;
-    box.innerHTML=html;
-    box.querySelectorAll('.dbtabs button').forEach(b=>b.onclick=()=>{window.__relTab=b.dataset.t;renderTab()});
-    const el=document.getElementById('rel-body');
-    if(t==='gastos'){
-      const tComb=A.reduce((s,x)=>s+Number(x.valor_total||0),0),tDesp=D.reduce((s,x)=>s+Number(x.valor||0),0);
-      el.innerHTML=`<div class="kpis">
-        <div class="kpi"><div class="v">${fmtBRL(tComb+tDesp)}</div><div class="l">Total gasto (6 meses)</div></div>
-        <div class="kpi"><div class="v">${fmtBRL(tComb)}</div><div class="l">⛽ Combustível</div></div>
-        <div class="kpi"><div class="v">${fmtBRL(tDesp)}</div><div class="l">🔧 Outras despesas</div></div>
-        <div class="kpi"><div class="v">${pTop.length}</div><div class="l">Postos diferentes</div></div>
-      </div>
-      <div class="sec"><h3>📅 Gasto por mês — combustível × despesas</h3><div style="height:210px"><canvas id="rel-mes"></canvas></div></div>
-      <div class="sec"><h3>🏪 Postos — quanto abasteceu em cada um</h3>
-        ${pTop.length?`<p class="hint">🏆 O posto que mais abastece: <b>${esc(pTop[0][0])}</b> — ${pTop[0][1].n} abastecimentos · ${fmtBRL(pTop[0][1].R)} · ${Math.round(pTop[0][1].L).toLocaleString('pt-BR')} L</p><div style="height:${Math.min(pTop.length,8)*34+40}px"><canvas id="rel-postos"></canvas></div>`:`<p class="hint">Sem abastecimentos no período.</p>`}
-      </div>
-      <div class="sec"><h3>🥧 Despesas por tipo</h3>${cTop.length?`<div style="height:230px"><canvas id="rel-cats"></canvas></div>`:`<p class="hint">Sem despesas no período.</p>`}</div>`;
-      if(CHARTS['rel-mes'])CHARTS['rel-mes'].destroy();
-      CHARTS['rel-mes']=new Chart(document.getElementById('rel-mes'),{type:'bar',data:{labels:meses,datasets:[
-        {label:'⛽ Combustível',data:meses.map(m=>Math.round(mComb[m])),backgroundColor:acc},
-        {label:'🔧 Despesas',data:meses.map(m=>Math.round(mDesp[m])),backgroundColor:'#4a90d9'}]},
-        options:{responsive:true,plugins:{legend:{labels:{color:'#9a9a9a',font:{size:10}}}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9}}},y:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}}}}});
-      if(pTop.length){
-        const top=pTop.slice(0,8);
-        CHARTS['rel-postos']=new Chart(document.getElementById('rel-postos'),{type:'bar',data:{labels:top.map(x=>x[0]),datasets:[{label:'R$ abastecidos',data:top.map(x=>Math.round(x[1].R)),backgroundColor:acc}]},
-          options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#9a9a9a',font:{size:9},callback:fmtK}},y:{ticks:{color:'#9a9a9a',font:{size:9}}}}}});
-      }
-      if(cTop.length){
-        let ent=cTop.slice(0,6);
-        if(cTop.length>6)ent=ent.slice(0,5).concat([['Outros',cTop.slice(5).reduce((s,x)=>s+x[1],0)]]);
-        CHARTS['rel-cats']=new Chart(document.getElementById('rel-cats'),{type:'doughnut',data:{labels:ent.map(x=>x[0]),datasets:[{data:ent.map(x=>Math.round(x[1])),backgroundColor:[acc,'#4a90d9','#3ecf6e','#e05252','#9a6ad9','#e0a052'],borderColor:'#1a1a1a',borderWidth:2}]},
-          options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9a9a9a',font:{size:10},boxWidth:12}}}}});
-      }
-    }
-    if(t==='motoristas'){
-      const ordenar={km:(a,b)=>b.km-a.km,manut:(a,b)=>b.manut-a.manut,total:(a,b)=>b.total-a.total};
-      if(!window.__relSort)window.__relSort='km';
-      rows.sort(ordenar[window.__relSort]);
-      el.innerHTML=`<div class="dbtabs" style="margin-top:0">
-        <button type="button" data-s="km" class="${window.__relSort==='km'?'on':''}">🛣️ Mais rodou</button>
-        <button type="button" data-s="manut" class="${window.__relSort==='manut'?'on':''}">🔧 Mais gastou manutenção</button>
-        <button type="button" data-s="total" class="${window.__relSort==='total'?'on':''}">💰 Maior gasto total</button>
-      </div>
-      <div class="sec"><div>
-      ${rows.map((g,i)=>`<div class="listcard"${i===0?' style="border-color:var(--acc)"':''}><div class="lc-main">
-        <div class="lc-title"><span>${i===0?'🏆 ':''}${esc(g.nome)}</span><span class="lc-tag"><b>R$ ${Math.round(g.total).toLocaleString('pt-BR')}</b></span></div>
-        <div class="lc-sub">${g.nJ} jornada(s) · ${Math.round(g.km).toLocaleString('pt-BR')} km${g.kml?' · '+g.kml.toFixed(1).replace('.',',')+' km/L':''}</div>
-        <div class="lc-rows">
-          <div class="lc-row"><span>Combustível</span><b>R$ ${Math.round(g.comb).toLocaleString('pt-BR')}</b></div>
-          <div class="lc-row"><span>Manutenção</span><b>R$ ${Math.round(g.manut).toLocaleString('pt-BR')}</b></div>
-          <div class="lc-row"><span>Outros</span><b>R$ ${Math.round(g.outras).toLocaleString('pt-BR')}</b></div>
-          ${g.multas?`<div class="lc-row"><span>Multas</span><b>${g.multas} × R$ ${Math.round(g.vMultas).toLocaleString('pt-BR')}</b></div>`:''}
-        </div>
-      </div></div>`).join('')}
-      </div></div><p class="hint">Período: jun → nov 2026 · linha destacada = 1º do critério escolhido · manutenção = peças, pneus, mecânica e óleo.</p></div>`;
-      el.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{window.__relSort=b.dataset.s;renderTab()});
-    }
+/* ============================================================================
+   RELATÓRIOS v2 — central de auditoria e eficiência da frota (cg-v181)
+   ----------------------------------------------------------------------------
+   Evolui a tela de listagem estática para:
+     • R$/km e km/L por caminhão e por motorista, com desvio da média da frota
+     • drill-down em 2 níveis (raio-X da entidade -> lançamento + foto)
+     • exportação PDF do recorte (jsPDF, texto ASCII sem emoji)
+     • filtros combinados, ordenação e busca instantânea
+   Regras: arquivo único, Chart.js 4, tema escuro, alvos >= 48px, DD-MM-AAAA,
+   pt-BR com vírgula, zero alert/confirm/prompt, sem tag de tabela.
+   ========================================================================== */
+
+/* ---------------- paginação: nunca cortar registro em silêncio ---------------- */
+async function relPegaTudo(montarConsulta, passo){
+  passo = passo || 1000;
+  const tudo = [];
+  let de = 0;
+  for (let volta = 0; volta < 40; volta++) {      // teto de 40 mil linhas
+    const q = montarConsulta();
+    const { data, error } = await q.range(de, de + passo - 1);
+    if (error) { console.warn('relPegaTudo', error.message); break; }
+    const lote = data || [];
+    tudo.push(...lote);
+    if (lote.length < passo) break;               // última página
+    de += passo;
   }
-  renderTab();
+  return tudo;
+}
+
+/* ---------------- estado ---------------- */
+const REL = window.REL = {
+  periodo: null,          // {ini, fim, label}
+  dados: null,            // {J,A,D,X,OS,M,V,postos}
+  filtro: {veiculo:null, motorista:null},
+  ordem: 'custoKm',       // custoKm | custoTotal | kmL | km
+  busca: '',
+  aba: 'eficiencia'
 };
+
+function relPeriodo(tipo){
+  const hj = new Date();
+  const iso = d => d.toISOString().slice(0,10);
+  const y = hj.getFullYear(), m = hj.getMonth(), dia = hj.getDate();
+  if (tipo === '30')     return {ini: iso(new Date(y,m,dia-29)), fim: iso(hj), label: '30 dias'};
+  if (tipo === 'mes')    return {ini: iso(new Date(y,m,1)), fim: iso(new Date(y,m+1,0)), label: 'Mês atual'};
+  if (tipo === 'mesant') return {ini: iso(new Date(y,m-1,1)), fim: iso(new Date(y,m,0)), label: 'Mês anterior'};
+  if (tipo === '6meses') return {ini: iso(new Date(y,m-5,1)), fim: iso(new Date(y,m+1,0)), label: '6 meses'};
+  return {ini: iso(new Date(y,m,1)), fim: iso(new Date(y,m+1,0)), label: 'Mês atual'};
+}
+
+/* ---------------- carga ---------------- */
+async function relCarrega(p){
+  const chave = p.ini + '|' + p.fim;
+  if (REL.dados && REL.dados.chave === chave) return REL.dados;
+
+  const ini = p.ini, fimT = p.fim + 'T23:59:59';
+
+  const [J, A, D, X, OS, M, V] = await Promise.all([
+    relPegaTudo(() => empFilter(sb.from('jornadas')
+      .select('id,inicio,fim,km_inicial,km_final,veiculo_id,motorista_id,status,roteiro'))
+      .gte('inicio', ini).lte('inicio', fimT)),
+    relPegaTudo(() => empFilter(sb.from('abastecimentos')
+      .select('id,data,posto,litros,valor_total,km,foto_path,veiculo_id,motorista_id'))
+      .gte('data', ini).lte('data', fimT)),
+    relPegaTudo(() => empFilter(sb.from('despesas')
+      .select('id,data,categoria,descricao,valor,km,foto_path,status,veiculo_id,motorista_id'))
+      .gte('data', ini).lte('data', fimT)),
+    relPegaTudo(() => empFilter(sb.from('multas')
+      .select('id,data_infracao,orgao,valor,status,veiculo_id,motorista_id'))
+      .gte('data_infracao', ini).lte('data_infracao', p.fim)),
+    relPegaTudo(() => empFilter(sb.from('ordens_servico')
+      .select('id,aberta_em,descricao,servico,custos,mao_obra,status,veiculo_id'))
+      .gte('aberta_em', ini).lte('aberta_em', fimT)),
+    relPegaTudo(() => empFilter(sb.from('avisos')
+      .select('id,criado_em,categoria,texto,status,veiculo_id,motorista_id'))
+      .gte('criado_em', ini).lte('criado_em', fimT)),
+    relPegaTudo(() => empFilter(sb.from('veiculos').select('id,placa,modelo,ativo'))),
+  ]);
+
+  const dados = {chave, ini, fim: p.fim, J, A, D, X, OS, M, V};
+  REL.dados = dados;
+  return dados;
+}
+
+/* ---------------- cálculo da matriz ---------------- */
+const relEhManut = c => /pe[cç]a|pneu|manuten|borrachari|mec[aâ]nic|[óo]leo|oficina/i.test(c || '');
+
+function relMatriz(dados, porMotorista){
+  const chave = porMotorista ? 'motorista_id' : 'veiculo_id';
+  const acc = {};
+
+  const cria = id => (acc[id] = acc[id] || {
+    id, km: 0, jornadas: 0, litros: 0, comb: 0, despesas: 0, manut: 0,
+    os: 0, multas: 0, vMultas: 0, avisos: 0
+  });
+
+  dados.J.forEach(x => {
+    const g = cria(x[chave]); if (!g) return;
+    g.jornadas++;
+    if (x.km_final != null && x.km_inicial != null) {
+      const d = Number(x.km_final) - Number(x.km_inicial);
+      if (d > 0) g.km += d;
+    }
+  });
+  dados.A.forEach(x => {
+    const g = cria(x[chave]); if (!g) return;
+    const L = Number(x.litros || 0);
+    g.comb += Number(x.valor_total || 0);
+    if (L > 400) { g.litrosSuspeitos = (g.litrosSuspeitos || 0) + L; }  // fora do tanque
+    else { g.litros += L; }
+  });
+  dados.D.forEach(x => {
+    const g = cria(x[chave]); if (!g) return;
+    const v = Number(x.valor || 0);
+    g.despesas += v;
+    if (relEhManut(x.categoria)) g.manut += v;
+  });
+  dados.OS.forEach(x => { const g = cria(x.veiculo_id); if (g) g.os += Number(x.custos||0) + Number(x.mao_obra||0); });
+  dados.X.forEach(x => { const g = cria(x[chave]); if (g) { g.multas++; g.vMultas += Number(x.valor||0); } });
+  dados.M.forEach(x => { const g = cria(x[chave]); if (g) g.avisos++; });
+
+  const linhas = Object.values(acc).filter(g => g.km > 0 || g.comb > 0 || g.despesas > 0 || g.os > 0);
+
+  // outlier: abastecimento maior que 400 L num único lançamento (caminhão none tem esse tanque)
+  // mantido nos totais, mas sinalizado para não envenenar a leitura da média
+  const absOut = dados.A.filter(x => Number(x.litros || 0) > 400);
+  const fora = absOut.reduce((s,x)=>s+Number(x.litros||0),0);
+
+  // taxa recalculada de TOTAIS (nunca média de médias) — regra da skill
+  linhas.forEach(g => {
+    g.custo = g.comb + g.despesas + g.os + g.vMultas;
+    // litros limpos: ignora lançamento acima da capacidade do tanque
+    g.kmL   = g.litros > 0 ? g.km / g.litros : 0;
+    g.custoKm = g.km > 0 ? g.custo / g.km : 0;          // R$ total / km total
+  });
+
+  // médias da frota também de totais
+  const somaKm   = linhas.reduce((s,g)=>s+g.km,0);
+  const somaL    = linhas.reduce((s,g)=>s+g.litros,0);
+  const somaC    = linhas.reduce((s,g)=>s+g.custo,0);
+  const mediaKm  = somaKm > 0 ? somaC / somaKm : 0;
+  // km/L da frota ignora o litro outlier (senão a média vira 0,15)
+  // somaL já não inclui os lançamentos suspeitos (foram para litrosSuspeitos)
+  const somaLimpa = somaL;
+  const mediaKmL = somaLimpa > 0 ? somaKm / somaLimpa : 0;
+
+  linhas.forEach(g => {
+    g.desvio = mediaKm > 0 && g.km > 0 ? (g.custoKm - mediaKm) / mediaKm * 100 : null;
+    g.desvioKmL = mediaKmL > 0 && g.kmL > 0 ? (g.kmL - mediaKmL) / mediaKmL * 100 : null;
+  });
+
+  return {linhas, mediaKm, mediaKmL, somaKm, somaL, somaC, absOut, fora};
+}
+
+const relPlaca = id => DASH_PLACAS[id] || '—';
+const relMot   = id => DASH_NOMES[id] || '—';
+
+/* ---------------- PDF (ASCII, sem emoji) ---------------- */
+function relSemAcento(s){
+  return String(s == null ? '' : s)
+    .replace(/[áàâãä]/gi,'a').replace(/[éèêë]/gi,'e').replace(/[íìîï]/gi,'i')
+    .replace(/[óòôõö]/gi,'o').replace(/[úùûü]/gi,'u').replace(/[ç]/gi,'c')
+    .replace(/[ñ]/gi,'n')
+    .replace(/[^\x20-\x7E]/g, ' ');       // garante ASCII puro no doc.text
+}
+
+function relPdf(titulo, linhas, subtitulo){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const L = 14, R = 196, larg = R - L;
+  let y = 18;
+
+  const texto = s => relSemAcento(s);
+
+  // cabeçalho
+  doc.setFillColor(18,18,18);
+  doc.rect(0,0,210,26,'F');
+  doc.setTextColor(252,200,92);
+  doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text(texto('OVOS CASAGRANDE'), L, 11);
+  doc.setTextColor(245,245,245);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(texto(titulo), L, 18);
+  if (subtitulo) doc.text(texto(subtitulo), L, 22.5);
+
+  y = 34;
+  doc.setTextColor(30,30,30);
+
+  // cabeçalho da tabela
+  const col = [
+    {t:'Entidade', x:L,   w:46},
+    {t:'Jorn.',    x:L+46,w:12},
+    {t:'Km',       x:L+58,w:22},
+    {t:'km/L',     x:L+80,w:16},
+    {t:'Custo',    x:L+96,w:26},
+    {t:'R$/km',    x:L+122,w:20},
+    {t:'Desvio',   x:L+142,w:22},
+  ];
+  const cabecalho = () => {
+    doc.setFillColor(38,38,38);
+    doc.rect(L, y, larg, 7, 'F');
+    doc.setTextColor(252,200,92);
+    doc.setFontSize(8); doc.setFont('helvetica','bold');
+    col.forEach(c => doc.text(texto(c.t), c.x, y + 4.7));
+    y += 7;
+    doc.setTextColor(30,30,30);
+    doc.setFont('helvetica','normal');
+  };
+  cabecalho();
+
+  const nBR = (v, d) => Number(v || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: d == null ? 0 : d, maximumFractionDigits: d == null ? 0 : d
+  });
+
+  linhas.forEach((g, i) => {
+    if (y > 278) { doc.addPage(); y = 18; cabecalho(); }
+    if (i % 2 === 0) { doc.setFillColor(245,245,245); doc.rect(L, y, larg, 6.6, 'F'); }
+    doc.setFontSize(7.5);
+    const linha = [
+      texto(String(g.nome).slice(0, 26)),
+      String(g.jornadas || 0),
+      nBR(g.km),
+      g.kmL ? nBR(g.kmL, 2) : '-',
+      'R$ ' + nBR(g.custo),
+      g.custoKm ? nBR(g.custoKm, 2) : '-',
+      g.desvio == null ? '-' : (g.desvio >= 0 ? '+' : '') + nBR(g.desvio, 0) + '%'
+    ];
+    col.forEach((c, k) => doc.text(String(linha[k]), c.x, y + 4.6));
+    y += 6.6;
+  });
+
+  // rodapé: médias + data
+  y += 4;
+  if (y > 270) { doc.addPage(); y = 18; }
+  doc.setFontSize(8); doc.setTextColor(80,80,80);
+  doc.text(texto('Media da frota: R$ ' + nBR(linhas.mediaKm || 0, 2) + ' / km'), L, y);
+  doc.text(texto('km/L da frota: ' + nBR(linhas.mediaKmL || 0, 2)), L + 70, y);
+  doc.text(texto('Gerado em ' + ddmmaaaa(new Date().toISOString().slice(0,10))), L, y + 5);
+
+  const nome = 'relatorio-frota-' + (new Date().toISOString().slice(0,10)) + '.pdf';
+  doc.save(nome);
+  toast('PDF gerado: ' + nome);
+}
+
+/* ---------------- raio-X de uma entidade (nível 1) ---------------- */
+async function relRaioX(tipo, id, periodo, dados){
+  const w = document.getElementById('modal-wrap');
+  const m = document.getElementById('modal');
+  const nome = tipo === 'veiculo' ? relPlaca(id) : relMot(id);
+  const campo = tipo === 'veiculo' ? 'veiculo_id' : 'motorista_id';
+
+  const abs = dados.A.filter(x => x[campo] === id);
+  const des = dados.D.filter(x => x[campo] === id);
+  const jor = dados.J.filter(x => x[campo] === id);
+  const mlt = dados.X.filter(x => x[campo] === id);
+  const avs = dados.M.filter(x => x[campo] === id);
+  const os  = tipo === 'veiculo' ? dados.OS.filter(x => x.veiculo_id === id) : [];
+
+  const km = jor.reduce((s,x) => s + (x.km_final != null ? Math.max(0, Number(x.km_final)-Number(x.km_inicial)) : 0), 0);
+  const litros = abs.reduce((s,x) => s + Number(x.litros||0), 0);
+  const comb = abs.reduce((s,x) => s + Number(x.valor_total||0), 0);
+  const desp = des.reduce((s,x) => s + Number(x.valor||0), 0);
+  const osC  = os.reduce((s,x) => s + Number(x.custos||0) + Number(x.mao_obra||0), 0);
+  const mltC = mlt.reduce((s,x) => s + Number(x.valor||0), 0);
+  const custo = comb + desp + osC + mltC;
+  const kmL = litros > 0 ? km / litros : 0;
+  const custoKm = km > 0 ? custo / km : 0;
+
+  // série diária do custo
+  const dias = {};
+  [...abs.map(x=>({d:x.data,v:Number(x.valor_total||0)})),
+   ...des.map(x=>({d:x.data,v:Number(x.valor||0)}))].forEach(({d,v})=>{
+    const k = String(d||'').slice(0,10);
+    if (k) dias[k] = (dias[k]||0) + v;
+  });
+  const chaves = Object.keys(dias).sort();
+
+  m.innerHTML = `
+    <h3 style="padding-right:28px">${esc(nome)}</h3>
+    <p class="hint" style="margin-top:-6px">${periodo.label} · ${ddmmaaaa(periodo.ini)} a ${ddmmaaaa(periodo.fim)}</p>
+    <div class="dash-mini">
+      <div><b>${Math.round(km).toLocaleString('pt-BR')} km</b><span>rodados</span></div>
+      <div><b>${kmL?kmL.toFixed(2).replace('.',','):'—'}</b><span>km/L</span></div>
+      <div><b>${custoKm?('R$ '+custoKm.toFixed(2).replace('.',',')):'—'}</b><span>por km</span></div>
+    </div>
+    <div class="sec" style="padding:10px">
+      <h3 style="font-size:13px">Evolução diária do custo</h3>
+      <div style="height:130px"><canvas id="rx-dia"></canvas></div>
+    </div>
+    <div class="rel-linhas">
+      ${relLinhaResumo('Abastecimentos', abs.length, comb, 'abs')}
+      ${relLinhaResumo('Despesas', des.length, desp, 'des')}
+      ${tipo==='veiculo'?relLinhaResumo('Ordens de serviço', os.length, osC, 'os'):''}
+      ${relLinhaResumo('Multas', mlt.length, mltC, 'mlt')}
+      ${relLinhaResumo('Avisos', avs.length, null, 'avs')}
+    </div>
+    <div class="mrow">
+      <button type="button" class="btn sec" id="rx-pdf" style="min-height:48px">Exportar PDF</button>
+      <button type="button" class="btn sec" id="rx-fechar" style="min-height:48px">Fechar</button>
+    </div>`;
+
+  w.classList.add('open');
+  document.getElementById('rx-fechar').onclick = () => w.classList.remove('open');
+  w.onclick = e => { if (e.target === w) w.classList.remove('open'); };
+
+  // gráfico do raio-X
+  setTimeout(() => {
+    const cv = document.getElementById('rx-dia');
+    if (!cv) return;
+    if (CHARTS['rx-dia']) { try{CHARTS['rx-dia'].destroy()}catch(_){} }
+    CHARTS['rx-dia'] = new Chart(cv, {
+      type:'bar',
+      data:{labels:chaves.map(k=>k.slice(8,10)+'/'+k.slice(5,7)),
+        datasets:[{data:chaves.map(k=>Math.round(dias[k])),backgroundColor:chartTheme().ok,borderRadius:5,maxBarThickness:22}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:350},
+        plugins:{legend:{display:false},tooltip:dashTooltip(v=>fmtBRL(v))},
+        scales:{x:{grid:{display:false},ticks:{color:'#9a9a9a',font:{size:8}}},
+                y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#9a9a9a',font:{size:8},callback:dashR$}}}}
+    });
+  }, 60);
+
+  // nível 2: cada linha abre os lançamentos
+  m.querySelectorAll('[data-rx]').forEach(b=>{
+    b.onclick = () => {
+      const t = b.dataset.rx;
+      if (t === 'abs') dashAbreDetalhe(nome + ' · abastecimentos', abs, {valor:x=>x.valor_total});
+      if (t === 'des') dashAbreDetalhe(nome + ' · despesas', des, {valor:x=>x.valor});
+      if (t === 'os')  dashAbreDetalhe(nome + ' · ordens de serviço', os, {valor:x=>Number(x.custos||0)+Number(x.mao_obra||0)});
+      if (t === 'mlt') dashAbreDetalhe(nome + ' · multas', mlt, {valor:x=>x.valor});
+      if (t === 'avs') dashAbreDetalhe(nome + ' · avisos', avs, {valor:()=>0});
+    };
+  });
+
+  document.getElementById('rx-pdf').onclick = () => {
+    const linhas = [{nome, jornadas:jor.length, km, kmL, custo, custoKm, desvio:null}];
+    relPdf('Raio-X: ' + nome, linhas, periodo.label + ' - ' + ddmmaaaa(periodo.ini) + ' a ' + ddmmaaaa(periodo.fim));
+  };
+}
+
+function relLinhaResumo(rotulo, qtd, valor, chave){
+  return `<button type="button" class="rel-linha" data-rx="${chave}">
+    <span class="rel-linha-rot">${esc(rotulo)}</span>
+    <span class="rel-linha-qtd">${qtd}</span>
+    <span class="rel-linha-val">${valor == null ? '—' : fmtBRL(valor)}</span>
+    <span class="rel-seta">›</span>
+  </button>`;
+}
+
+/* ============================================================================
+   PAGES.relatorios
+   ========================================================================== */
+PAGES.relatorios = async el => {
+  el.innerHTML = `<h1 class="pg">Relatórios</h1><div id="rel">${empty('Carregando…')}</div>`;
+
+  if (!REL.periodo) REL.periodo = relPeriodo('6meses');
+  await dashNomes();
+
+  const periodo = REL.periodo;
+  const dados = await relCarrega(periodo);
+
+  // aplica filtro cruzado
+  const dadosF = {
+    ...dados,
+    J:  dados.J.filter(x  => (!REL.filtro.veiculo || x.veiculo_id === REL.filtro.veiculo) && (!REL.filtro.motorista || x.motorista_id === REL.filtro.motorista)),
+    A:  dados.A.filter(x  => (!REL.filtro.veiculo || x.veiculo_id === REL.filtro.veiculo) && (!REL.filtro.motorista || x.motorista_id === REL.filtro.motorista)),
+    D:  dados.D.filter(x  => (!REL.filtro.veiculo || x.veiculo_id === REL.filtro.veiculo) && (!REL.filtro.motorista || x.motorista_id === REL.filtro.motorista)),
+    X:  dados.X.filter(x  => (!REL.filtro.veiculo || x.veiculo_id === REL.filtro.veiculo) && (!REL.filtro.motorista || x.motorista_id === REL.filtro.motorista)),
+    OS: dados.OS.filter(x => !REL.filtro.veiculo || x.veiculo_id === REL.filtro.veiculo),
+    M:  dados.M.filter(x  => (!REL.filtro.veiculo || x.veiculo_id === REL.filtro.veiculo) && (!REL.filtro.motorista || x.motorista_id === REL.filtro.motorista)),
+  };
+
+  const porVeiculo = relMatriz(dadosF, false);
+  const porMot     = relMatriz(dadosF, true);
+
+  // ---- totais para KPI (validação: batem com a matriz) ----
+  const totalKm    = porVeiculo.somaKm;
+  const totalLitros= porVeiculo.somaL;
+  const totalCusto = porVeiculo.somaC;
+  // usa a média já calculada na matriz (que exclui o litro outlier)
+  const kmLFrota   = porVeiculo.mediaKmL;
+  const custoKmFrota = totalKm > 0 ? totalCusto / totalKm : 0;
+
+  const chips = [['30','30 dias'],['mes','Mês atual'],['mesant','Mês anterior'],['6meses','6 meses']];
+  let chipAtivo = '6meses';
+  chips.forEach(([k]) => { const t = relPeriodo(k); if (t.ini === periodo.ini && t.fim === periodo.fim) chipAtivo = k; });
+
+  const veics = Object.entries(DASH_PLACAS).sort((a,b)=>(a[1]||'').localeCompare(b[1]||''));
+  const mots  = Object.entries(DASH_NOMES).sort((a,b)=>(a[1]||'').localeCompare(b[1]||''));
+
+  $('rel').innerHTML = `
+    <div class="dash-filtros">
+      <div class="dash-row">
+        ${chips.map(([k,l])=>`<button type="button" class="chip ${chipAtivo===k?'on':''}" data-rper="${k}">${l}</button>`).join('')}
+      </div>
+      <div class="dash-row">
+        <select id="rel-veic" class="dash-sel" aria-label="Filtrar por veículo">
+          <option value="">Todos os caminhões</option>
+          ${veics.map(([id,p])=>`<option value="${esc(id)}" ${REL.filtro.veiculo===id?'selected':''}>${esc(p||'—')}</option>`).join('')}
+        </select>
+        <select id="rel-mot" class="dash-sel" aria-label="Filtrar por motorista">
+          <option value="">Todos os motoristas</option>
+          ${mots.map(([id,n])=>`<option value="${esc(id)}" ${REL.filtro.motorista===id?'selected':''}>${esc(n||'—')}</option>`).join('')}
+        </select>
+      </div>
+      <div class="dash-row">
+        <input id="rel-busca" class="dash-sel" type="search" placeholder="Buscar placa, motorista ou posto"
+          value="${esc(REL.busca)}" aria-label="Buscar" style="flex:2 1 0">
+        <button type="button" class="chip on" id="rel-pdf" style="min-height:48px">Exportar PDF</button>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${Math.round(totalKm).toLocaleString('pt-BR')} km</div><div class="l">Km rodados</div></div>
+      <div class="kpi"><div class="v">${kmLFrota?kmLFrota.toFixed(2).replace('.',','):'—'}</div><div class="l">km/L da frota</div></div>
+      <div class="kpi"><div class="v">${fmtBRL(totalCusto)}</div><div class="l">Custo operacional</div></div>
+      <div class="kpi"><div class="v">${custoKmFrota?('R$ '+custoKmFrota.toFixed(2).replace('.',',')):'—'}</div><div class="l">Custo por km</div></div>
+    </div>
+    <p class="hint">${periodo.label} · ${ddmmaaaa(periodo.ini)} a ${ddmmaaaa(periodo.fim)} · km/L e R$/km calculados sobre os totais do período.</p>
+    ${porVeiculo.fora > 0 ? `<div class="rel-alerta">
+      <b>${porVeiculo.absOut.length} abastecimento(s) fora do padrão</b> no período
+      (${Math.round(porVeiculo.fora).toLocaleString('pt-BR')} L no total).
+      O km/L da frota foi calculado sem eles; confira se é lançamento de teste.
+      <button type="button" class="chip on" id="rel-ver-out" style="min-height:40px;margin-top:8px">Ver lançamentos</button>
+    </div>` : ''}
+    <div id="rel-body"></div>`;
+
+  // filtros
+  $('rel').querySelectorAll('[data-rper]').forEach(b=>{
+    b.onclick = () => { REL.periodo = relPeriodo(b.dataset.rper); REL.dados = null; PAGES.relatorios(el); };
+  });
+  const sv = $('rel-veic'), sm = $('rel-mot'), sb = $('rel-busca');
+  if (sv) sv.onchange = () => { REL.filtro.veiculo = sv.value || null; PAGES.relatorios(el); };
+  if (sm) sm.onchange = () => { REL.filtro.motorista = sm.value || null; PAGES.relatorios(el); };
+  if (sb) sb.oninput = () => { REL.busca = sb.value; relDesenha(porVeiculo, porMot, periodo, dadosF); };
+
+  const btnOut = $('rel-ver-out');
+  if (btnOut) btnOut.onclick = () => dashAbreDetalhe('Abastecimentos fora do padrao',
+    porVeiculo.absOut, {valor:x=>x.valor_total});
+
+  const btnPdf = $('rel-pdf');
+  if (btnPdf) btnPdf.onclick = () => {
+    const lista = relFiltraLista(porVeiculo.linhas, 'veiculo').map(g => ({...g, nome: relPlaca(g.id)}));
+    lista.sort((a,b)=>b.custoKm-a.custoKm);
+    relPdf('Eficiencia da frota por caminhao', lista,
+      periodo.label + ' - ' + ddmmaaaa(periodo.ini) + ' a ' + ddmmaaaa(periodo.fim));
+  };
+
+  relDesenha(porVeiculo, porMot, periodo, dadosF);
+};
+
+/* ---------------- desenho ---------------- */
+function relFiltraLista(linhas, tipo){
+  let l = linhas.slice();
+  if (REL.filtro.veiculo && tipo === 'veiculo') l = l.filter(g => g.id === REL.filtro.veiculo);
+  if (REL.filtro.motorista && tipo === 'motorista') l = l.filter(g => g.id === REL.filtro.motorista);
+  const b = (REL.busca || '').trim().toLowerCase();
+  if (b) l = l.filter(g => {
+    const nome = tipo === 'veiculo' ? relPlaca(g.id) : relMot(g.id);
+    if (String(nome).toLowerCase().includes(b)) return true;
+    if ((DASH_NOMES[g.id] || '').toLowerCase().includes(b)) return true;
+    return false;
+  });
+  return l;
+}
+
+function relDesenha(porVeiculo, porMot, periodo, dados){
+  const box = $('rel-body');
+  if (!box) return;
+
+  const ordem = REL.ordem || 'custoKm';
+  const ordenar = {
+    custoKm:    (a,b) => b.custoKm - a.custoKm,
+    custoTotal: (a,b) => b.custo - a.custo,
+    kmL:        (a,b) => (a.kmL || 999) - (b.kmL || 999),
+    km:         (a,b) => b.km - a.km,
+  };
+
+  const listaV = relFiltraLista(porVeiculo.linhas, 'veiculo');
+  listaV.sort(ordenar[ordem] || ordenar.custoKm);
+
+  box.innerHTML = `
+    <div class="sec">
+      <h3>Custo por km — caminhões</h3>
+      <p class="hint">Toque numa barra para abrir o raio-X do caminhão.</p>
+      <div style="height:${Math.max(180, Math.min(listaV.length, 12) * 30 + 50)}px">
+        <canvas id="rel-custokm"></canvas>
+      </div>
+    </div>
+    <div class="dash-row" style="margin-bottom:10px">
+      <button type="button" class="chip ${ordem==='custoKm'?'on':''}" data-ordem="custoKm">Pior R$/km</button>
+      <button type="button" class="chip ${ordem==='custoTotal'?'on':''}" data-ordem="custoTotal">Maior custo</button>
+      <button type="button" class="chip ${ordem==='kmL'?'on':''}" data-ordem="kmL">Menor km/L</button>
+      <button type="button" class="chip ${ordem==='km'?'on':''}" data-ordem="km">Mais rodou</button>
+    </div>
+    <div class="sec">
+      <h3>Matriz de eficiência</h3>
+      <div id="rel-cards">${relCards(listaV, 'veiculo', porVeiculo)}</div>
+    </div>
+    <div class="sec">
+      <h3>Por motorista</h3>
+      <div>${relCards(relFiltraLista(porMot.linhas, 'motorista').sort(ordenar[ordem] || ordenar.custoKm), 'motorista', porMot)}</div>
+    </div>`;
+
+  // ordenação e busca
+  box.querySelectorAll('[data-ordem]').forEach(b=>{
+    b.onclick = () => { REL.ordem = b.dataset.ordem; relDesenha(porVeiculo, porMot, periodo, dados); };
+  });
+
+  // cards -> raio-X
+  box.querySelectorAll('[data-ent]').forEach(c=>{
+    c.onclick = () => relRaioX(c.dataset.tipo, c.dataset.ent, periodo, dados);
+  });
+
+  // gráfico R$/km com linha da média da frota
+  const cv = document.getElementById('rel-custokm');
+  if (cv && listaV.length) {
+    const topo = listaV.slice(0, 12);
+    if (CHARTS['rel-custokm']) { try{CHARTS['rel-custokm'].destroy()}catch(_){} }
+    CHARTS['rel-custokm'] = new Chart(cv, {
+      type:'bar',
+      data:{labels:topo.map(g=>relPlaca(g.id)),
+        datasets:[{label:'R$ por km', data:topo.map(g=>Math.round(g.custoKm*100)/100),
+          backgroundColor:topo.map(g=>g.desvio != null && g.desvio > 15 ? '#e05252' :
+                                     g.desvio != null && g.desvio < -15 ? '#3ecf6e' : chartTheme().ok),
+          borderRadius:6, maxBarThickness:20}]},
+      options:{
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        animation:{duration:400, easing:'easeOutQuart'},
+        plugins:{legend:{display:false},
+          tooltip:{...dashTooltip(), callbacks:{label:c=>' R$ '+c.parsed.x.toFixed(2).replace('.',',')+' / km'}},
+          dashMedia:{on:true, cor:'#ffffff', rotulo:false}},
+        scales:{
+          x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#9a9a9a',font:{size:9},
+             callback:v=>'R$ '+Number(v).toFixed(2).replace('.',',')}},
+          y:{grid:{display:false},ticks:{color:'#9a9a9a',font:{size:9}}}
+        }
+      }
+    });
+    CHARTS['rel-custokm'].options.onClick = (evt, els) => {
+      let pts = els;
+      if (!pts || !pts.length) { try{pts = CHARTS['rel-custokm'].getElementsAtEventForMode(evt||{},'nearest',{intersect:true},true)}catch(_){pts=[]} }
+      if (!pts || !pts.length) return;
+      const g = topo[pts[0].index];
+      if (g) relRaioX('veiculo', g.id, periodo, dados);
+    };
+    CHARTS['rel-custokm'].options.onHover = (evt, els) => {
+      const t = evt && evt.native && evt.native.target;
+      if (t) t.style.cursor = (els && els.length) ? 'pointer' : 'default';
+    };
+  } else if (cv) {
+    cv.closest('.sec').innerHTML = '<p class="hint">Sem km registrados no período.</p>';
+  }
+}
+
+function relCards(linhas, tipo, matriz){
+  if (!linhas.length) return '<p class="hint">Nenhum registro no período.</p>';
+  const nome = g => tipo === 'veiculo' ? relPlaca(g.id) : relMot(g.id);
+  return linhas.map((g, i) => {
+    const desvio = g.desvio;
+    const etiqueta = desvio == null ? '<span class="dash-badge neu">sem km</span>'
+      : desvio > 15  ? `<span class="dash-badge up">▲ +${desvio.toFixed(0)}% mais caro</span>`
+      : desvio < -15 ? `<span class="dash-badge down">▼ ${desvio.toFixed(0)}% mais barato</span>`
+      : '<span class="dash-badge neu">na média</span>';
+    return `<div class="listcard rel-card" data-ent="${esc(g.id)}" data-tipo="${tipo}" role="button" tabindex="0">
+      <div class="lc-main">
+        <div class="lc-title">
+          <span>${i===0?'':''}${esc(nome(g) || '—')}</span>
+          <span class="lc-tag">${g.custoKm ? 'R$ '+g.custoKm.toFixed(2).replace('.',',')+'/km' : '—'}</span>
+        </div>
+        <div class="lc-sub">${g.jornadas} jornada(s) · ${Math.round(g.km).toLocaleString('pt-BR')} km · ${g.kmL?g.kmL.toFixed(2).replace('.',',')+' km/L':'sem litros'}</div>
+        <div class="lc-rows">
+          <div class="lc-row"><span>Combustível</span><b>${fmtBRL(g.comb)}</b></div>
+          <div class="lc-row"><span>Despesas</span><b>${fmtBRL(g.despesas)}</b></div>
+          ${g.os?`<div class="lc-row"><span>Oficina</span><b>${fmtBRL(g.os)}</b></div>`:''}
+          <div class="lc-row"><span>Custo total</span><b>${fmtBRL(g.custo)}</b></div>
+        </div>
+        <div style="margin-top:8px">${etiqueta}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 PAGES.veiculos=async el=>{
   el.innerHTML=`<h1 class="pg">Veículos</h1>
   <div class="sec"><h3>Novo veículo</h3>
