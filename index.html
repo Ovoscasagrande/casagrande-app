@@ -4157,7 +4157,9 @@ async function relRaioX(tipo, id, periodo, dados){
   const os  = tipo === 'veiculo' ? dados.OS.filter(x => x.veiculo_id === id) : [];
 
   const km = jor.reduce((s,x) => s + (x.km_final != null ? Math.max(0, Number(x.km_final)-Number(x.km_inicial)) : 0), 0);
-  const litros = abs.reduce((s,x) => s + Number(x.litros||0), 0);
+  // mesma regra da matriz: abastecimento acima de 400 L é outlier (não entra no km/L)
+  const litros = abs.reduce((s,x) => s + (Number(x.litros||0) > 400 ? 0 : Number(x.litros||0)), 0);
+  const litrosFora = abs.reduce((s,x) => s + (Number(x.litros||0) > 400 ? Number(x.litros||0) : 0), 0);
   const comb = abs.reduce((s,x) => s + Number(x.valor_total||0), 0);
   const desp = des.reduce((s,x) => s + Number(x.valor||0), 0);
   const osC  = os.reduce((s,x) => s + Number(x.custos||0) + Number(x.mao_obra||0), 0);
@@ -4183,6 +4185,7 @@ async function relRaioX(tipo, id, periodo, dados){
       <div><b>${kmL?kmL.toFixed(2).replace('.',','):'—'}</b><span>km/L</span></div>
       <div><b>${custoKm?('R$ '+custoKm.toFixed(2).replace('.',',')):'—'}</b><span>por km</span></div>
     </div>
+    ${litrosFora > 0 ? `<p class="hint" style="color:#ff9a9a">Ignorado no km/L: ${Math.round(litrosFora).toLocaleString('pt-BR')} L em lançamento fora do padrão.</p>` : ''}
     <div class="sec" style="padding:10px">
       <h3 style="font-size:13px">Evolução diária do custo</h3>
       <div style="height:130px"><canvas id="rx-dia"></canvas></div>
