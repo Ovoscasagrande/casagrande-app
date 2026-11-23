@@ -925,6 +925,8 @@ $('li-btn').disabled=true;$('li-msg').textContent='';
 async function afterLogin(){
   const {data:{user}}=await sb.auth.getUser();
   if(!user){showLogin();return}
+  // marco do login: qualquer derrubar_em posterior a este horário me desconecta
+  localStorage.setItem('cg_login_em', new Date().toISOString());
   let {data:u,error:e1}=await sb.from('usuarios').select('*').eq('id',user.id).maybeSingle();
   if(e1){toast('Erro ao carregar perfil: '+err(e1))}
   if(u&&u.ativo===false){await sb.auth.signOut().catch(()=>{});toast('Conta desativada. Fale com a gerência.');showLogin();return}
@@ -5038,6 +5040,78 @@ PAGES.os=async el=>{
     });
   });
 };
+/* ---- detecção de sessão derrubada pela gerência ----
+   Consulta o próprio sinal e, se for mais novo que o login local,
+   encerra tudo e volta para a tela de login. */
+let cgDerrubado = false;
+async function checaDerrubado(){
+  if(cgDerrubado || !sb || !ME) return false;
+  try{
+    const {data,error}=await sb.rpc('minha_sessao');
+    if(error || !data) return false;
+    if(data.ativo === false){
+      cgDerrubado = true;
+      await sb.auth.signOut().catch(()=>{});
+      localStorage.removeItem('cg_login_em');
+      try{ localStorage.removeItem('cg-fila-offline'); }catch(_){}
+      toast('Sua conta foi desativada. Fale com a gerência.');
+      encerraSessaoLocal();
+      return true;
+    }
+    const marco = Date.parse(data.derrubar_em || 0) || 0;
+    const meuLogin = Date.parse(localStorage.getItem('cg_login_em') || 0) || 0;
+    if(marco > 0 && marco > meuLogin){
+      cgDerrubado = true;
+      await sb.auth.signOut().catch(()=>{});
+      localStorage.removeItem('cg_login_em');
+      toast('Sua sessão foi encerrada pela gerência. Entre novamente.');
+      encerraSessaoLocal();
+      return true;
+    }
+  }catch(_){}
+  return false;
+}
+// verifica ao voltar para o app e a cada 2 minutos com o app aberto
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checaDerrubado(); });
+setInterval(()=>{ if(!document.hidden) checaDerrubado(); }, 120000);
+
+/* limpa o estado do app e volta para a tela de login de verdade */
+function encerraSessaoLocal(){
+  try{ ME=null; NAV=[]; PAGE='home'; }catch(_){}
+  try{ if(typeof CHARTS==='object'){ Object.keys(CHARTS).forEach(k=>{try{CHARTS[k].destroy()}catch(_){}; delete CHARTS[k]}); } }catch(_){}
+  try{ document.getElementById('nav').innerHTML=''; }catch(_){}
+  try{ document.getElementById('main').innerHTML=''; }catch(_){}
+  try{ document.getElementById('u-pend')&&(document.getElementById('u-pend').innerHTML=''); }catch(_){}
+  try{ document.getElementById('userChip')&&(document.getElementById('userChip').innerHTML=''); }catch(_){}
+  try{ document.getElementById('li-pass').value=''; }catch(_){}
+  try{ document.getElementById('li-email').value=''; }catch(_){}
+  cgDerrubado = false;
+  showLogin();
+  window.scrollTo(0,0);
+}
+
+/* modal de confirmação próprio (nunca confirm() do navegador) */
+function confirmarModal({titulo,texto,botao='Confirmar',perigo=false,aoConfirmar}){
+  const w=document.getElementById('modal-wrap'),m=document.getElementById('modal');
+  m.innerHTML=`<h3>${esc(titulo)}</h3>
+    <p class="hint" style="margin:2px 0 14px">${esc(texto||'')}</p>
+    <div class="mrow">
+      <button type="button" class="btn sec" id="cf-nao" style="min-height:48px">Cancelar</button>
+      <button type="button" class="btn" id="cf-sim" style="min-height:48px${perigo?';background:#8b3a3a':''}">${esc(botao)}</button>
+    </div>`;
+  w.classList.add('open');
+  document.getElementById('cf-nao').onclick=()=>w.classList.remove('open');
+  w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+  document.getElementById('cf-sim').onclick=async()=>{
+    const b=document.getElementById('cf-sim');
+    b.disabled=true;b.textContent='Aguarde…';
+    let ok=true;
+    try{ ok=await aoConfirmar(); }catch(err){ toast('Erro: '+(err.message||err)); ok=false; }
+    if(ok!==false) w.classList.remove('open');
+    else { b.disabled=false;b.textContent=botao; }
+  };
+}
+
 PAGES.usuarios=async el=>{
   el.innerHTML=`<h1 class="pg">Usuários</h1><div id="u-pend">${empty('Carregando…')}</div><input id="u-busca" placeholder="🔍 buscar usuário ou e-mail..." style="width:100%;margin:10px 0" autocomplete="off"><div id="u-list">${empty('')}</div>`;
   const lista=await sel('usuarios','*','nome');
@@ -5080,7 +5154,10 @@ PAGES.usuarios=async el=>{
     <div class="lc-title"><span>${esc(u.nome)}</span><span class="lc-tag">${tag(u.perfil)}</span></div>
     <div class="lc-sub" style="word-break:break-all">${esc(u.email||'—')}</div>
     <div class="lc-rows"><div class="lc-row"><span>Empresa</span><b>${esc(u.empresa||'OVOS')}</b></div></div>
-    ${ME.master?`<div class="lc-actions"><button type="button" class="btn mini" data-ued="${u.id}">✏️ Editar</button></div>`:''}
+    <div class="lc-actions">
+      ${ME.master?`<button type="button" class="btn mini" data-ued="${u.id}">✏️ Editar</button>`:''}
+      ${(ME.perfil==='gerencia' && u.id!==ME.id)?`<button type="button" class="btn mini" data-uder="${u.id}" style="border-color:#5c3a2e">🚪 Derrubar</button>`:''}
+    </div>
   </div></div>`).join('')}</div></div></div>`:empty('Nenhum usuário aprovado ainda');
   // ---- veículos para vínculo na aprovação ----
   (async()=>{
@@ -5131,6 +5208,23 @@ PAGES.usuarios=async el=>{
       w.classList.remove('open');
       toast('Cadastro recusado — usuário continua sem acesso');go('usuarios');
     };
+  });
+  // ---- derrubar sessão ----
+  l.querySelectorAll('[data-uder]').forEach(b=>b.onclick=async()=>{
+    const u=lista.find(x=>x.id===b.dataset.uder);if(!u)return;
+    confirmarModal({
+      titulo:'🚪 Derrubar '+u.nome,
+      texto:'A sessão dele será encerrada e ele terá que entrar de novo com usuário e senha. Se estiver com o app aberto, cai na tela de login na próxima ação.',
+      botao:'Derrubar agora',
+      perigo:true,
+      aoConfirmar:async()=>{
+        const {data,error}=await sb.rpc('derrubar_usuario',{p_id:u.id});
+        if(error){toast('Não consegui derrubar: '+error.message);return false}
+        toast('Sessão de '+(data?.nome||u.nome)+' derrubada');
+        go('usuarios');
+        return true;
+      }
+    });
   });
   // ---- editar aprovado ----
   document.getElementById('u-busca').oninput=e=>{
