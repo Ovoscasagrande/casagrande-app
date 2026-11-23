@@ -103,7 +103,8 @@ img{max-width:100%;display:block}
 
 /* ---------- 4. BOTTOM NAVIGATION (perfis operacionais) ---------- */
 .tabbar{
-  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  position:fixed; left:0; right:0; bottom:0; top:auto !important; width:auto !important;
+  z-index:30;
   height:calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom:env(safe-area-inset-bottom);
   background:rgba(18,18,18,.96);
@@ -403,12 +404,12 @@ h1.pg{font-size:var(--fs-xl);margin-bottom:var(--sp-4);font-weight:800;letter-sp
 .card{max-width:380px}
 .card h2{font-size:var(--fs-md);margin-bottom:var(--sp-3)}
 /* drawer (gerência) */
-nav{position:fixed;top:0;left:-260px;width:250px;height:100vh;height:100dvh;background:#101010;z-index:40;transition:left .25s;padding:calc(var(--sp-4) + env(safe-area-inset-top)) var(--sp-3) var(--sp-4);overflow-y:auto}
+#nav{position:fixed;top:0;left:-260px;width:250px;height:100vh;height:100dvh;background:#101010;z-index:40;transition:left .25s;padding:calc(var(--sp-4) + env(safe-area-inset-top)) var(--sp-3) var(--sp-4);overflow-y:auto}
 nav.open{left:0}
 nav .who{font-size:var(--fs-sm);color:var(--muted);padding:var(--sp-2) 10px 14px;border-bottom:1px solid var(--divider);margin-bottom:var(--sp-2)}
-nav button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--ink);padding:11px 12px;border-radius:10px;font-size:14px;font-family:var(--font)}
-nav button.on{background:#262626;color:var(--primary-color)}
-nav button svg{width:18px;height:18px;vertical-align:-3px;margin-right:8px}
+#nav button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--ink);padding:11px 12px;border-radius:10px;font-size:14px;font-family:var(--font)}
+#nav button.on{background:#262626;color:var(--primary-color)}
+#nav button svg{width:18px;height:18px;vertical-align:-3px;margin-right:8px}
 #scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:35}
 /* header legado */
 header{position:sticky;top:0;z-index:20;background:rgba(18,18,18,.92);backdrop-filter:blur(12px);padding:12px var(--sp-4);display:flex;align-items:center;gap:var(--sp-3);padding-top:calc(12px + env(safe-area-inset-top));min-height:calc(56px + env(safe-area-inset-top))}
