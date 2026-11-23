@@ -2708,7 +2708,7 @@ async function pagAvisosGestao(el){
     </div>`}).join('')}</div></div>`;
   document.getElementById('av-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#av-g .listcard, #av-g .listcard *').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
+    filtraCards('#av-g', q);
   };
   g.querySelectorAll('[data-av]').forEach(b=>b.onclick=async()=>{
     const r=await upd('avisos',b.dataset.av,{status:b.dataset.st});
@@ -3025,7 +3025,7 @@ PAGES.abastecimentos=async el=>{
   $('f-btn').onclick=carregar;carregar();
   document.getElementById('ab-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#ab-l .listcard, #ab-l .listcard *').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
+    filtraCards('#ab-l', q);
   };
 };
 PAGES.despesas=async el=>{
@@ -3047,7 +3047,7 @@ PAGES.despesas=async el=>{
     </div></div>`).join('')}</div></div>`;
   document.getElementById('dp-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#dp .listcard, #dp .listcard *').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
+    filtraCards('#dp', q);
   };
   d.querySelectorAll('[data-ok]').forEach(b=>b.onclick=async()=>{if(await upd('despesas',b.dataset.ok,{status:'aprovada',aprovada_por:ME.id,aprovada_em:new Date().toISOString()}))go('despesas')});
   d.querySelectorAll('[data-no]').forEach(b=>b.onclick=async()=>{
@@ -3104,7 +3104,7 @@ PAGES.multas=async el=>{
     </div></div>`).join('')}</div></div>`;
   document.getElementById('mt-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#m-list .listcard, #m-list .listcard *').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
+    filtraCards('#m-list', q);
   };
   l.querySelectorAll('[data-cie]').forEach(b=>b.onclick=async()=>{
     const {error}=await sb.rpc('confirmar_ciencia',{p_multa_id:b.dataset.cie});
@@ -4769,12 +4769,7 @@ PAGES.motoristas=async el=>{
       if(await upd('motoristas',b.dataset.tg,{empresas:emps,empresa:leg,ativo:true}))go('motoristas');
     }
   });
-  document.getElementById('mo-busca').oninput=e=>{
-    const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#mo-list .listcard, #mo-list .listcard *').forEach(tr=>{
-      tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none';
-    });
-  };
+  document.getElementById('mo-busca').oninput=e=>filtraCards('#mo-list', e.target.value);
   l.querySelectorAll('[data-vv]').forEach(b=>b.onclick=async()=>{
     const mid=b.dataset.vv;
     const {data:vs}=await empFilter(sb.from('veiculos').select('id,placa,modelo,empresa')).eq('ativo',true).order('placa');
@@ -5071,7 +5066,7 @@ PAGES.os=async el=>{
   </div></div>`).join('')}</div></div>`;
   document.getElementById('os-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#o-list .listcard, #o-list .listcard *').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
+    filtraCards('#o-list', q);
   };
   l.querySelectorAll('[data-osd]').forEach(b=>b.onclick=async()=>{
     const o=lista.find(x=>x.id===b.dataset.osd);
@@ -5140,6 +5135,18 @@ function encerraSessaoLocal(){
 }
 
 /* modal de confirmação próprio (nunca confirm() do navegador) */
+/* filtro de busca: esconde o CARD inteiro, nunca os filhos.
+   (escondendo filhos o card fica vazio e a lista desanda) */
+function filtraCards(containerSel, termo){
+  const q = String(termo || '').trim().toLowerCase();
+  const box = document.querySelector(containerSel);
+  if(!box) return;
+  box.querySelectorAll('.listcard').forEach(card => {
+    const bate = !q || card.textContent.toLowerCase().includes(q);
+    card.style.display = bate ? '' : 'none';
+  });
+}
+
 function confirmarModal({titulo,texto,botao='Confirmar',perigo=false,aoConfirmar}){
   const w=document.getElementById('modal-wrap'),m=document.getElementById('modal');
   m.innerHTML=`<h3>${esc(titulo)}</h3>
@@ -5278,7 +5285,7 @@ PAGES.usuarios=async el=>{
   // ---- editar aprovado ----
   document.getElementById('u-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#u-list .listcard, #u-list .listcard *').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
+    filtraCards('#u-list', q);
   };
   l.querySelectorAll('[data-ued]').forEach(b=>b.onclick=()=>{
     const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
@@ -5323,7 +5330,7 @@ PAGES.auditoria=async el=>{
     </div></div>`}).join('')}</div></div>`;
   document.getElementById('au-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#au .listcard, #au .listcard *').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
+    filtraCards('#au', q);
   };
 };
 /* ============ RECEBIMENTOS (gerência/conferente) ============ */
@@ -5356,7 +5363,7 @@ PAGES.recebimentos=async el=>{
   carregar();
   document.getElementById('rc-busca').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#rc .listcard, #rc .listcard *').forEach(tr=>tr.style.display=!q||tr.textContent.toLowerCase().includes(q)?'':'none');
+    filtraCards('#rc', q);
   };
 };
 /* ============ RECEBIMENTO — lançamento (motorista Transportadora) ============ */
