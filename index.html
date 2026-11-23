@@ -405,7 +405,7 @@ h1.pg{font-size:var(--fs-xl);margin-bottom:var(--sp-4);font-weight:800;letter-sp
 .card h2{font-size:var(--fs-md);margin-bottom:var(--sp-3)}
 /* drawer (gerência) */
 #nav{position:fixed;top:0;left:-260px;width:250px;height:100vh;height:100dvh;background:#101010;z-index:40;transition:left .25s;padding:calc(var(--sp-4) + env(safe-area-inset-top)) var(--sp-3) var(--sp-4);overflow-y:auto}
-nav.open{left:0}
+nav.open,#nav.open{left:0}
 nav .who{font-size:var(--fs-sm);color:var(--muted);padding:var(--sp-2) 10px 14px;border-bottom:1px solid var(--divider);margin-bottom:var(--sp-2)}
 #nav button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--ink);padding:11px 12px;border-radius:10px;font-size:14px;font-family:var(--font)}
 #nav button.on{background:#262626;color:var(--primary-color)}
