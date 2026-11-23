@@ -665,7 +665,20 @@ function ensureClient(){if(!sb&&hasConn())saveConn(loadConn().url,loadConn().ano
 const DEFAULT_URL='https://ppiqkrvlvtsnsthnfibg.supabase.co';
 const DEFAULT_ANON='sb_publishable_O9oB4kDpibrJPSoWDlgX-A_yAsQ2znY';
 let ME=null, NAV=[], PAGE='home';
-const IS_RECOVERY=/type=recovery/.test(location.hash);
+// link de recuperação vem como #access_token=..&type=recovery
+// (ou ?type=recovery em alguns fluxos) — checar os dois
+const IS_RECOVERY = (function(){
+  try{
+    const hsh = location.hash || '', qs = location.search || '';
+    return /(^|[&#?])type=recovery(&|$)/.test(hsh) || /(^|[?&])type=recovery(&|$)/.test(qs);
+  }catch(_){ return false; }
+})();
+// intenção guardada: enquanto existir, o app não entra logado de jeito nenhum
+if(IS_RECOVERY){ try{ sessionStorage.setItem('cg-recovery','1'); }catch(_){ } }
+function emRecuperacao(){
+  try{ if(IS_RECOVERY) return true; return sessionStorage.getItem('cg-recovery')==='1'; }catch(_){ return IS_RECOVERY; }
+}
+function fimRecuperacao(){ try{ sessionStorage.removeItem('cg-recovery'); }catch(_){ } }
 /* ===== multi-empresa ===== */
 const EMPNOME={OVOS:'OVOS CASAGRANDE',TRANSPORTADORA:'TRANSPORTADORA CASAGRANDE'};
 const EMPLOGO={
@@ -820,10 +833,25 @@ async function init(){
   }
   if(!ensureClient()){showCfg();mostraSeloConvite();return}
   mostraSeloConvite();
+  // o Supabase avisa quando o link de recuperação foi validado
+  try{
+    sb.auth.onAuthStateChange((ev)=>{
+      if(ev==='PASSWORD_RECOVERY'){
+        try{ sessionStorage.setItem('cg-recovery','1'); }catch(_){ }
+        setTimeout(()=>{ if(typeof showRedefinir==='function') showRedefinir(); },0);
+      }
+    });
+  }catch(_){ }
   let data;
   try{({data}=await sb.auth.getSession())}
   catch(e){showLogin();return}
-  if(data.session&&IS_RECOVERY){showRedefinir();return}
+  // recuperação de senha manda em tudo: nunca logar direto com o link do e-mail
+  if(emRecuperacao()){
+    if(data.session){ showRedefinir(); }
+    else { showLogin(); $('li-msg').className='msg err';
+           $('li-msg').textContent='Este link de recuperação expirou. Peça outro em "Esqueci minha senha".'; }
+    return;
+  }
   if(data.session){try{await afterLogin()}catch(e){await sb.auth.signOut().catch(()=>{});showLogin()}}else{showLogin()}
 }
 function showRedefinir(){
@@ -854,11 +882,30 @@ $('rd-btn').onclick=async()=>{
   const p1=$('rd-p1').value,p2=$('rd-p2').value;
   if(p1.length<6){$('rd-msg').className='msg err';$('rd-msg').textContent='A senha precisa de pelo menos 6 caracteres';return}
   if(p1!==p2){$('rd-msg').className='msg err';$('rd-msg').textContent='As senhas não conferem';return}
+  $('rd-btn').disabled=true;
   const {error}=await sb.auth.updateUser({password:p1});
-  if(error){$('rd-msg').className='msg err';$('rd-msg').textContent=err(error)}
-  else{$('rd-msg').className='msg ok';$('rd-msg').textContent='Senha alterada! Entre com a nova.';await sb.auth.signOut();setTimeout(()=>location.reload(),1500)}
+  if(error){
+    $('rd-btn').disabled=false;
+    $('rd-msg').className='msg err';$('rd-msg').textContent=err(error);
+    return;
+  }
+  // senha trocada: encerra a sessão de recuperação e volta para o login de verdade
+  $('rd-msg').className='msg ok';$('rd-msg').textContent='Senha alterada! Entre com a nova.';
+  fimRecuperacao();
+  await sb.auth.signOut().catch(()=>{});
+  ME=null;
+  setTimeout(()=>location.replace(location.origin+location.pathname),1500)
 };
-$('rd-voltar').onclick=()=>{$('card-redef').classList.add('hide');$('card-login').classList.remove('hide')};
+$('rd-voltar').onclick=async()=>{
+  // voltar NÃO pode deixar sessão aberta (era o que logava sozinho no reload)
+  fimRecuperacao();
+  await sb.auth.signOut().catch(()=>{});
+  ME=null;
+  $('card-redef').classList.add('hide');
+  $('card-login').classList.remove('hide');
+  $('li-pass').value=''; $('li-msg').textContent='';
+  history.replaceState(null,'',location.pathname);
+};
 $('li-esqueci').onclick=async()=>{
   const email=$('li-email').value.trim();
   if(!email){$('li-msg').className='msg err';$('li-msg').textContent='Digite seu e-mail no campo acima e clique de novo';return}
