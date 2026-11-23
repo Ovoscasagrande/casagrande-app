@@ -2211,7 +2211,17 @@ PAGES.promotoria=async el=>{
       w.classList.add('open');w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
       document.getElementById('m-cancel').onclick=()=>w.classList.remove('open');
       document.getElementById('m-ok').onclick=async()=>{
-        await sb.from('roteiros_promotoria').delete().eq('id',rid);
+        // o delete pode afetar 0 linhas (sem policy) sem dar erro -> conferir sempre
+        const { error:errDel, count } = await sb.from('roteiros_promotoria')
+          .delete({ count:'exact' }).eq('id', rid);
+        if(errDel){
+          toast('Não consegui excluir: ' + errDel.message);
+          return;
+        }
+        if(!count){
+          toast('Nada foi apagado — você não tem permissão para excluir este roteiro');
+          return;
+        }
         w.classList.remove('open');toast('Roteiro excluído');carregar();
       };
     });
@@ -5211,7 +5221,7 @@ PAGES.usuarios=async el=>{
     <div class="lc-sub" style="word-break:break-all">${esc(u.email||'—')}</div>
     <div class="lc-rows"><div class="lc-row"><span>Empresa</span><b>${esc(u.empresa||'OVOS')}</b></div></div>
     <div class="lc-actions">
-      ${ME.master?`<button type="button" class="btn mini" data-ued="${u.id}">✏️ Editar</button>`:''}
+      ${(ME.master||ME.perfil==='gerencia')?`<button type="button" class="btn mini" data-ued="${u.id}">✏️ Alterar perfil</button>`:''}
       ${(ME.perfil==='gerencia' && u.id!==ME.id)?`<button type="button" class="btn mini" data-uder="${u.id}" style="border-color:#5c3a2e">🚪 Derrubar</button>`:''}
     </div>
   </div></div>`).join('')}</div></div></div>`:empty('Nenhum usuário aprovado ainda');
@@ -5290,7 +5300,9 @@ PAGES.usuarios=async el=>{
   l.querySelectorAll('[data-ued]').forEach(b=>b.onclick=()=>{
     const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
     openModal('✏️ Editar — '+u.nome,[
-      {id:'eu-perfil',label:'Perfil',tipo:'select',opcoes:[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],valor:(u.perfil||'motorista')},
+      {id:'eu-perfil',label:'O que a pessoa é',tipo:'select',opcoes:(ME.master
+          ?[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']]
+          :[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico']]),valor:(u.perfil||'motorista')},
       {id:'eu-emp',label:'Empresa',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas'],['TODAS','Todas']],valor:(u.empresa||'OVOS')},
       {id:'eu-extra',label:'Também opera como (só para gerência)',tipo:'select',opcoes:[['','— nenhum —'],['motorista','Também motorista'],['promotor','Também promotor'],['motorista,promotor','Também motorista E promotor']],valor:((u.perfis_extra||[]).join(','))}
     ],async v=>{
