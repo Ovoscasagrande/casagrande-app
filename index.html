@@ -2123,7 +2123,7 @@ PAGES.promotoria=async el=>{
     const data=$('pm-data').value||hoje();
     $('pm').innerHTML=empty('Carregando…');
     await limparFotosVelhas();
-    const {data:rots}=await sb.from('roteiros_promotoria').select('*, motoristas(nome), roteiro_clientes(ordem, cliente_id, clientes_promotoria(id,nome,endereco)), visitas(cliente_id,fotos,gps_ok,distancia_m,pedido,visitado_em)').eq('data',data).order('criado_em');
+    const {data:rots}=await sb.from('roteiros_promotoria').select('*, motoristas(nome), roteiro_clientes(ordem, cliente_id, clientes_promotoria(id,nome,endereco)), visitas(id,cliente_id,fotos,gps_ok,distancia_m,pedido,visitado_em,estoque_fotos,estoque_caixas,estoque_obs)').eq('data',data).order('criado_em');
     const box=$('pm');
     // alertas por exceção (GPS longe, sem GPS, ruptura na gôndola)
     const excecoes=[];
