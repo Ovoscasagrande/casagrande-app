@@ -531,6 +531,7 @@ body.sem-tabbar main{padding-bottom:var(--sp-5)}
 .dash-kpi .v{font-size:20px;font-weight:800;line-height:1.15;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dash-kpi .l{font-size:11px;color:var(--muted);line-height:1.2}
+.dash-kpi-go{font-size:10px;color:var(--acc);font-weight:700;margin-top:auto;text-align:right}
 .dash-badge{display:inline-block;margin-top:4px;font-size:10px;font-weight:700;
   padding:2px 7px;border-radius:999px;white-space:nowrap;width:fit-content}
 .dash-badge.up{background:rgba(224,82,82,.16);color:#ff8a8a}
@@ -689,7 +690,6 @@ function applyBranding(){
   const r=document.documentElement.style;
   // tema (cor, contraste, alias --acc e a versao suave para fundos)
   if(e==='TRANSPORTADORA'){r.setProperty('--primary-color','#1E5AA8');r.setProperty('--primary-contrast','#ffffff');r.setProperty('--acc','#1E5AA8');r.setProperty('--primary-soft','rgba(30,90,168,.16)')}
-  else if(e==='DISTRIBUIDORA'){r.setProperty('--primary-color','#797F35');r.setProperty('--primary-contrast','#ffffff');r.setProperty('--acc','#797F35');r.setProperty('--primary-soft','rgba(121,127,53,.18)')}
   else{r.setProperty('--primary-color','#FCC85C');r.setProperty('--primary-contrast','#121212');r.setProperty('--acc','#FCC85C');r.setProperty('--primary-soft','rgba(252,200,92,.14)')}
   const lg=EMPLOGO[e]||'logo-branca.png';
   // (marca d água de fundo removida — layout clean)
@@ -701,8 +701,8 @@ function applyEmpBtn(){
   const b=document.getElementById('emp-btn');if(!b)return;
   if(!ME){b.style.display='none';return}
   const e=empAtiva();
-  const cor=e==='TRANSPORTADORA'?'#1e5aa8':e==='DISTRIBUIDORA'?'#797f35':e==='GRUPO'?'#9a9a9a':'#fcc85c';
-  const nome=e==='TRANSPORTADORA'?'TRANSPORTADORA':e==='DISTRIBUIDORA'?'DISTRIBUIDORA':e==='GRUPO'?'GRUPO':'OVOS';
+  const cor=e==='TRANSPORTADORA'?'#1e5aa8':e==='GRUPO'?'#9a9a9a':'#fcc85c';
+  const nome=e==='TRANSPORTADORA'?'TRANSPORTADORA':e==='GRUPO'?'GRUPO':'OVOS';
   b.style.display='';
   if(window.__empTravada){
     b.innerHTML=`<span style="background:${cor}"></span>${nome} 🔒`;
@@ -722,9 +722,9 @@ function bindEmpMenu(){
   }
   let opts;
   if(ME.empresa==='MULTI'){
-    const NOMES={OVOS:'🥚 OVOS CASAGRANDE',TRANSPORTADORA:'🚚 TRANSPORTADORA',DISTRIBUIDORA:'🏪 DISTRIBUIDORA'};
+    const NOMES={OVOS:'🥚 OVOS CASAGRANDE',TRANSPORTADORA:'🚚 TRANSPORTADORA'};
     opts=(ME.empresasMotorista||[]).filter(x=>NOMES[x]).map(x=>[x,NOMES[x]]);
-  } else opts=ME.empresa==='TODAS'?[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['DISTRIBUIDORA','🏪 DISTRIBUIDORA'],['GRUPO','Σ GRUPO — as três']]:[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['GRUPO','Σ GRUPO — as duas']];
+  } else opts=ME.empresa==='TODAS'?[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['GRUPO','Σ GRUPO']]:[['OVOS','🥚 OVOS CASAGRANDE'],['TRANSPORTADORA','🚚 TRANSPORTADORA'],['GRUPO','Σ GRUPO — as duas']];
   m.innerHTML=opts.map(o=>`<button type="button" data-e="${o[0]}" class="${empAtiva()===o[0]?'on':''}">${o[1]}</button>`).join('');
   m.querySelectorAll('button').forEach(x=>x.onclick=()=>{m.classList.remove('open');setEmp(x.dataset.e)});
   b.onclick=ev=>{ev.stopPropagation();m.classList.toggle('open')};
@@ -734,7 +734,7 @@ document.addEventListener('click',ev=>{
   if(m&&m.classList.contains('open')&&!m.contains(ev.target)){const b=document.getElementById('emp-btn');if(!b||!b.contains(ev.target))m.classList.remove('open')}
 });
 function empFilter(q){const e=empAtiva();if(e==='GRUPO'||!ME)return q;return q.in('empresa',[e,'AMBAS','TODAS'])}
-function empresasGrupo(){return ME&&ME.empresa==='TODAS'?['OVOS','TRANSPORTADORA','DISTRIBUIDORA']:['OVOS','TRANSPORTADORA']}
+function empresasGrupo(){return ME&&ME.empresa==='TODAS'?['OVOS','TRANSPORTADORA']:['OVOS','TRANSPORTADORA']}
 function insEmp(row){const e=empAtiva();if(e&&e!=='GRUPO')row.empresa=e;return row}
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -1103,11 +1103,6 @@ function menusPara(){
   };
   let m=(base[ME.perfil]||base.gerencia).slice();
   const e=empAtiva();
-  if(e==='DISTRIBUIDORA'){
-    if(ME.perfil==='gerencia')m=['home','pedidos-rota','roteiros','hoje','clientes','produtos','tipos','veiculos','motoristas','jornadas','conferencia','abastecimentos','despesas','avisos','multas','manuais','usuarios','auditoria'];
-    else if(ME.perfil==='motorista')m=['home','minha-rota','jornada','gastos','meu-historico','avisos','multas','manuais'];
-    else m=m.filter(x=>!['promotoria','pro-roteiro','pro-avulsa','recebimentos','recnovo','pro-cliente'].includes(x));
-  }
   if(ME.perfil==='gerencia'&&ME.motorista){
     const ex=ME.extra||[];
     if(ex.includes('motorista')&&!m.includes('jornada'))m.push('jornada','gastos');
@@ -1453,10 +1448,9 @@ PAGES.jornada=async el=>{
       ${bloqueados.size?`<p class="hint">🔒 Caminhão em cinza = jornada anterior ainda não conferida. A conferência libera a próxima.</p>`:''}
       <label>Quilometragem inicial</label><input id="j-km" type="number" inputmode="numeric" placeholder="ex.: 84500" readonly style="background:#1b1b1b;color:var(--acc);font-weight:700">
       <p class="hint" style="margin:4px 0 0">KM do odômetro no fim da última jornada — confira no painel do caminhão. Se estiver errado, peça à gerência.</p>
-      ${empAtiva()==='DISTRIBUIDORA'?`<label>Nº do roteiro</label><input id="j-rot" type="number" inputmode="numeric" value="${rotaAceita?rotaAceita.roteiro:''}" readonly style="${rotaAceita?'background:#262626':''}"><p class="hint" id="j-rot-hint" style="margin:4px 0 0">${rotaAceita?'Roteiro aceito por você — só confirme o km e inicie.':'O nº gerado em Pedidos & Rota aparece aqui — digite o mesmo.'}</p>`:''}
       ${empAtiva()==='OVOS'?`<label>Nº do roteiro (do ERP)</label><div style="display:flex;gap:8px;align-items:center"><input id="j-rot" type="number" inputmode="numeric" placeholder="ex.: 12345" style="flex:1"><button type="button" class="btn mini" id="j-rot-add" type="button" style="white-space:nowrap">+ Incluir roteiro</button></div><div id="j-rots" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div><p class="hint" style="margin:4px 0 0">Saiu com mais de um roteiro? Digite o número e toque em “+ Incluir roteiro”.</p>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px;background:var(--field);border:1px solid #333;border-radius:10px;cursor:pointer"><input type="checkbox" id="j-carga" style="width:18px;height:18px;accent-color:var(--acc)"><span style="font-size:13px">📦 <b>Carregamento</b> — saiu vazio para carregar (sem roteiro)</span></label>`:''}
-      <button type="button" class="btn" id="j-iniciar">▶ ${empAtiva()==='DISTRIBUIDORA'?'Iniciar roteiro':'Iniciar jornada'}</button><div class="msg" id="j-msg"></div></div>
+      <button type="button" class="btn" id="j-iniciar">▶ Iniciar jornada</button><div class="msg" id="j-msg"></div></div>
       ${ultimas&&ultimas.length?`<div class="sec"><h3>Últimas jornadas</h3><div>${ultimas.map(j=>`<div class="listcard"><div class="lc-main">
         <div class="lc-title"><span>${rotTxt(j)}</span><span class="lc-tag">${tag(j.status)}</span></div>
         <div class="lc-sub">${esc(j.veiculos?.placa||'—')} · ${fmtDT(j.inicio)}</div>
@@ -1839,7 +1833,7 @@ PAGES.convites=async el=>{
   if(!ME.master){el.innerHTML=empty('Somente o MASTER gera convites');return}
   el.innerHTML=`<h1 class="pg">🎟️ Convites</h1>
   <div class="sec"><h3>Gerar convite</h3>
-    <label>Empresa</label><select id="cv-emp" style="width:100%"><option value="OVOS">OVOS CASAGRANDE</option><option value="TRANSPORTADORA">TRANSPORTADORA CASAGRANDE</option><option value="DISTRIBUIDORA">DISTRIBUIDORA CASAGRANDE</option></select>
+    <label>Empresa</label><select id="cv-emp" style="width:100%"><option value="OVOS">OVOS CASAGRANDE</option><option value="TRANSPORTADORA">TRANSPORTADORA CASAGRANDE</option></select>
     <label>Perfil</label><select id="cv-perf" style="width:100%"><option value="gerencia">Gerente</option><option value="motorista">Motorista</option><option value="promotor">Promotor</option><option value="conferente">Conferente</option><option value="mecanico">Mecânico</option></select>
     <button type="button" class="btn" id="cv-btn" style="margin-top:10px">🎟️ Gerar link de convite</button>
     <div class="msg ok" id="cv-ok" style="display:none"></div></div>
@@ -1860,7 +1854,7 @@ PAGES.convites=async el=>{
       const url=location.origin+location.pathname+'?convite='+b.dataset.cp;
       const c=list.find(x=>x.token===b.dataset.cp);
       const PERFIL={gerencia:'Gerente',motorista:'Motorista',promotor:'Promotor',conferente:'Conferente',mecanico:'Mecânico'};
-      const msg='🎟️ *Convite para '+PERFIL[c.perfil]+' da '+(c.empresa==='OVOS'?'OVOS CASAGRANDE':c.empresa==='TRANSPORTADORA'?'TRANSPORTADORA CASAGRANDE':'DISTRIBUIDORA CASAGRANDE')+'*\n\nToque no link e crie seu acesso ao app:\n'+url+'\n\n⏰ O link é válido por 24 horas e é de uso único.';
+      const msg='🎟️ *Convite para '+PERFIL[c.perfil]+' da '+(c.empresa==='OVOS'?'OVOS CASAGRANDE':'TRANSPORTADORA CASAGRANDE')+'*\n\nToque no link e crie seu acesso ao app:\n'+url+'\n\n⏰ O link é válido por 24 horas e é de uso único.';
       try{await navigator.clipboard.writeText(msg);toast('Convite copiado com a mensagem!')}
       catch(e){
         // sem acesso à área de transferência: mostra em modal próprio (nunca prompt do navegador)
@@ -1880,7 +1874,7 @@ PAGES.convites=async el=>{
     if(error){toast(err(error));return}
     const url=location.origin+location.pathname+'?convite='+t;
     const PERFIL={gerencia:'Gerente',motorista:'Motorista',promotor:'Promotor',conferente:'Conferente',mecanico:'Mecânico'};
-    const msg='🎟️ *Convite para '+PERFIL[$('cv-perf').value]+' da '+($('cv-emp').value==='OVOS'?'OVOS CASAGRANDE':$('cv-emp').value==='TRANSPORTADORA'?'TRANSPORTADORA CASAGRANDE':'DISTRIBUIDORA CASAGRANDE')+'*\n\nToque no link e crie seu acesso ao app:\n'+url+'\n\n⏰ O link é válido por 24 horas e é de uso único.';
+    const msg='🎟️ *Convite para '+PERFIL[$('cv-perf').value]+' da '+($('cv-emp').value==='OVOS'?'OVOS CASAGRANDE':'TRANSPORTADORA CASAGRANDE')+'*\n\nToque no link e crie seu acesso ao app:\n'+url+'\n\n⏰ O link é válido por 24 horas e é de uso único.';
     const ok=$('cv-ok');ok.style.display='block';ok.textContent='Link gerado! Toque em Copiar para enviar: '+url;
     try{await navigator.clipboard.writeText(msg);toast('Convite copiado com a mensagem! Envie por WhatsApp')}catch(e){}
     carregar();
@@ -3143,7 +3137,7 @@ PAGES.multas=async el=>{
 };
 /* ============ PÁGINAS — GERÊNCIA ============ */
 /* ============ HOJE NA EMPRESA (gerência) ============ */
-PAGES.hoje=async el=>{if(empAtiva()==='DISTRIBUIDORA')return pagHojeDist(el);
+PAGES.hoje=async el=>{
   el.innerHTML=`<h1 class="pg">☀️ Hoje na empresa</h1><div id="hj">${empty('Carregando…')}</div>`;
   const data=hoje();
   const [js,ml,ds,rc,avs]=await Promise.all([
@@ -3353,6 +3347,8 @@ function dashAbreDetalhe(titulo, registros, opts){
   const n=registros.length;
 
   const linhas = registros.slice(0,300).map(r=>{
+    // linha customizada (KPIs de operação: jornadas, veículos, OS, avisos, multas)
+    if(opts.linha) return `<div class="listcard"><div class="lc-main">${opts.linha(r)}</div></div>`;
     const data = ddmmaaaa(r.data||r.data_infracao||r.aberta_em||r.criado_em);
     const mot  = r.motorista_id ? dashMot(r.motorista_id) : '—';
     const pl   = r.veiculo_id   ? dashPlaca(r.veiculo_id) : '—';
@@ -3371,19 +3367,33 @@ function dashAbreDetalhe(titulo, registros, opts){
     </div>`;
   }).join('');
 
-  m.innerHTML=`
-    <h3 style="padding-right:28px">${esc(titulo)}</h3>
-    <div class="dash-mini">
+  // mini-resumo: com valor para dinheiro, sem R$ para contagens
+  const mini = opts.semValor
+    ? `<div class="dash-mini"><div><b>${n}</b><span>registro(s)</span></div></div>`
+    : `<div class="dash-mini">
       <div><b>${n}</b><span>lançamentos</span></div>
       <div><b>${fmtBRL(media)}</b><span>ticket médio</span></div>
       <div><b>${fmtBRL(maior)}</b><span>maior</span></div>
-    </div>
+    </div>`;
+
+  // caminho para a tela completa
+  const ir = opts.irPara
+    ? `<button type="button" class="btn" id="dsh-ir" style="min-height:48px">Abrir ${esc(opts.irPara[1]||opts.irPara[0])} ›</button>`
+    : '';
+
+  m.innerHTML=`
+    <h3 style="padding-right:28px">${esc(titulo)}</h3>
+    ${mini}
     <div style="max-height:52vh;overflow:auto;-webkit-overflow-scrolling:touch">${linhas||'<p class="hint">Nenhum registro.</p>'}</div>
     ${n>300?`<p class="hint">Mostrando os 300 primeiros de ${n}.</p>`:''}
-    <div class="mrow"><button type="button" class="btn sec" id="dsh-fechar">Fechar</button></div>`;
+    <div class="mrow">${ir}<button type="button" class="btn sec" id="dsh-fechar" style="min-height:48px">Fechar</button></div>`;
 
   w.classList.add('open');
   document.getElementById('dsh-fechar').onclick=()=>w.classList.remove('open');
+  if(opts.irPara){
+    const bi=document.getElementById('dsh-ir');
+    if(bi) bi.onclick=()=>{ w.classList.remove('open'); go(opts.irPara[0]); };
+  }
   w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
 }
 async function dashFoto(path){
@@ -3468,6 +3478,21 @@ PAGES.dashboard=async el=>{
 
   const [js,vs,ms,avs,osL,ds,rcs]=resumo;
   const j=js.data||[], v=vs.data||[];
+
+  // listas completas para o drill-down dos KPIs de operação
+  const [jDet, vsDet, msDet, avDet, osDet] = await Promise.all([
+    empFilter(sb.from('jornadas').select('id,status,inicio,fim,km_inicial,km_final,roteiro,motorista_id,veiculo_id,motoristas(nome),veiculos(placa)')).neq('status','fechada').order('inicio',{ascending:false}).limit(200),
+    empFilter(sb.from('veiculos').select('id,placa,modelo,km_atual,proxima_manutencao_km,ativo')).eq('ativo',true).order('placa').limit(200),
+    empFilter(sb.from('multas').select('id,orgao,valor,data_infracao,status,veiculos(placa),motoristas(nome)')).eq('status','aguardando_ciencia').order('data_infracao',{ascending:false}).limit(200),
+    empFilter(sb.from('avisos').select('id,categoria,texto,criado_em,status,veiculos(placa),motoristas(nome)')).in('status',['recebido','em_analise']).order('criado_em',{ascending:false}).limit(200),
+    empFilter(sb.from('ordens_servico').select('id,descricao,status,aberta_em,custos,veiculos(placa)')).neq('status','concluida').order('aberta_em',{ascending:false}).limit(200)
+  ]);
+  const jrAb      = (jDet.data||[]).filter(x=>x.status==='aberta');
+  const jrConf    = (jDet.data||[]).filter(x=>x.status==='conferencia');
+  const vsAtivos  = vsDet.data||[];
+  const msSem     = msDet.data||[];
+  const avAbertos = avDet.data||[];
+  const osAbertas = osDet.data||[];
   const abertas=j.filter(x=>x.status==='aberta').length;
   const conf=j.filter(x=>x.status==='conferencia').length;
   const ativos=v.filter(x=>x.ativo).length;
@@ -3511,12 +3536,12 @@ PAGES.dashboard=async el=>{
       ${kpiClicavel('Custo total',custoTotal,totCombA+totDespA,null,'custo')}
       ${kpiClicavel('Multas',totMult,totMultA,serieDiaria(M,'valor','data_infracao'),'mult')}
       ${e!=='OVOS'?`<div class="kpi"><div class="v">${(rcs.data||[]).reduce((s,x)=>s+Number(x.valor||0),0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</div><div class="l">Recebimentos</div></div>`:''}
-      <div class="kpi"><div class="v">${abertas}</div><div class="l">Jornadas abertas</div></div>
-      <div class="kpi"><div class="v">${conf}</div><div class="l">Aguardando conferência</div></div>
-      <div class="kpi"><div class="v">${ativos}</div><div class="l">Veículos ativos</div></div>
-      <div class="kpi"><div class="v">${(ms.data||[]).length}</div><div class="l">Multas sem ciência</div></div>
-      <div class="kpi"><div class="v">${(avs.data||[]).length}</div><div class="l">Avisos em aberto</div></div>
-      <div class="kpi"><div class="v">${(osL.data||[]).length}</div><div class="l">OS abertas</div></div>
+      <div class="kpi dash-kpi" data-tipo="jAbertas" role="button" tabindex="0"><div class="v">${abertas}</div><div class="l">Jornadas abertas</div><div class="dash-kpi-go">ver e ir ›</div></div>
+      <div class="kpi dash-kpi" data-tipo="jConf" role="button" tabindex="0"><div class="v">${conf}</div><div class="l">Aguardando conferência</div><div class="dash-kpi-go">ver e ir ›</div></div>
+      <div class="kpi dash-kpi" data-tipo="veicAtivos" role="button" tabindex="0"><div class="v">${ativos}</div><div class="l">Veículos ativos</div><div class="dash-kpi-go">ver e ir ›</div></div>
+      <div class="kpi dash-kpi" data-tipo="multasCiencia" role="button" tabindex="0"><div class="v">${(ms.data||[]).length}</div><div class="l">Multas sem ciência</div><div class="dash-kpi-go">ver e ir ›</div></div>
+      <div class="kpi dash-kpi" data-tipo="avisosAbertos" role="button" tabindex="0"><div class="v">${(avs.data||[]).length}</div><div class="l">Avisos em aberto</div><div class="dash-kpi-go">ver e ir ›</div></div>
+      <div class="kpi dash-kpi" data-tipo="osAbertas" role="button" tabindex="0"><div class="v">${(osL.data||[]).length}</div><div class="l">OS abertas</div><div class="dash-kpi-go">ver e ir ›</div></div>
     </div>
     <div class="sec"><h3>${EMPNOME[e]||'Grupo'}</h3>
       <p class="hint">${p.label} · ${ddmmaaaa(p.ini)} a ${ddmmaaaa(p.fim)} · ${ativos} veículos ativos · ${conf} em conferência</p>
@@ -3540,14 +3565,36 @@ PAGES.dashboard=async el=>{
   $('db').querySelectorAll('[data-limpar]').forEach(b=>{
     b.onclick=ev=>{ ev.stopPropagation(); DASH_STATE.filtro[b.dataset.limpar]=null; PAGES.dashboard(el); };
   });
-  // KPI clicável -> lista completa
+  // KPI clicável -> lista do que compõe o número + caminho para a tela
   $('db').querySelectorAll('.dash-kpi').forEach(k=>{
     const abre=()=>{
       const t=k.dataset.tipo;
-      if(t==='comb') dashAbreDetalhe('Combustível · '+p.label, A, {valor:r=>r.valor_total});
-      else if(t==='desp') dashAbreDetalhe('Despesas · '+p.label, D, {valor:r=>r.valor});
-      else if(t==='mult') dashAbreDetalhe('Multas · '+p.label, M, {valor:r=>r.valor});
-      else dashAbreDetalhe('Custo total · '+p.label, [...A.map(r=>({...r,_v:r.valor_total})), ...D.map(r=>({...r,_v:r.valor}))], {valor:r=>r._v});
+      if(t==='comb') return dashAbreDetalhe('Combustível · '+p.label, A, {valor:r=>r.valor_total, irPara:['abastecimentos','Abastecimentos']});
+      if(t==='desp') return dashAbreDetalhe('Despesas · '+p.label, D, {valor:r=>r.valor, irPara:['despesas','Despesas']});
+      if(t==='mult') return dashAbreDetalhe('Multas · '+p.label, M, {valor:r=>r.valor, irPara:['multas','Multas']});
+      if(t==='custo') return dashAbreDetalhe('Custo total · '+p.label,
+        [...A.map(r=>({...r,_v:r.valor_total})), ...D.map(r=>({...r,_v:r.valor}))],
+        {valor:r=>r._v, irPara:['abastecimentos','Abastecimentos']});
+
+      // KPIs de operação: mostram a lista e levam para a tela
+      if(t==='jAbertas') return dashAbreDetalhe('Jornadas abertas agora', jrAb, {semValor:true,
+        irPara:['jornadas','Jornadas'],
+        linha:j=>`<b>${esc(j.motoristas?.nome||'—')}</b> · ${esc(j.veiculos?.placa||'—')}${j.roteiro?' · roteiro '+j.roteiro:' · 📦 carregamento'}<div class="hint">saiu ${fmtDT(j.inicio)} · km ${fmtKm(j.km_inicial)}</div>`});
+      if(t==='jConf') return dashAbreDetalhe('Aguardando conferência', jrConf, {semValor:true,
+        irPara:['conferencia','Conferência'],
+        linha:j=>`<b>${esc(j.motoristas?.nome||'—')}</b> · ${esc(j.veiculos?.placa||'—')}${j.roteiro?' · roteiro '+j.roteiro:' · 📦 carregamento'}<div class="hint">encerrou ${fmtDT(j.fim)}</div>`});
+      if(t==='veicAtivos') return dashAbreDetalhe('Veículos ativos', vsAtivos, {semValor:true,
+        irPara:['veiculos','Veículos'],
+        linha:v=>`<b>${esc(v.placa)}</b> ${esc(v.modelo||'')}<div class="hint">km atual ${fmtKm(v.km_atual)}</div>`});
+      if(t==='multasCiencia') return dashAbreDetalhe('Multas sem ciência', msSem, {semValor:true,
+        irPara:['multas','Multas'],
+        linha:m=>`<b>${esc(m.orgao||'multa')}</b> · ${fmtBRL(m.valor)}<div class="hint">${ddmmaaaa(m.data_infracao)} · aguardando ciência</div>`});
+      if(t==='avisosAbertos') return dashAbreDetalhe('Avisos em aberto', avAbertos, {semValor:true,
+        irPara:['avisos','Avisos'],
+        linha:a=>`<b>${esc(a.categoria||'aviso')}</b> · ${esc(a.veiculos?.placa||'')}<div class="hint">${esc(String(a.texto||'').slice(0,90))}</div>`});
+      if(t==='osAbertas') return dashAbreDetalhe('Ordens de serviço abertas', osAbertas, {semValor:true,
+        irPara:['os','Ordens de serviço'],
+        linha:o=>`<b>${esc(o.descricao||'OS')}</b><div class="hint">aberta ${fmtDT(o.aberta_em)}</div>`});
     };
     k.onclick=abre;
     k.onkeydown=ev=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); abre(); } };
@@ -4526,7 +4573,7 @@ PAGES.veiculos=async el=>{
   <div class="row"><div><label>Ano</label><input id="v-ano" type="number"></div><div><label>Cor</label><input id="v-cor"></div></div>
   <div class="row"><div><label>Intervalo troca de óleo (km)</label><input id="v-oleo" type="number" placeholder="ex.: 10000"></div><div><label>Última troca (km)</label><input id="v-oleo-km" type="number"></div></div>
   <div class="row"><div><label>KM atual (odômetro)</label><input id="v-km" type="number" inputmode="numeric" placeholder="ex.: 84500"><p class="hint" style="margin:4px 0 0">Atualiza sozinho com as jornadas — edite só para corrigir.</p></div></div>
-  <label>Empresa do veículo</label><select id="v-emp">${opt([['TODAS','Todas (3) — padrão'],['OVOS','Só OVOS'],['TRANSPORTADORA','Só Transportadora'],['DISTRIBUIDORA','Só Distribuidora'],['AMBAS','OVOS + Transportadora']],'TODAS')}</select>
+  <label>Empresa do veículo</label><select id="v-emp">${opt([['TODAS','Todas (3) — padrão'],['OVOS','Só OVOS'],['TRANSPORTADORA','Só Transportadora'],['AMBAS','OVOS + Transportadora']],'TODAS')}</select>
   <p class="hint">"Todas (compartilhado)" = o mesmo caminhão serve nas empresas — aparece na frota de todas.</p>
   <label>CRLV-e (PDF ou foto) *</label><input id="v-crlv" type="file" accept="application/pdf,image/*">
   <label>Vencimento do CRLV-e</label><input id="v-crlv-venc" type="date">
@@ -4560,7 +4607,7 @@ PAGES.veiculos=async el=>{
   const crlvBy={};(docs||[]).forEach(d=>{if(!crlvBy[d.veiculo_id])crlvBy[d.veiculo_id]=d});
   const buscaV=(document.getElementById('v-busca')?.value||'').toLowerCase();
   const listaV=buscaV?lista.filter(v=>((v.placa||'')+' '+(v.marca||'')+' '+(v.modelo||'')+' '+(v.renavam||'')).toLowerCase().includes(buscaV)):lista;
-  l.innerHTML=listaV.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();const empN={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'}[v.empresa]||v.empresa||'—';
+  l.innerHTML=listaV.map(v=>{const d=crlvBy[v.id];const venc=d?.vencimento&&d.vencimento<hoje();const empN={OVOS:'OVOS',TRANSPORTADORA:'Transp.',AMBAS:'OVOS+Transp',TODAS:'Todas'}[v.empresa]||v.empresa||'—';
   const faltaOleo=(v.km_atual!=null&&v.intervalo_oleo_km&&v.ultima_troca_oleo_km!=null)?Number(v.km_atual)-(Number(v.ultima_troca_oleo_km)+Number(v.intervalo_oleo_km)):null;
   const oleoTxt=faltaOleo!=null?(faltaOleo>=0?`<b style="color:var(--bad)">TROCAR (+${km(faltaOleo)})</b>`:`próxima em ${km(-faltaOleo)}`):(v.intervalo_oleo_km?km(v.intervalo_oleo_km):'—');
   return `<div class="listcard ${faltaOleo!=null&&faltaOleo>=0?'danger':''}">
@@ -4608,7 +4655,7 @@ PAGES.veiculos=async el=>{
   l.querySelectorAll('[data-emp]').forEach(b=>b.onclick=()=>{
     const atual=b.dataset.e;
     openModal('🏢 Empresa do veículo',[
-      {id:'ve-emp',label:'Onde este veículo opera',tipo:'select',opcoes:[['TODAS','Todas (3) — padrão'],['OVOS','Só OVOS'],['TRANSPORTADORA','Só Transportadora'],['DISTRIBUIDORA','Só Distribuidora'],['AMBAS','OVOS + Transportadora']],valor:atual||'TODAS'}
+      {id:'ve-emp',label:'Onde este veículo opera',tipo:'select',opcoes:[['TODAS','Todas (3) — padrão'],['OVOS','Só OVOS'],['TRANSPORTADORA','Só Transportadora'],['AMBAS','OVOS + Transportadora']],valor:atual||'TODAS'}
     ],async v=>{
       const r=await upd('veiculos',b.dataset.emp,{empresa:v['ve-emp']});
       if(r){toast('Empresa atualizada');go('veiculos')}
@@ -4659,7 +4706,7 @@ PAGES.motoristas=async el=>{
   <div id="mo-emps" style="display:flex;gap:14px;flex-wrap:wrap;padding:6px 0">
     <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="OVOS" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> OVOS</label>
     <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="TRANSPORTADORA" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> Transportadora</label>
-    <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="DISTRIBUIDORA" class="mo-emp" style="width:18px;height:18px;accent-color:var(--acc)"> Distribuidora</label>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" value="TRANSPORTADORA2" hidden class="mo-emp" style="display:none;accent-color:var(--acc)"> Distribuidora</label>
   </div>
   <button type="button" class="btn" id="mo-btn">Cadastrar motorista</button><div class="msg" id="mo-msg"></div></div>
   <input id="mo-busca" placeholder="🔍 buscar motorista, placa, CPF..." style="width:100%;margin-bottom:10px" autocomplete="off">
@@ -4693,7 +4740,7 @@ PAGES.motoristas=async el=>{
     const vics=(vincBy[m.id]||[]).map(v=>v.placa).join(' ');
     return (m.nome||'').toLowerCase().includes(buscaM)||(m.cpf||'').includes(buscaM)||(m.cnh||'').includes(buscaM)||vics.toLowerCase().includes(buscaM);
   }):lista;
-  const EMPNICK={OVOS:'OVOS',TRANSPORTADORA:'Transp.',DISTRIBUIDORA:'Distrib.',AMBAS:'OVOS+Transp',TODAS:'Todas'};
+  const EMPNICK={OVOS:'OVOS',TRANSPORTADORA:'Transp.',AMBAS:'OVOS+Transp',TODAS:'Todas'};
   l.innerHTML=`<div>
   ${listaF.map(m=>{const venc=m.cnh_validade&&m.cnh_validade<hojeStr;const vs=(vincBy[m.id]||[]).map(v=>v.placa).join(', ')||'—';const empsTxt=(m.empresas&&m.empresas.length?m.empresas.map(x=>EMPNICK[x]||x).join(', '):EMPNICK[m.empresa]||m.empresa||'—');return `<div class="listcard"><div class="lc-main">
     <div class="lc-title"><span>${esc(m.nome)}</span><span class="lc-tag">${m.situacao==='completo'?'<span class="tag aprovada">completo</span>':'<span class="tag aguardando">incompleto</span>'}</span></div>
@@ -4771,7 +4818,7 @@ PAGES.motoristas=async el=>{
   l.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{
     const m=(lista||[]).find(x=>x.id===b.dataset.ed);if(!m)return;
     openModal('Editar motorista — '+m.nome,[
-      {id:'ed-emps',label:'Empresas onde ele trabalha',tipo:'checkboxes',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora']],valor:m.empresas||[]},
+      {id:'ed-emps',label:'Empresas onde ele trabalha',tipo:'checkboxes',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora']],valor:m.empresas||[]},
       {id:'ed-cpf',label:'CPF',valor:m.cpf||'',placeholder:'000.000.000-00',inputmode:'numeric'},
       {id:'ed-cnh',label:'CNH',valor:m.cnh||'',inputmode:'numeric'},
       {id:'ed-cat',label:'Categoria da CNH',valor:m.cnh_categoria||'',placeholder:'D / E'},
@@ -5134,7 +5181,7 @@ PAGES.usuarios=async el=>{
         </div>
         <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
           <select data-perfil="${u.id}" class="mini-sel">${opt(ME.master?[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']]:[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico']],u.perfil!=='pendente'?u.perfil:'motorista')}</select>
-          <select data-emp="${u.id}" class="mini-sel">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','Ambas'],['TODAS','Todas (3)']],u.empresa&&u.empresa!=='OVOS'?u.empresa:'OVOS')}</select>
+          <select data-emp="${u.id}" class="mini-sel">${opt([['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas'],['TODAS','Todas']],u.empresa&&u.empresa!=='OVOS'?u.empresa:'OVOS')}</select>
           <span data-veic-wrap="${u.id}" style="display:none"><select data-veic="${u.id}" class="mini-sel"><option value="">— sem veículo —</option></select></span>
           <button type="button" class="btn mini" data-apr="${u.id}">✓ Aprovar</button>
           <button type="button" class="btn mini" data-rec="${u.id}" style="border-color:#5c3a2e">✗ Recusar</button>
@@ -5183,7 +5230,7 @@ PAGES.usuarios=async el=>{
     if(p==='motorista'||p==='promotor'){
       const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',id).maybeSingle();
       let mid=mex?.id;
-      const GRUPO=['OVOS','TRANSPORTADORA','DISTRIBUIDORA'];
+      const GRUPO=['OVOS','TRANSPORTADORA'];
       const legada=(arr)=>arr.length===3?'TODAS':(arr.length===2&&arr.includes('OVOS')&&arr.includes('TRANSPORTADORA')?'AMBAS':arr[0]);
       if(!mid){const u=lista.find(x=>x.id===id);const {data:mn}=await sb.from('motoristas').insert({nome:u?u.nome:'Motorista',usuario_id:id,situacao:sit,empresas:GRUPO,empresa:'TODAS',...dados}).select('id');mid=mn?.[0]?.id}
       else{await sb.from('motoristas').update({empresas:GRUPO,empresa:'TODAS',situacao:sit,...dados}).eq('usuario_id',id)}
@@ -5235,7 +5282,7 @@ PAGES.usuarios=async el=>{
     const u=lista.find(x=>x.id===b.dataset.ued);if(!u)return;
     openModal('✏️ Editar — '+u.nome,[
       {id:'eu-perfil',label:'Perfil',tipo:'select',opcoes:[['motorista','Motorista'],['promotor','Promotor'],['conferente','Conferente'],['mecanico','Mecânico'],['gerencia','Gerência']],valor:(u.perfil||'motorista')},
-      {id:'eu-emp',label:'Empresa',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['DISTRIBUIDORA','Distribuidora'],['AMBAS','Ambas'],['TODAS','Todas (3)']],valor:(u.empresa||'OVOS')},
+      {id:'eu-emp',label:'Empresa',tipo:'select',opcoes:[['OVOS','OVOS'],['TRANSPORTADORA','Transportadora'],['AMBAS','Ambas'],['TODAS','Todas']],valor:(u.empresa||'OVOS')},
       {id:'eu-extra',label:'Também opera como (só para gerência)',tipo:'select',opcoes:[['','— nenhum —'],['motorista','Também motorista'],['promotor','Também promotor'],['motorista,promotor','Também motorista E promotor']],valor:((u.perfis_extra||[]).join(','))}
     ],async v=>{
       const np=v['eu-perfil'],ne=v['eu-emp'];
@@ -5244,8 +5291,8 @@ PAGES.usuarios=async el=>{
       if(!r)return false;
       if(np==='motorista'||np==='promotor'){
         const {data:mex}=await sb.from('motoristas').select('id').eq('usuario_id',u.id).maybeSingle();
-        if(!mex){await sb.from('motoristas').insert({nome:u.nome,usuario_id:u.id,situacao:'incompleto',empresas:['OVOS','TRANSPORTADORA','DISTRIBUIDORA'],empresa:'TODAS'})}
-        else{await sb.from('motoristas').update({empresas:['OVOS','TRANSPORTADORA','DISTRIBUIDORA'],empresa:'TODAS'}).eq('usuario_id',u.id)}
+        if(!mex){await sb.from('motoristas').insert({nome:u.nome,usuario_id:u.id,situacao:'incompleto',empresas:['OVOS','TRANSPORTADORA'],empresa:'TODAS'})}
+        else{await sb.from('motoristas').update({empresas:['OVOS','TRANSPORTADORA'],empresa:'TODAS'}).eq('usuario_id',u.id)}
       }
       go('usuarios');
     });
