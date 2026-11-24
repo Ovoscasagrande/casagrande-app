@@ -4863,6 +4863,118 @@ PAGES.motoristas=async el=>{
     });
   });
 };
+/* ============ DETALHE DA JORNADA (clique no card) ============ */
+async function abreJornada(jid){
+  const w=document.getElementById('modal-wrap'), m=document.getElementById('modal');
+  m.innerHTML='<div class="grab"></div><p class="hint">Carregando a jornada…</p>';
+  w.classList.add('open');
+
+  // busca em paralelo: jornada + o que foi feito
+  const [{data:j},{data:ab},{data:dp},{data:cf}] = await Promise.all([
+    sb.from('jornadas').select('*, veiculos(placa,modelo), motoristas(nome), usuarios!jornadas_cancelada_por_fkey(nome), conferidor:usuarios!jornadas_conferida_por_fkey(nome)').eq('id',jid).maybeSingle(),
+    sb.from('abastecimentos').select('*').eq('jornada_id',jid).order('data'),
+    sb.from('despesas').select('*').eq('jornada_id',jid).order('data'),
+    sb.from('jornada_conferencia').select('*').eq('jornada_id',jid).order('item'),
+  ]);
+  if(!j){ m.innerHTML='<div class="grab"></div><p class="hint">Jornada não encontrada.</p>'
+    +'<div class="mrow"><button type="button" class="btn sec" id="jd-x">Fechar</button></div>';
+    document.getElementById('jd-x').onclick=()=>w.classList.remove('open'); return; }
+
+  const A=ab||[], D=dp||[], C=cf||[];
+  const kmP=(j.km_final!=null)?(Number(j.km_final)-Number(j.km_inicial)):null;
+  const durMin=(j.inicio&&j.fim)?Math.round((new Date(j.fim)-new Date(j.inicio))/60000):null;
+  const durTxt=durMin!=null?(Math.floor(durMin/60)+'h '+String(durMin%60).padStart(2,'0')+'min'):'—';
+  const litros=A.reduce((s,x)=>s+(Number(x.litros)||0),0);
+  const gComb=A.reduce((s,x)=>s+(Number(x.valor_total)||0),0);
+  const gDesp=D.reduce((s,x)=>s+(Number(x.valor)||0),0);
+  const kmL=(litros>0&&kmP>0)?(kmP/litros):null;
+  const custoKm=(kmP>0)?((gComb+gDesp)/kmP):null;
+
+  const st={aberta:['warn','Em rota'],conferencia:['primary','Aguardando conferência'],fechada:['ok','Fechada'],cancelada:['bad','Cancelada']}[j.status]||['neutral',j.status];
+
+  // ---- abastecimentos com foto ----
+  const abHtml = A.length ? (await Promise.all(A.map(async a=>{
+    const u=a.foto_path?await assinar(a.foto_path,'fotos'):null;
+    return `<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(a.posto||'Posto')}</span><span class="lc-tag">${fmtBRL(a.valor_total)}</span></div>
+      <div class="lc-sub">${ddmmaaaa(a.data)} · ${Number(a.litros||0).toLocaleString('pt-BR',{maximumFractionDigits:3})} L × ${fmtBRL(a.preco_litro)} · km ${fmtKm(a.km)}</div>
+      <div class="lc-sub">${esc(a.combustivel||'')}${a.parcial?' · <b style="color:var(--warn)">parcial</b>':''}</div>
+      ${u?`<img src="${u}" onclick="lightbox('${u}')" style="width:76px;height:76px;object-fit:cover;border-radius:10px;margin-top:8px;cursor:zoom-in">`:''}
+    </div></div>`;
+  }))).join('') : '<p class="hint" style="margin:0">Nenhum abastecimento nesta jornada.</p>';
+
+  // ---- despesas com foto ----
+  const dpHtml = D.length ? (await Promise.all(D.map(async d=>{
+    const u=d.foto_path?await assinar(d.foto_path,'fotos'):null;
+    return `<div class="listcard"><div class="lc-main">
+      <div class="lc-title"><span>${esc(d.categoria||'Despesa')}</span><span class="lc-tag">${fmtBRL(d.valor)}</span></div>
+      <div class="lc-sub">${ddmmaaaa(d.data)}${d.descricao?' · '+esc(d.descricao):''}</div>
+      ${d.status?`<div class="lc-sub">${d.status==='aprovada'?'<span class="tag ok">aprovada</span>':d.status==='reprovada'?'<span class="tag bad">reprovada</span>':`<span class="tag warn">${esc(d.status)}</span>`}</div>`:''}
+      ${u?`<img src="${u}" onclick="lightbox('${u}')" style="width:76px;height:76px;object-fit:cover;border-radius:10px;margin-top:8px;cursor:zoom-in">`:''}
+    </div></div>`;
+  }))).join('') : '<p class="hint" style="margin:0">Nenhuma despesa nesta jornada.</p>';
+
+  // ---- checklist da conferência ----
+  const cfHtml = C.length ? `<div style="display:flex;flex-direction:column;gap:4px">${C.map(c=>`
+    <div style="display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:4px 0">
+      <span style="flex:0 0 auto;font-weight:800;${c.ok===true?'color:var(--ok)':c.ok===false?'color:var(--bad)':'color:var(--muted)'}">${c.ok===true?'✓':c.ok===false?'✕':'—'}</span>
+      <span>${esc(c.item)}${c.obs?`<div class="hint">${esc(c.obs)}</div>`:''}</span>
+    </div>`).join('')}</div>` : '<p class="hint" style="margin:0">Ainda não conferida.</p>';
+
+  m.innerHTML=`<div class="grab"></div>
+    <h3>${esc(j.motoristas?.nome||'—')} <span class="tag ${st[0]}">${st[1]}</span></h3>
+    <p class="hint" style="margin:0 0 4px">${esc(j.veiculos?.placa||'')}${j.veiculos?.modelo?' · '+esc(j.veiculos.modelo):''} · ${rotTxt(j)}</p>
+
+    <div class="dash-mini" style="margin:10px 0">
+      <div><b>${kmP!=null?fmtKm(kmP)+' km':'—'}</b><span>rodados</span></div>
+      <div><b>${durTxt}</b><span>duração</span></div>
+      <div><b>${kmL!=null?kmL.toLocaleString('pt-BR',{maximumFractionDigits:1})+' km/L':'—'}</b><span>consumo</span></div>
+    </div>
+
+    <div class="sec" style="padding:0;border:none">
+      <div class="lc-rows" style="font-size:13px">
+        <div class="lc-row"><span>Saída</span><b>${fmtDT(j.inicio)}</b></div>
+        <div class="lc-row"><span>Fim</span><b>${j.fim?fmtDT(j.fim):'— ainda na rua'}</b></div>
+        <div class="lc-row"><span>Km</span><b>${fmtKm(j.km_inicial)} → ${j.km_final!=null?fmtKm(j.km_final):'—'}</b></div>
+        ${j.destino?`<div class="lc-row"><span>Destino</span><b>${esc(j.destino)}</b></div>`:''}
+        <div class="lc-row"><span>Combustível</span><b>${fmtBRL(gComb)}${litros?` · ${litros.toLocaleString('pt-BR',{maximumFractionDigits:1})} L`:''}</b></div>
+        <div class="lc-row"><span>Despesas</span><b>${fmtBRL(gDesp)}</b></div>
+        <div class="lc-row"><span>Custo por km</span><b>${custoKm!=null?fmtBRL(custoKm):'—'}</b></div>
+        ${j.ocorrencias?`<div class="lc-row"><span>Ocorrências</span><b style="color:var(--warn)">${esc(j.ocorrencias)}</b></div>`:''}
+        ${j.status==='cancelada'&&j.motivo_cancelamento?`<div class="lc-row"><span>Motivo do cancelamento</span><b style="color:var(--bad)">${esc(j.motivo_cancelamento)}</b></div>`:''}
+        ${j.status==='cancelada'&&j.usuarios?.nome?`<div class="lc-row"><span>Cancelada por</span><b>${esc(j.usuarios.nome)} · ${fmtDT(j.cancelada_em)}</b></div>`:''}
+      </div>
+    </div>
+
+    <div class="sec" style="padding:0;border:none">
+      <h3 style="font-size:14px;margin:14px 0 6px">⛽ Abastecimentos (${A.length})</h3>
+      ${abHtml}
+    </div>
+
+    <div class="sec" style="padding:0;border:none">
+      <h3 style="font-size:14px;margin:14px 0 6px">💰 Despesas (${D.length})</h3>
+      ${dpHtml}
+    </div>
+
+    <div class="sec" style="padding:0;border:none">
+      <h3 style="font-size:14px;margin:14px 0 6px">📋 Conferência ${C.length?`(${C.filter(c=>c.ok===true).length}/${C.length})`:''}</h3>
+      ${cfHtml}
+      ${j.conferidor?.nome?`<p class="hint" style="margin:6px 0 0">Conferida por ${esc(j.conferidor.nome)}${j.conferida_em?' em '+fmtDT(j.conferida_em):''}</p>`:''}
+    </div>
+
+    <div class="mrow">
+      ${ME.perfil==='gerencia'&&j.status!=='aberta'?`<button type="button" class="btn" id="jd-edit" style="min-height:48px">✏️ Editar</button>`:''}
+      <button type="button" class="btn sec" id="jd-x" style="min-height:48px">Fechar</button>
+    </div>`;
+
+  w.onclick=e=>{if(e.target===w)w.classList.remove('open')};
+  document.getElementById('jd-x').onclick=()=>w.classList.remove('open');
+  const be=document.getElementById('jd-edit');
+  if(be) be.onclick=()=>{ w.classList.remove('open');
+    setTimeout(()=>document.querySelector(`[data-jed="${jid}"]`)?.click(), 250);
+  };
+}
+
 PAGES.jornadas=async el=>{
   el.innerHTML=`<h1 class="pg">Jornadas</h1>
   <div class="row" style="gap:6px;margin-bottom:10px;flex-wrap:wrap" id="jn-filtros">
@@ -4883,7 +4995,7 @@ PAGES.jornadas=async el=>{
       const st={aberta:['warn','Em rota'],conferencia:['primary','Conferência'],fechada:['ok','Fechada'],cancelada:['bad','Cancelada']}[j.status]||['neutral',j.status];
       const kmP=j.km_final!=null?(Number(j.km_final)-Number(j.km_inicial)):null;
       const podeEditar=ME.perfil==='gerencia'&&j.status!=='aberta';
-      return `<div class="listcard ${j.status==='aberta'?'highlight':''}">
+      return `<div class="listcard ${j.status==='aberta'?'highlight':''}" data-jornada="${j.id}" style="cursor:pointer">
       <div class="lc-ico"><i data-lucide="${j.status==='aberta'?'truck':j.status==='conferencia'?'clipboard-check':j.status==='cancelada'?'x-circle':'check-circle-2'}"></i></div>
       <div class="lc-main">
         <div class="lc-title"><span>${esc(j.motoristas?.nome)}</span><span class="tag ${st[0]}">${st[1]}</span></div>
@@ -4899,10 +5011,14 @@ PAGES.jornadas=async el=>{
       </div></div>`}).join('')||empty('Nenhuma jornada');
     if(window.lucide)lucide.createIcons();
   };
-  document.getElementById('jn-busca').oninput=e=>{
-    const q=e.target.value.trim().toLowerCase();
-    document.querySelectorAll('#jn .listcard').forEach(c=>c.style.display=!q||c.textContent.toLowerCase().includes(q)?'':'none');
-  };
+  document.getElementById('jn-busca').oninput=e=>filtraCards('#jn', e.target.value);
+  // clicar no card abre TUDO o que foi feito na jornada (abastecimento, despesa, conferência)
+  document.getElementById('jn').addEventListener('click', ev=>{
+    const card = ev.target.closest('[data-jornada]');
+    if(!card) return;
+    if(ev.target.closest('[data-jed]')) return;   // o botão Editar tem o seu próprio caminho
+    abreJornada(card.dataset.jornada);
+  });
   document.querySelectorAll('#jn-filtros .jnf').forEach(b=>b.onclick=()=>{
     document.querySelectorAll('#jn-filtros .jnf').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');carregar(b.dataset.f);
