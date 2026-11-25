@@ -1518,6 +1518,21 @@ PAGES.jornada=async el=>{
       $('j-msg').className='msg';$('j-msg').textContent='Verificando cronograma…';
       const {data:chk}=await sb.rpc('checar_jornada',{p_veiculo:v});
       if(chk&&chk!=='OK'){$('j-msg').className='msg err';$('j-msg').textContent=chk;return}
+      // confere na frota do grupo: este caminhão pode estar em rota no OUTRO app
+      const _placa = $('j-veic').options[$('j-veic').selectedIndex]?.textContent?.trim().split(' ')[0];
+      const _frota = await frotaGrupo();
+      if(_frota && _placa){
+        const _norm = s=>String(s||'').replace(/[^A-Za-z0-9]/g,'').toUpperCase();
+        const _meu = _frota.find(x=>_norm(x.placa)===_norm(_placa));
+        if(_meu && _meu.ocupado){
+          const _d = _meu.dias||0;
+          $('j-msg').className='msg err';
+          $('j-msg').textContent = _d>=1
+            ? `Este caminhão está em rota há ${_d} dia(s)${_meu.motorista?' ('+_meu.motorista+')':''} e ainda não foi finalizado. Finalize aquela jornada antes.`
+            : `Este caminhão já está em rota${_meu.motorista?' com '+_meu.motorista:''}. Finalize ou cancele antes.`;
+          return;
+        }
+      }
       let rots=[...(window.__rots||[])];
       const carga=$('j-carga')&&$('j-carga').checked;
       if(empAtiva()==='OVOS'&&!carga){
@@ -1593,8 +1608,8 @@ PAGES.jornada=async el=>{
       if(kmf<aberta.km_inicial){$('j-msg2').className='msg err';$('j-msg2').textContent='Km final não pode ser menor que a inicial ('+km(aberta.km_inicial)+')';return}
       const r=await upd('jornadas',aberta.id,{km_final:kmf,fim:new Date().toISOString(),ocorrencias:$('j-oc').value||null,status:'conferencia'});
       if(r){
-        // Distribuidora: jornada fechou com roteiro X → rota FINALIZADO (conferência = conferência da jornada)
-        
+        // o caminhão é do GRUPO: o km finalizado vale para os dois apps
+        registraKmGrupo(aberta.veiculos?.placa, kmf);
         toast('Jornada enviada para conferência');go('jornada')
       }
     };
@@ -2862,6 +2877,7 @@ async function pagConfDetalhe(el,jid){
         ocorrencias:document.getElementById('ed-oc').value.trim()||null
       };
       const r=await upd('jornadas',j.id,patch);
+      if(!isNaN(kmf)&&j.veiculos?.placa) registraKmGrupo(j.veiculos.placa, kmf);
       if(r){w.classList.remove('open');toast('Jornada atualizada ✓');pagConfDetalhe(el,jid)}
     };
   };
@@ -5284,6 +5300,41 @@ function encerraSessaoLocal(){
 }
 
 /* modal de confirmação próprio (nunca confirm() do navegador) */
+/* ============ FROTA DO GRUPO (ao vivo entre os apps) ============
+   Veículo não é de uma empresa: roda onde o motorista iniciar.
+   A consulta é feita no cadastro central (banco da OVOS) com token de grupo,
+   porque cada projeto Supabase tem JWT próprio — a sessão do usuário da
+   Transportadora não é aceita no REST da OVOS. */
+const GRUPO_URL   = 'https://ppiqkrvlvtsnsthnfibg.supabase.co';
+const GRUPO_TOKEN = 'cg-frota-2026-a7f3d91b5e2c48';
+
+async function frotaGrupo(){
+  try{
+    const r = await fetch(GRUPO_URL + '/rest/v1/rpc/frota_grupo', {
+      method:'POST',
+      headers:{'apikey':DEFAULT_ANON,'Content-Type':'application/json'},
+      body: JSON.stringify({p_token: GRUPO_TOKEN})
+    });
+    if(!r.ok) return null;
+    const j = await r.json();
+    return Array.isArray(j) ? j : null;
+  }catch(_){ return null; }
+}
+
+// manda o km finalizado para o cadastro central (qualquer app pode chamar)
+async function registraKmGrupo(placa, km){
+  try{
+    if(!placa || km==null) return null;
+    const r = await fetch(GRUPO_URL + '/rest/v1/rpc/registra_km_grupo', {
+      method:'POST',
+      headers:{'apikey':DEFAULT_ANON,'Content-Type':'application/json'},
+      body: JSON.stringify({p_token: GRUPO_TOKEN, p_placa: placa, p_km: Number(km)})
+    });
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(_){ return null; }
+}
+
 /* filtro de busca: esconde o CARD inteiro, nunca os filhos.
    (escondendo filhos o card fica vazio e a lista desanda) */
 function filtraCards(containerSel, termo){
